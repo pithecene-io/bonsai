@@ -22,11 +22,21 @@ type Registry struct {
 
 // Defaults holds default values from the registry.
 type Defaults struct {
-	SkillVersion string   `yaml:"skill_version"`
-	BundlesFailOn string  `yaml:"bundles_fail_on"`
-	CostOrder    []string `yaml:"cost_order"`
-	ModeOrder    []string `yaml:"mode_order"`
-	RequiresDiff bool     `yaml:"requires_diff"`
+	SkillVersion  string   `yaml:"skill_version"`
+	BundlesFailOn string   `yaml:"bundles_fail_on"`
+	CostOrder     []string `yaml:"cost_order"`
+	ModeOrder     []string `yaml:"mode_order"`
+	RequiresDiff  *bool    `yaml:"requires_diff,omitempty"`
+}
+
+// EffectiveRequiresDiff returns the effective requires_diff default.
+// When the field is omitted or null, returns true to match the shell
+// fallback (ai-check.sh treats missing defaults.requires_diff as true).
+func (d *Defaults) EffectiveRequiresDiff() bool {
+	if d.RequiresDiff != nil {
+		return *d.RequiresDiff
+	}
+	return true
 }
 
 // Skill represents a single skill entry in the registry.

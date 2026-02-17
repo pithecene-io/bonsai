@@ -149,12 +149,13 @@ func runPatch(c *cli.Context) error {
 	logger := func(msg string) { fmt.Println(msg) }
 
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{
-		Skills:   skills,
-		Source:   "bundle:patch",
-		BaseRef:  patchBase,
-		FailFast: true,
-		RepoRoot: repoRoot,
-		Config:   cfg,
+		Skills:              skills,
+		Source:              "bundle:patch",
+		BaseRef:             patchBase,
+		FailFast:            true,
+		RepoRoot:            repoRoot,
+		Config:              cfg,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 	if err != nil {
 		return err

@@ -19,13 +19,14 @@ import (
 
 // RunOpts configures an orchestrator run.
 type RunOpts struct {
-	Skills   []registry.Skill // Ordered list of skills to run
-	Source   string           // "mode:NORMAL" or "bundle:default"
-	BaseRef  string           // Git ref for diff context
-	Scope    string           // Comma-separated path prefixes
-	FailFast bool             // Stop on first mandatory failure
-	RepoRoot string           // Repository root
-	Config   *config.Config
+	Skills             []registry.Skill // Ordered list of skills to run
+	Source             string           // "mode:NORMAL" or "bundle:default"
+	BaseRef            string           // Git ref for diff context
+	Scope              string           // Comma-separated path prefixes
+	FailFast           bool             // Stop on first mandatory failure
+	RepoRoot           string           // Repository root
+	Config             *config.Config
+	DefaultRequiresDiff bool            // Registry defaults.requires_diff value
 }
 
 // Result holds the outcome of a single skill invocation.
@@ -89,13 +90,12 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 		diffPayload = buildDiffPayload(opts.RepoRoot, opts.BaseRef)
 	}
 
-	defaultRequiresDiff := opts.Config.Diff.PatchMaxFiles > 0 // proxy for defaults.requires_diff
-
 	for _, s := range opts.Skills {
 		report.Total++
 
-		// Check if skill requires diff and no base provided
-		requiresDiff := s.EffectiveRequiresDiff(true)
+		// Check if skill requires diff and no base provided.
+		// Uses registry defaults.requires_diff (ref: ai-check.sh:166-168).
+		requiresDiff := s.EffectiveRequiresDiff(opts.DefaultRequiresDiff)
 		if requiresDiff && opts.BaseRef == "" {
 			report.Skipped++
 			result := Result{
@@ -216,8 +216,6 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 			break
 		}
 	}
-
-	_ = defaultRequiresDiff // referenced for future use
 
 	return report, nil
 }

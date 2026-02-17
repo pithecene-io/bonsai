@@ -393,10 +393,11 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 	logger := func(msg string) { fmt.Println(msg) }
 
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{
-		Skills:   skills,
-		Source:   "bundle:default",
-		RepoRoot: target,
-		Config:   cfg,
+		Skills:              skills,
+		Source:              "bundle:default",
+		RepoRoot:            target,
+		Config:              cfg,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 
 	if err != nil {

@@ -36,9 +36,12 @@ type Opts struct {
 }
 
 // PlanInfo holds consumed plan metadata.
+// Constraints is json.RawMessage because the planner emits an object
+// (e.g. {"max_files":3}), not a string. Shell reference:
+// ai-implement.sh:87 — jq -c '.constraints // {}'
 type PlanInfo struct {
-	Intent      string `json:"intent"`
-	Constraints string `json:"constraints"`
+	Intent      string          `json:"intent"`
+	Constraints json.RawMessage `json:"constraints"`
 }
 
 // Loop implements the 3-iteration gating state machine from ai-implement.sh.
@@ -249,12 +252,13 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 	logger := func(msg string) { fmt.Println(msg) }
 
 	return orch.Run(ctx, orchestrator.RunOpts{
-		Skills:   skills,
-		Source:   "mode:" + mode,
-		BaseRef:  l.mergeBase,
-		FailFast: true,
-		RepoRoot: l.opts.RepoRoot,
-		Config:   l.opts.Config,
+		Skills:              skills,
+		Source:              "mode:" + mode,
+		BaseRef:             l.mergeBase,
+		FailFast:            true,
+		RepoRoot:            l.opts.RepoRoot,
+		Config:              l.opts.Config,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 }
 
