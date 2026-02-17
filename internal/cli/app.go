@@ -19,6 +19,7 @@ func NewApp() *cli.App {
 		Commands: []*cli.Command{
 			versionCommand(),
 			skillCommand(),
+			checkCommand(),
 			listCommand(),
 		},
 	}

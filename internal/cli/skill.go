@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/justapithecus/bonsai/internal/agent"
@@ -91,19 +90,7 @@ func runSkill(c *cli.Context) error {
 	}
 
 	// Build diff payload
-	var diffPayload string
-	if baseRef != "" && gitutil.IsInsideWorkTree(repoRoot) {
-		diff, err := gitutil.Diff(repoRoot, baseRef)
-		if err == nil {
-			diffPayload = diff
-		}
-
-		// Append synthetic diffs for untracked files
-		untracked, _ := gitutil.UntrackedFiles(repoRoot)
-		if len(untracked) > 0 {
-			diffPayload += buildSyntheticUntrackedDiff(repoRoot, untracked)
-		}
-	}
+	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
 	// Create agent and builder
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
@@ -133,40 +120,4 @@ func runSkill(c *cli.Context) error {
 	}
 
 	return nil
-}
-
-// buildSyntheticUntrackedDiff creates fake unified diff headers for
-// untracked files. Matches ai-skill.sh lines 264-285.
-func buildSyntheticUntrackedDiff(repoRoot string, files []string) string {
-	var buf strings.Builder
-	for _, f := range files {
-		fullPath := filepath.Join(repoRoot, f)
-		info, err := os.Stat(fullPath)
-		if err != nil {
-			continue
-		}
-
-		// Detect file mode
-		fmode := "100644"
-		if info.Mode()&0o111 != 0 {
-			fmode = "100755"
-		}
-
-		buf.WriteString(fmt.Sprintf("\ndiff --git a/%s b/%s\n", f, f))
-		buf.WriteString(fmt.Sprintf("new file mode %s\n", fmode))
-		buf.WriteString(fmt.Sprintf("--- /dev/null\n"))
-		buf.WriteString(fmt.Sprintf("+++ b/%s\n", f))
-
-		// Read file content for diff body
-		content, err := os.ReadFile(fullPath)
-		if err != nil {
-			continue
-		}
-		lines := strings.Split(string(content), "\n")
-		buf.WriteString(fmt.Sprintf("@@ -0,0 +1,%d @@\n", len(lines)))
-		for _, line := range lines {
-			buf.WriteString("+" + line + "\n")
-		}
-	}
-	return buf.String()
 }
