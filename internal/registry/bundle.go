@@ -13,8 +13,11 @@ func (r *Registry) SkillsForBundle(bundleName string) ([]Skill, error) {
 	for _, name := range names {
 		s, ok := r.LookupSkill(name)
 		if !ok {
-			// Skill in bundle but not in registry — skip with warning.
-			// This allows repo-local bundles to reference repo-local skills.
+			// Skill in bundle but not in registry — pass through with
+			// minimal entry so the orchestrator attempts skill.Load and
+			// fails loudly. This matches shell behavior where ai-check
+			// passes unknown names to ai-skill which errors on load.
+			skills = append(skills, Skill{Name: name})
 			continue
 		}
 		skills = append(skills, *s)

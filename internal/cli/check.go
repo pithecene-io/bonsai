@@ -98,13 +98,14 @@ func runCheck(c *cli.Context) error {
 	// Run
 	logger := func(msg string) { fmt.Println(msg) }
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{
-		Skills:   skills,
-		Source:   source,
-		BaseRef:  baseRef,
-		Scope:    scope,
-		FailFast: failFast,
-		RepoRoot: repoRoot,
-		Config:   cfg,
+		Skills:              skills,
+		Source:              source,
+		BaseRef:             baseRef,
+		Scope:               scope,
+		FailFast:            failFast,
+		RepoRoot:            repoRoot,
+		Config:              cfg,
+		DefaultRequiresDiff: reg.Defaults.RequiresDiff,
 	}, logger)
 	if err != nil {
 		return err

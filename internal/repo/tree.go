@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -8,10 +10,26 @@ import (
 )
 
 // Tree returns the repository file listing: tracked + untracked files,
-// sorted and deduplicated. This matches the shell behavior:
+// sorted and deduplicated.
+//
+// In a git repo this matches:
 //
 //	{ git ls-files; git ls-files --others --exclude-standard; } | sort -u
+//
+// Outside a git repo it falls back to a filesystem walk, matching:
+//
+//	find . -type f | sed 's|^\./||' | sort
+//
+// Reference: ai-skill.sh:156-161
 func Tree(dir string) ([]string, error) {
+	if gitutil.IsInsideWorkTree(dir) {
+		return gitTree(dir)
+	}
+	return findTree(dir)
+}
+
+// gitTree lists files using git ls-files (tracked + untracked).
+func gitTree(dir string) ([]string, error) {
 	tracked, err := gitutil.LsFiles(dir)
 	if err != nil {
 		return nil, err
@@ -36,6 +54,40 @@ func Tree(dir string) ([]string, error) {
 			seen[f] = struct{}{}
 			result = append(result, f)
 		}
+	}
+
+	sort.Strings(result)
+	return result, nil
+}
+
+// findTree lists files using filepath.WalkDir (non-git fallback).
+// Matches: find . -type f | sed 's|^\./||' | sort
+func findTree(dir string) ([]string, error) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		// Skip .git directories
+		if d.IsDir() && d.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() {
+			rel, err := filepath.Rel(absDir, path)
+			if err != nil {
+				return nil
+			}
+			result = append(result, rel)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	sort.Strings(result)
