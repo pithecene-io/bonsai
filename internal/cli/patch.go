@@ -155,7 +155,7 @@ func runPatch(c *cli.Context) error {
 		FailFast:            true,
 		RepoRoot:            repoRoot,
 		Config:              cfg,
-		DefaultRequiresDiff: reg.Defaults.RequiresDiff,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 	if err != nil {
 		return err

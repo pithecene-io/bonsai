@@ -258,7 +258,7 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 		FailFast:            true,
 		RepoRoot:            l.opts.RepoRoot,
 		Config:              l.opts.Config,
-		DefaultRequiresDiff: reg.Defaults.RequiresDiff,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 }
 

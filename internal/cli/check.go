@@ -105,7 +105,7 @@ func runCheck(c *cli.Context) error {
 		FailFast:            failFast,
 		RepoRoot:            repoRoot,
 		Config:              cfg,
-		DefaultRequiresDiff: reg.Defaults.RequiresDiff,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 	if err != nil {
 		return err

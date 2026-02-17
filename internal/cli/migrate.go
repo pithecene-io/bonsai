@@ -397,7 +397,7 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 		Source:              "bundle:default",
 		RepoRoot:            target,
 		Config:              cfg,
-		DefaultRequiresDiff: reg.Defaults.RequiresDiff,
+		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
 
 	if err != nil {
