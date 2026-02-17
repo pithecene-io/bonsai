@@ -3,6 +3,9 @@ version: '3'
 vars:
   BINARY: bonsai
   CMD: ./cmd/bonsai
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo dev
+  LDFLAGS: -s -w -X github.com/justapithecus/bonsai/internal/cli.Version={{.VERSION}}
 
 tasks:
   default:
@@ -14,7 +17,7 @@ tasks:
   build:
     desc: Build the bonsai binary
     cmds:
-      - go build -o {{.BINARY}} {{.CMD}}
+      - go build -ldflags "{{.LDFLAGS}}" -o {{.BINARY}} {{.CMD}}
     sources:
       - "**/*.go"
       - go.mod
@@ -53,3 +56,8 @@ tasks:
       - task: vet
       - task: lint
       - task: test
+
+  snapshot:
+    desc: Build release snapshot (local test)
+    cmds:
+      - goreleaser build --snapshot --clean
