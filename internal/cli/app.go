@@ -18,6 +18,10 @@ func NewApp() *cli.App {
 		Version: Version,
 		Commands: []*cli.Command{
 			versionCommand(),
+			chatCommand(),
+			planCommand(),
+			implementCommand(),
+			reviewCommand(),
 			skillCommand(),
 			checkCommand(),
 			listCommand(),

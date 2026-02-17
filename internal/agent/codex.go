@@ -27,8 +27,9 @@ func NewCodex(bin string) *Codex {
 func (c *Codex) Name() string { return "codex" }
 
 // Interactive starts an interactive codex session.
+// Matches: codex "$PROMPT" (prompt as first positional argument)
 func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
-	args := []string{"--system-prompt", systemPrompt}
+	args := []string{systemPrompt}
 	args = append(args, extraArgs...)
 
 	cmd := exec.CommandContext(ctx, c.Bin, args...)
