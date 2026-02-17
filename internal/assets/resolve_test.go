@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/assets"
 )
 
 func TestReadEmbeddedClaudeMD(t *testing.T) {

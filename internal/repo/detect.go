@@ -4,7 +4,7 @@ package repo
 import (
 	"fmt"
 
-	"github.com/justapithecus/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 // Info holds detected repository metadata.

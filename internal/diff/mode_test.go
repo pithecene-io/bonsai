@@ -3,8 +3,8 @@ package diff_test
 import (
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/diff"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/diff"
 )
 
 func defaultCfg() *config.Config {

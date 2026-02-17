@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/assets"
 )
 
 // Definition holds a parsed skill definition.

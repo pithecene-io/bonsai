@@ -1,17 +1,19 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
-	"github.com/justapithecus/bonsai/internal/agent"
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/orchestrator"
-	"github.com/justapithecus/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/orchestrator"
+	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/urfave/cli/v2"
 )
 
@@ -392,7 +394,10 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 	orch := orchestrator.New(checkAgent, resolver)
 	logger := func(msg string) { fmt.Println(msg) }
 
-	report, err := orch.Run(c.Context, orchestrator.RunOpts{
+	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)
+	defer cancel()
+
+	report, err := orch.Run(valCtx, orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              "bundle:default",
 		RepoRoot:            target,
@@ -401,7 +406,11 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 	}, logger)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "  Validation error: %v\n", err)
+		if valCtx.Err() == context.DeadlineExceeded {
+			fmt.Fprintln(os.Stderr, "  ⚠ Validation timed out (2m) — skipping (advisory only)")
+		} else {
+			fmt.Fprintf(os.Stderr, "  Validation error: %v\n", err)
+		}
 		return
 	}
 

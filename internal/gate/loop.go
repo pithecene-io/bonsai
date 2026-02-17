@@ -15,15 +15,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/agent"
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/diff"
-	"github.com/justapithecus/bonsai/internal/gitutil"
-	"github.com/justapithecus/bonsai/internal/orchestrator"
-	"github.com/justapithecus/bonsai/internal/prompt"
-	"github.com/justapithecus/bonsai/internal/registry"
-	"github.com/justapithecus/bonsai/internal/repo"
+	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/diff"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/orchestrator"
+	"github.com/pithecene-io/bonsai/internal/prompt"
+	"github.com/pithecene-io/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/repo"
 )
 
 // Opts configures the gating loop.

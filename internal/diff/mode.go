@@ -1,6 +1,6 @@
 package diff
 
-import "github.com/justapithecus/bonsai/internal/config"
+import "github.com/pithecene-io/bonsai/internal/config"
 
 // DetermineMode determines the governance mode from a diff profile.
 // This is a faithful port of determine_mode() from ai-implement.sh.

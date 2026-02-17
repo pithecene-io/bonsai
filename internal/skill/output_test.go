@@ -3,7 +3,7 @@ package skill_test
 import (
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/skill"
+	"github.com/pithecene-io/bonsai/internal/skill"
 )
 
 func TestParseOutput_Valid(t *testing.T) {

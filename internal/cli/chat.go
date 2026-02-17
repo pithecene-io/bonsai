@@ -3,11 +3,11 @@ package cli
 import (
 	"fmt"
 
-	"github.com/justapithecus/bonsai/internal/agent"
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/gitutil"
-	"github.com/justapithecus/bonsai/internal/prompt"
+	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/prompt"
 	"github.com/urfave/cli/v2"
 )
 

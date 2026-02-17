@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/justapithecus/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/assets"
 	"gopkg.in/yaml.v3"
 )
 

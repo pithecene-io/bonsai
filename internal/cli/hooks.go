@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/urfave/cli/v2"
 )
 

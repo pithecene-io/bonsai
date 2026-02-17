@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/config"
 )
 
 func TestDefault(t *testing.T) {

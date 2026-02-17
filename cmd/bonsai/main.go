@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/justapithecus/bonsai/internal/cli"
+	"github.com/pithecene-io/bonsai/internal/cli"
 )
 
 func main() {

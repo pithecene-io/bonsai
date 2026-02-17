@@ -20,7 +20,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/justapithecus/bonsai/internal/cli.Version={{.Version}}
+      - -X github.com/pithecene-io/bonsai/internal/cli.Version={{.Version}}
 
 archives:
   - formats:
@@ -41,5 +41,5 @@ changelog:
 
 release:
   github:
-    owner: justapithecus
+    owner: pithecene-io
     name: bonsai

@@ -6,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/justapithecus/bonsai/internal/agent"
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/gitutil"
-	"github.com/justapithecus/bonsai/internal/orchestrator"
-	"github.com/justapithecus/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/orchestrator"
+	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/urfave/cli/v2"
 )
 

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/urfave/cli/v2"
 )
 
@@ -23,7 +25,21 @@ func listCommand() *cli.Command {
 }
 
 func runList(c *cli.Context) error {
-	resolver := assets.NewResolver("")
+	repoRoot := "."
+	if gitutil.IsInsideWorkTree(".") {
+		if r, err := gitutil.ShowToplevel("."); err == nil {
+			repoRoot = r
+		}
+	}
+
+	cfg, err := config.Load(repoRoot)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	resolver := assets.NewResolver(repoRoot)
+	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
+
 	reg, err := registry.Load(resolver)
 	if err != nil {
 		return fmt.Errorf("load registry: %w", err)

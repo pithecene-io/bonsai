@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 // Tree returns the repository file listing: tracked + untracked files,

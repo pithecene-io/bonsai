@@ -54,7 +54,7 @@ go build ./cmd/bonsai
 go test ./...
 ```
 
-Version injection: `go build -ldflags "-X github.com/justapithecus/bonsai/internal/cli.Version=vX.Y.Z" ./cmd/bonsai`
+Version injection: `go build -ldflags "-X github.com/pithecene-io/bonsai/internal/cli.Version=vX.Y.Z" ./cmd/bonsai`
 
 ## 6. Output Requirements
 

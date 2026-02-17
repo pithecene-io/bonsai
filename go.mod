@@ -1,4 +1,4 @@
-module github.com/justapithecus/bonsai
+module github.com/pithecene-io/bonsai
 
 go 1.25.6
 

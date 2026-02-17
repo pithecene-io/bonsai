@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/assets"
 )
 
 // Mode represents the operating mode declared in the system prompt.
