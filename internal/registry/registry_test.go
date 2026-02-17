@@ -166,6 +166,29 @@ func TestEffectiveRequiresDiff(t *testing.T) {
 	}
 }
 
+func TestDefaultsEffectiveRequiresDiff(t *testing.T) {
+	boolPtr := func(v bool) *bool { return &v }
+
+	tests := []struct {
+		name string
+		val  *bool
+		want bool
+	}{
+		{"nil (omitted) defaults to true", nil, true},
+		{"explicit true", boolPtr(true), true},
+		{"explicit false", boolPtr(false), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := registry.Defaults{RequiresDiff: tt.val}
+			if got := d.EffectiveRequiresDiff(); got != tt.want {
+				t.Errorf("EffectiveRequiresDiff() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // costRankPublic mirrors the internal costRank for test assertions.
 func costRankPublic(cost string) int {
 	switch cost {
