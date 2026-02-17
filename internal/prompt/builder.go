@@ -17,11 +17,13 @@ import (
 type Mode string
 
 const (
-	ModeArchitect   Mode = "ARCHITECT"
-	ModePlanner     Mode = "PLANNER"
-	ModeImplementer Mode = "IMPLEMENTER"
-	ModeReviewer    Mode = "REVIEWER"
-	ModeValidator   Mode = "VALIDATOR"
+	ModeArchitect      Mode = "ARCHITECT"
+	ModePlanner        Mode = "PLANNER"
+	ModeImplementer    Mode = "IMPLEMENTER"
+	ModeReviewer       Mode = "REVIEWER"
+	ModeValidator      Mode = "VALIDATOR"
+	ModePatchArchitect Mode = "PATCH-ARCHITECT"
+	ModePatcher        Mode = "PATCHER"
 )
 
 // Builder composes system prompts from layered governance documents.
@@ -302,6 +304,10 @@ func modeDefaultRole(m Mode) string {
 		return "implementer"
 	case ModeReviewer:
 		return "reviewer"
+	case ModePatchArchitect:
+		return "patch-architect"
+	case ModePatcher:
+		return "patcher"
 	default:
 		return "architect"
 	}

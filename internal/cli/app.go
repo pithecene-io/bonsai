@@ -22,9 +22,13 @@ func NewApp() *cli.App {
 			planCommand(),
 			implementCommand(),
 			reviewCommand(),
+			patchCommand(),
 			skillCommand(),
 			checkCommand(),
 			listCommand(),
+			migrateCommand(),
+			hooksCommand(),
+			completionCommand(),
 		},
 	}
 }
