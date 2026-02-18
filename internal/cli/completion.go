@@ -14,7 +14,7 @@ func completionCommand() *cli.Command {
 			{
 				Name:  "bash",
 				Usage: "Generate bash completion script",
-				Action: func(c *cli.Context) error {
+				Action: func(_ *cli.Context) error {
 					fmt.Print(bashCompletion)
 					return nil
 				},
@@ -22,7 +22,7 @@ func completionCommand() *cli.Command {
 			{
 				Name:  "zsh",
 				Usage: "Generate zsh completion script",
-				Action: func(c *cli.Context) error {
+				Action: func(_ *cli.Context) error {
 					fmt.Print(zshCompletion)
 					return nil
 				},
@@ -30,7 +30,7 @@ func completionCommand() *cli.Command {
 			{
 				Name:  "fish",
 				Usage: "Generate fish completion script",
-				Action: func(c *cli.Context) error {
+				Action: func(_ *cli.Context) error {
 					fmt.Print(fishCompletion)
 					return nil
 				},

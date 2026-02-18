@@ -19,14 +19,14 @@ import (
 
 // RunOpts configures an orchestrator run.
 type RunOpts struct {
-	Skills             []registry.Skill // Ordered list of skills to run
-	Source             string           // "mode:NORMAL" or "bundle:default"
-	BaseRef            string           // Git ref for diff context
-	Scope              string           // Comma-separated path prefixes
-	FailFast           bool             // Stop on first mandatory failure
-	RepoRoot           string           // Repository root
-	Config             *config.Config
-	DefaultRequiresDiff bool            // Registry defaults.requires_diff value
+	Skills              []registry.Skill // Ordered list of skills to run
+	Source              string           // "mode:NORMAL" or "bundle:default"
+	BaseRef             string           // Git ref for diff context
+	Scope               string           // Comma-separated path prefixes
+	FailFast            bool             // Stop on first mandatory failure
+	RepoRoot            string           // Repository root
+	Config              *config.Config
+	DefaultRequiresDiff bool // Registry defaults.requires_diff value
 }
 
 // Result holds the outcome of a single skill invocation.
@@ -90,7 +90,8 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 		diffPayload = buildDiffPayload(opts.RepoRoot, opts.BaseRef)
 	}
 
-	for _, s := range opts.Skills {
+	for i := range opts.Skills {
+		s := opts.Skills[i]
 		report.Total++
 
 		// Check if skill requires diff and no base provided.
@@ -125,9 +126,9 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 			// Skill load failure — treat as error
 			report.Failed++
 			result := Result{
-				Name:     s.Name,
-				Status:   "error",
-				ExitCode: 1,
+				Name:      s.Name,
+				Status:    "error",
+				ExitCode:  1,
 				Mandatory: s.Mandatory,
 			}
 			if s.Mandatory {
@@ -157,9 +158,9 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 		if err != nil {
 			report.Failed++
 			result = Result{
-				Name:     s.Name,
-				Status:   "error",
-				ExitCode: 1,
+				Name:      s.Name,
+				Status:    "error",
+				ExitCode:  1,
 				Mandatory: s.Mandatory,
 			}
 			if s.Mandatory {
@@ -175,12 +176,12 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 			}
 
 			result = Result{
-				Name:     s.Name,
-				Status:   output.Status,
-				Blocking: len(output.Blocking),
-				Major:    len(output.Major),
-				Warning:  len(output.Warning),
-				ExitCode: exitCode,
+				Name:      s.Name,
+				Status:    output.Status,
+				Blocking:  len(output.Blocking),
+				Major:     len(output.Major),
+				Warning:   len(output.Warning),
+				ExitCode:  exitCode,
 				Mandatory: s.Mandatory,
 			}
 
@@ -198,11 +199,9 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 						logger(fmt.Sprintf("  ✖ %s [mandatory] (blocking:%d major:%d warning:%d)",
 							s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
 					}
-				} else {
-					if logger != nil {
-						logger(fmt.Sprintf("  ⚠ %s [non-mandatory] (blocking:%d major:%d warning:%d)",
-							s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
-					}
+				} else if logger != nil {
+					logger(fmt.Sprintf("  ⚠ %s [non-mandatory] (blocking:%d major:%d warning:%d)",
+						s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
 				}
 			}
 		}

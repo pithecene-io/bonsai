@@ -8,16 +8,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pithecene-io/bonsai/internal/assets"
 	"gopkg.in/yaml.v3"
+
+	"github.com/pithecene-io/bonsai/internal/assets"
 )
 
 // Registry holds the parsed skills.yaml content.
 type Registry struct {
-	Version  int       `yaml:"version"`
-	Defaults Defaults  `yaml:"defaults"`
-	Skills   []Skill   `yaml:"registry"`
-	Bundles  Bundles   `yaml:"bundles"`
+	Version  int      `yaml:"version"`
+	Defaults Defaults `yaml:"defaults"`
+	Skills   []Skill  `yaml:"registry"`
+	Bundles  Bundles  `yaml:"bundles"`
 }
 
 // Defaults holds default values from the registry.
@@ -41,16 +42,16 @@ func (d *Defaults) EffectiveRequiresDiff() bool {
 
 // Skill represents a single skill entry in the registry.
 type Skill struct {
-	Name         string   `yaml:"name"`
-	Version      string   `yaml:"version"`
-	Path         string   `yaml:"path"`
-	Domain       string   `yaml:"domain"`
-	Cost         string   `yaml:"cost"`
-	Mode         string   `yaml:"mode"`
-	Mandatory    bool     `yaml:"mandatory"`
-	Trigger      string   `yaml:"trigger"`
-	RequiresDiff *bool    `yaml:"requires_diff,omitempty"`
-	RunWhen      RunWhen  `yaml:"run_when"`
+	Name         string  `yaml:"name"`
+	Version      string  `yaml:"version"`
+	Path         string  `yaml:"path"`
+	Domain       string  `yaml:"domain"`
+	Cost         string  `yaml:"cost"`
+	Mode         string  `yaml:"mode"`
+	Mandatory    bool    `yaml:"mandatory"`
+	Trigger      string  `yaml:"trigger"`
+	RequiresDiff *bool   `yaml:"requires_diff,omitempty"`
+	RunWhen      RunWhen `yaml:"run_when"`
 }
 
 // RunWhen defines which modes a skill runs in.

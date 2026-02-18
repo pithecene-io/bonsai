@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
@@ -15,7 +17,6 @@ import (
 	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/pithecene-io/bonsai/internal/repo"
 	"github.com/pithecene-io/bonsai/internal/skill"
-	"github.com/urfave/cli/v2"
 )
 
 func skillCommand() *cli.Command {

@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,6 +28,16 @@ jobs:
       - name: Build
         run: go build ./...
 
+      - name: Build binary
+        run: go build -o bonsai ./cmd/bonsai
+
+      - name: Smoke test
+        run: |
+          ./bonsai version
+          ./bonsai list --skills
+          ./bonsai completion bash > /dev/null
+          ! ./bonsai check --mode INVALID
+
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...
 
@@ -45,6 +56,6 @@ jobs:
           go-version: '1.25'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.10.1

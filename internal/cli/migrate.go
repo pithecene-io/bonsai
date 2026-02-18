@@ -9,12 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/registry"
-	"github.com/urfave/cli/v2"
 )
 
 func migrateCommand() *cli.Command {
@@ -97,7 +98,7 @@ func runMigrate(c *cli.Context) error {
 }
 
 // phaseAScan scans the target repository.
-func phaseAScan(target string) (topDirs []string, languages []string, existingDocs []string) {
+func phaseAScan(target string) (topDirs, languages, existingDocs []string) {
 	fmt.Println("▶ Phase A: Scanning repository...")
 
 	// Detect top-level directories
@@ -323,7 +324,7 @@ func phaseDScaffolds(target string, resolver *assets.Resolver) {
 			f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
 			if err == nil {
 				_, _ = f.WriteString("\n# AI governance runtime artifacts\nai/out/\n")
-				f.Close()
+				_ = f.Close()
 				fmt.Println("  Added ai/out/ to .gitignore")
 			}
 		} else {
@@ -404,7 +405,6 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 	}, logger)
-
 	if err != nil {
 		if valCtx.Err() == context.DeadlineExceeded {
 			fmt.Fprintln(os.Stderr, "  ⚠ Validation timed out (2m) — skipping (advisory only)")
@@ -422,9 +422,9 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 // countFiles counts non-hidden files in a directory tree.
 func countFiles(root string) int {
 	count := 0
-	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(_ string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // WalkDir: skip unreadable entries
 		}
 		// Skip .git
 		if d.IsDir() && d.Name() == ".git" {

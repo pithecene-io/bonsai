@@ -16,6 +16,7 @@ import (
 // Mode represents the operating mode declared in the system prompt.
 type Mode string
 
+// Operating modes declared in system prompts.
 const (
 	ModeArchitect      Mode = "ARCHITECT"
 	ModePlanner        Mode = "PLANNER"

@@ -1,35 +1,74 @@
+version: "2"
+
 run:
+  go: "1.25"
   timeout: 5m
+  tests: true
 
 linters:
+  disable-all: true
   enable:
-    - errcheck
+    - whitespace
+
+    # correctness
     - govet
+    - errcheck
     - staticcheck
-    - unused
-    - gosimple
     - ineffassign
-    - typecheck
-    - gofmt
-    - goimports
-    - misspell
+    - unused
+    - bodyclose
+    - contextcheck
+
+    # API / library hygiene
+    - errorlint
+    - nilerr
+    - nilnil
     - unconvert
-    - gocritic
+    - unparam
     - revive
 
+    # maintainability
+    - gocyclo
+    - gocritic
+    - misspell
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    gofumpt:
+      extra-rules: true
+    goimports:
+      local-prefixes: github.com/pithecene-io/bonsai
+
 linters-settings:
-  revive:
-    rules:
-      - name: exported
-        arguments:
-          - disableStutteringCheck
+  contextcheck:
+    check-typed-errors: true
+
+  gocyclo:
+    min-complexity: 12
+
   gocritic:
     enabled-tags:
       - diagnostic
       - style
       - performance
+    disabled-checks:
+      - appendCombine
+      - paramTypeCombine
+      - hugeParam
+
+  revive:
+    severity: error
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+      - name: package-comments
+      - name: error-strings
+      - name: error-return
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

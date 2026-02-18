@@ -9,10 +9,10 @@ import (
 
 // Info holds detected repository metadata.
 type Info struct {
-	Root      string // Absolute path to repo root
-	Branch    string // Current branch name
-	MergeBase string // Merge base commit (may be empty)
-	IsWorktree bool  // True if running in a git worktree (not main checkout)
+	Root       string // Absolute path to repo root
+	Branch     string // Current branch name
+	MergeBase  string // Merge base commit (may be empty)
+	IsWorktree bool   // True if running in a git worktree (not main checkout)
 }
 
 // MergeBaseCandidates are tried in order to find a merge base.

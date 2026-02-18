@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/urfave/cli/v2"
+
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 func hooksCommand() *cli.Command {
@@ -52,7 +53,7 @@ else
 fi
 `
 
-func runHooksInstall(c *cli.Context) error {
+func runHooksInstall(_ *cli.Context) error {
 	// Detect repo root
 	repoRoot := "."
 	if gitutil.IsInsideWorkTree(".") {
@@ -99,7 +100,7 @@ func runHooksInstall(c *cli.Context) error {
 	return nil
 }
 
-func runHooksRemove(c *cli.Context) error {
+func runHooksRemove(_ *cli.Context) error {
 	// Detect repo root
 	repoRoot := "."
 	if gitutil.IsInsideWorkTree(".") {

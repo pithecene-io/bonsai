@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/registry"
-	"github.com/urfave/cli/v2"
 )
 
 func listCommand() *cli.Command {
@@ -58,7 +59,8 @@ func runList(c *cli.Context) error {
 
 	if showSkills {
 		fmt.Println("Skills:")
-		for _, s := range reg.Skills {
+		for i := range reg.Skills {
+			s := &reg.Skills[i]
 			mandatory := ""
 			if s.Mandatory {
 				mandatory = " [mandatory]"
