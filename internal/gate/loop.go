@@ -131,8 +131,8 @@ func (l *Loop) Run(ctx context.Context) error {
 			return nil
 		}
 
-		hasChanges, err := l.hasChanges()
-		if err != nil || !hasChanges {
+		hasChanges := l.hasChanges()
+		if !hasChanges {
 			fmt.Println("\nNo changes detected — skipping governance gate")
 			return nil
 		}
@@ -218,18 +218,18 @@ func (l *Loop) consumePlan() {
 }
 
 // hasChanges checks for tracked or untracked changes relative to merge base.
-func (l *Loop) hasChanges() (bool, error) {
+func (l *Loop) hasChanges() bool {
 	repoRoot := l.opts.RepoRoot
 
 	// Check tracked changes
 	names, _ := gitutil.DiffNameOnly(repoRoot, l.mergeBase)
 	if len(names) > 0 {
-		return true, nil
+		return true
 	}
 
 	// Check untracked
 	untracked, _ := gitutil.UntrackedFiles(repoRoot)
-	return len(untracked) > 0, nil
+	return len(untracked) > 0
 }
 
 // runGate invokes the orchestrator with mode-based skill selection.

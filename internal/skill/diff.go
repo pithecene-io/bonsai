@@ -51,10 +51,10 @@ func BuildSyntheticUntrackedDiff(repoRoot string, files []string) string {
 			fmode = "100755"
 		}
 
-		buf.WriteString(fmt.Sprintf("\ndiff --git a/%s b/%s\n", f, f))
-		buf.WriteString(fmt.Sprintf("new file mode %s\n", fmode))
+		fmt.Fprintf(&buf, "\ndiff --git a/%s b/%s\n", f, f)
+		fmt.Fprintf(&buf, "new file mode %s\n", fmode)
 		buf.WriteString("--- /dev/null\n")
-		buf.WriteString(fmt.Sprintf("+++ b/%s\n", f))
+		fmt.Fprintf(&buf, "+++ b/%s\n", f)
 
 		// Read file content for diff body
 		content, err := os.ReadFile(fullPath)
@@ -62,7 +62,7 @@ func BuildSyntheticUntrackedDiff(repoRoot string, files []string) string {
 			continue
 		}
 		lines := strings.Split(string(content), "\n")
-		buf.WriteString(fmt.Sprintf("@@ -0,0 +1,%d @@\n", len(lines)))
+		fmt.Fprintf(&buf, "@@ -0,0 +1,%d @@\n", len(lines))
 		for _, line := range lines {
 			buf.WriteString("+" + line + "\n")
 		}

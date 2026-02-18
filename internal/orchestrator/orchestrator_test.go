@@ -65,7 +65,7 @@ func defaultOpts(skills []registry.Skill, repoRoot string) orchestrator.RunOpts 
 
 func TestRun_AllSkillsPass(t *testing.T) {
 	mock := &agent.MockAgent{
-		Name_: "test",
+		NameVal: "test",
 		NonInteractiveResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
@@ -98,7 +98,7 @@ func TestRun_AllSkillsPass(t *testing.T) {
 
 func TestRun_MandatoryFailure(t *testing.T) {
 	mock := &agent.MockAgent{
-		Name_: "test",
+		NameVal: "test",
 		NonInteractiveResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
@@ -130,7 +130,7 @@ func TestRun_MandatoryFailure(t *testing.T) {
 
 func TestRun_FailFast(t *testing.T) {
 	mock := &agent.MockAgent{
-		Name_: "test",
+		NameVal: "test",
 		NonInteractiveResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
@@ -164,7 +164,7 @@ func TestRun_FailFast(t *testing.T) {
 }
 
 func TestRun_SkippedRequiresDiff(t *testing.T) {
-	mock := &agent.MockAgent{Name_: "test"}
+	mock := &agent.MockAgent{NameVal: "test"}
 	orch := newTestOrch(t, mock)
 
 	// Skill with requires_diff=true (default) and no BaseRef → should be skipped
@@ -189,7 +189,7 @@ func TestRun_SkippedRequiresDiff(t *testing.T) {
 }
 
 func TestRun_AllSkipped_ShouldFail(t *testing.T) {
-	mock := &agent.MockAgent{Name_: "test"}
+	mock := &agent.MockAgent{NameVal: "test"}
 	orch := newTestOrch(t, mock)
 
 	skills := []registry.Skill{
@@ -214,7 +214,7 @@ func TestRun_AllSkipped_ShouldFail(t *testing.T) {
 }
 
 func TestRun_SkillLoadError(t *testing.T) {
-	mock := &agent.MockAgent{Name_: "test"}
+	mock := &agent.MockAgent{NameVal: "test"}
 	orch := newTestOrch(t, mock)
 
 	skills := []registry.Skill{
@@ -233,7 +233,7 @@ func TestRun_SkillLoadError(t *testing.T) {
 
 func TestRun_NonMandatoryFailure(t *testing.T) {
 	mock := &agent.MockAgent{
-		Name_: "test",
+		NameVal: "test",
 		NonInteractiveResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",

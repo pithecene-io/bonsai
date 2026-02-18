@@ -74,7 +74,7 @@ func (r *Resolver) ReadEmbedded(name string) ([]byte, error) {
 //  4. embedded: data/skills/<name>/<version>/
 //
 // Returns the path (filesystem) or empty string + embedded FS sub-path.
-func (r *Resolver) ResolveSkillDir(name, version string) (fsPath string, embedPath string, err error) {
+func (r *Resolver) ResolveSkillDir(name, version string) (fsPath, embedPath string, err error) {
 	rel := filepath.Join("skills", name, version)
 
 	// 1. Repo-local

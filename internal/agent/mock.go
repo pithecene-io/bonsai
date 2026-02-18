@@ -17,7 +17,7 @@ type InteractiveCall struct {
 // MockAgent is a test double implementing Agent.
 // It records calls and returns configurable responses.
 type MockAgent struct {
-	Name_                  string
+	NameVal                string
 	NonInteractiveResponse string
 	NonInteractiveErr      error
 	NonInteractiveCalls    []NonInteractiveCall
@@ -26,7 +26,7 @@ type MockAgent struct {
 }
 
 // Name returns the configured name.
-func (m *MockAgent) Name() string { return m.Name_ }
+func (m *MockAgent) Name() string { return m.NameVal }
 
 // Interactive records the call and returns the configured error.
 func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArgs []string) error {

@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pithecene-io/bonsai/internal/assets"
 	"gopkg.in/yaml.v3"
+
+	"github.com/pithecene-io/bonsai/internal/assets"
 )
 
 // Registry holds the parsed skills.yaml content.

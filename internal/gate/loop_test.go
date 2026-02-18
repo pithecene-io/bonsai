@@ -58,7 +58,7 @@ func TestExtractFindingsEmpty(t *testing.T) {
 	}
 }
 
-func TestPrintFailedFindings(t *testing.T) {
+func TestPrintFailedFindings(_ *testing.T) {
 	// This test just verifies it doesn't panic; output goes to stderr
 	l := &Loop{}
 	report := &orchestrator.Report{

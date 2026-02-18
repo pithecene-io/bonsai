@@ -3,12 +3,13 @@ package cli
 import (
 	"fmt"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gate"
 	"github.com/pithecene-io/bonsai/internal/gitutil"
-	"github.com/urfave/cli/v2"
 )
 
 func implementCommand() *cli.Command {

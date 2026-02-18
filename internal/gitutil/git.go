@@ -50,17 +50,17 @@ func Diff(dir string, args ...string) (string, error) {
 }
 
 // DiffNameOnly returns file names from git diff --name-only.
-func DiffNameOnly(dir string, base string) ([]string, error) {
+func DiffNameOnly(dir, base string) ([]string, error) {
 	return RunLines(dir, "diff", "--name-only", base)
 }
 
 // DiffNameStatus returns the output of git diff --name-status.
-func DiffNameStatus(dir string, base string) ([]string, error) {
+func DiffNameStatus(dir, base string) ([]string, error) {
 	return RunLines(dir, "diff", "--name-status", base)
 }
 
 // DiffStat returns the output of git diff --stat.
-func DiffStat(dir string, base string) (string, error) {
+func DiffStat(dir, base string) (string, error) {
 	return Run(dir, "diff", "--stat", base)
 }
 

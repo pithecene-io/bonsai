@@ -71,16 +71,16 @@ func findTree(dir string) ([]string, error) {
 	var result []string
 	err = filepath.WalkDir(absDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // WalkDir: skip unreadable entries
 		}
 		// Skip .git directories
 		if d.IsDir() && d.Name() == ".git" {
 			return filepath.SkipDir
 		}
 		if !d.IsDir() {
-			rel, err := filepath.Rel(absDir, path)
-			if err != nil {
-				return nil
+			rel, relErr := filepath.Rel(absDir, path)
+			if relErr != nil {
+				return nil //nolint:nilerr // skip entries with unresolvable paths
 			}
 			result = append(result, rel)
 		}

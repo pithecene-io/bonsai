@@ -41,7 +41,7 @@ func TestCodex_Name(t *testing.T) {
 	}
 }
 
-func TestMockAgent_Implements(t *testing.T) {
+func TestMockAgent_Implements(_ *testing.T) {
 	// Compile-time interface check.
 	var _ agent.Agent = (*agent.MockAgent)(nil)
 }

@@ -6,12 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/prompt"
-	"github.com/urfave/cli/v2"
 )
 
 func planCommand() *cli.Command {
