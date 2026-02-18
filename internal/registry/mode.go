@@ -41,10 +41,10 @@ func modeRank(mode string) int {
 func (r *Registry) SkillsForMode(modeName string) ([]Skill, error) {
 	var matched []Skill
 
-	for _, s := range r.Skills {
-		for _, m := range s.RunWhen.Modes {
+	for i := range r.Skills {
+		for _, m := range r.Skills[i].RunWhen.Modes {
 			if m == modeName {
-				matched = append(matched, s)
+				matched = append(matched, r.Skills[i])
 				break
 			}
 		}

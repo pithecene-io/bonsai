@@ -323,7 +323,7 @@ func phaseDScaffolds(target string, resolver *assets.Resolver) {
 			f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
 			if err == nil {
 				_, _ = f.WriteString("\n# AI governance runtime artifacts\nai/out/\n")
-				f.Close()
+				_ = f.Close()
 				fmt.Println("  Added ai/out/ to .gitignore")
 			}
 		} else {

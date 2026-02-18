@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -65,7 +64,7 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt st
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = io.Discard // Match shell: 2>/dev/null
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("claude invocation failed: %w\nstderr: %s", err, strings.TrimSpace(stderr.String()))

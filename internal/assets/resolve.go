@@ -68,10 +68,10 @@ func (r *Resolver) ReadEmbedded(name string) ([]byte, error) {
 
 // ResolveSkillDir finds a skill directory with filesystem-first precedence:
 //
-//	1. repo-local: <repo>/ai/skills/<name>/<version>/
-//	2. extra dirs: <dir>/<name>/<version>/
-//	3. user config: ~/.config/bonsai/skills/<name>/<version>/
-//	4. embedded: data/skills/<name>/<version>/
+//  1. repo-local: <repo>/ai/skills/<name>/<version>/
+//  2. extra dirs: <dir>/<name>/<version>/
+//  3. user config: ~/.config/bonsai/skills/<name>/<version>/
+//  4. embedded: data/skills/<name>/<version>/
 //
 // Returns the path (filesystem) or empty string + embedded FS sub-path.
 func (r *Resolver) ResolveSkillDir(name, version string) (fsPath string, embedPath string, err error) {
@@ -112,9 +112,9 @@ func (r *Resolver) ResolveSkillDir(name, version string) (fsPath string, embedPa
 
 // ResolveRoleFile finds a role definition file with filesystem-first precedence:
 //
-//	1. repo-local: <repo>/ai/roles/<name>.md
-//	2. user config: ~/.config/bonsai/roles/<name>.md
-//	3. embedded: data/roles/<name>.md
+//  1. repo-local: <repo>/ai/roles/<name>.md
+//  2. user config: ~/.config/bonsai/roles/<name>.md
+//  3. embedded: data/roles/<name>.md
 func (r *Resolver) ResolveRoleFile(name string) ([]byte, error) {
 	rel := filepath.Join("roles", name+".md")
 

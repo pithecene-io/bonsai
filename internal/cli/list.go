@@ -58,7 +58,8 @@ func runList(c *cli.Context) error {
 
 	if showSkills {
 		fmt.Println("Skills:")
-		for _, s := range reg.Skills {
+		for i := range reg.Skills {
+			s := &reg.Skills[i]
 			mandatory := ""
 			if s.Mandatory {
 				mandatory = " [mandatory]"

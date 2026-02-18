@@ -14,9 +14,9 @@ type Config struct {
 
 // DiffConfig controls diff profiling thresholds.
 type DiffConfig struct {
-	HeavyDiffLines   int `yaml:"heavy_diff_lines"`
+	HeavyDiffLines    int `yaml:"heavy_diff_lines"`
 	HeavyFilesChanged int `yaml:"heavy_files_changed"`
-	PatchMaxFiles    int `yaml:"patch_max_files"`
+	PatchMaxFiles     int `yaml:"patch_max_files"`
 }
 
 // RoutingConfig controls mode determination routing.
