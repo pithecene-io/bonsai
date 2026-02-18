@@ -12,14 +12,14 @@ of shell scripts with a single distributable binary.
 **From source:**
 
 ```bash
-go install github.com/justapithecus/bonsai/cmd/bonsai@latest
+go install github.com/pithecene-io/bonsai/cmd/bonsai@latest
 ```
 
 **From release:**
 
 ```bash
 # Download from GitHub releases
-gh release download --repo justapithecus/bonsai --pattern '*_linux_amd64.tar.gz'
+gh release download --repo pithecene-io/bonsai --pattern '*_linux_amd64.tar.gz'
 tar xzf bonsai_*_linux_amd64.tar.gz
 mv bonsai ~/.local/bin/
 ```

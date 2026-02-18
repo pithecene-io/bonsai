@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 func setupTestRepo(t *testing.T) string {

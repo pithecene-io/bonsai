@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/orchestrator"
+	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
 
 func TestExtractFindings(t *testing.T) {

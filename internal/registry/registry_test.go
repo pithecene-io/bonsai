@@ -3,8 +3,8 @@ package registry_test
 import (
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/registry"
 )
 
 func loadTestRegistry(t *testing.T) *registry.Registry {

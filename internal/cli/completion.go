@@ -60,7 +60,7 @@ _bonsai_completions() {
       return 0
       ;;
     check)
-      COMPREPLY=($(compgen -W "--bundle --mode --scope --base --fail-fast" -- "${cur}"))
+      COMPREPLY=($(compgen -W "--bundle --mode --scope --base --fail-fast --diff-profile" -- "${cur}"))
       return 0
       ;;
     skill)
@@ -119,6 +119,15 @@ _bonsai() {
         chat)
           _values 'role' architect implementer planner reviewer patch-architect patcher
           ;;
+        check)
+          _arguments \
+            '--bundle[Bundle name]:bundle:' \
+            '--mode[Governance mode]:mode:(PATCH NORMAL STRUCTURAL API HEAVY AUDIT)' \
+            '--scope[Comma-separated path prefixes]:scope:' \
+            '--base[Git ref for diff context]:base:' \
+            '--fail-fast[Stop on first mandatory failure]' \
+            '--diff-profile[JSON diff profile]:profile:'
+          ;;
         hooks)
           _values 'action' install remove
           ;;
@@ -153,6 +162,12 @@ complete -c bonsai -n '__fish_use_subcommand' -a completion -d 'Generate complet
 complete -c bonsai -n '__fish_use_subcommand' -a help -d 'Show help'
 
 complete -c bonsai -n '__fish_seen_subcommand_from chat' -a 'architect implementer planner reviewer patch-architect patcher'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l bundle -d 'Bundle name'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l mode -d 'Governance mode'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l scope -d 'Comma-separated path prefixes'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l base -d 'Git ref for diff context'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l fail-fast -d 'Stop on first mandatory failure'
+complete -c bonsai -n '__fish_seen_subcommand_from check' -l diff-profile -d 'JSON diff profile'
 complete -c bonsai -n '__fish_seen_subcommand_from hooks' -a 'install remove'
 complete -c bonsai -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
 `

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justapithecus/bonsai/internal/assets"
-	"github.com/justapithecus/bonsai/internal/prompt"
+	"github.com/pithecene-io/bonsai/internal/assets"
+	"github.com/pithecene-io/bonsai/internal/prompt"
 )
 
 func TestBuildInteractive_Architect(t *testing.T) {

@@ -6,8 +6,8 @@ package diff
 import (
 	"strings"
 
-	"github.com/justapithecus/bonsai/internal/config"
-	"github.com/justapithecus/bonsai/internal/gitutil"
+	"github.com/pithecene-io/bonsai/internal/config"
+	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 // Profile holds the diff profile computed from repository changes.
