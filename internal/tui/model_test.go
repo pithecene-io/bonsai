@@ -115,6 +115,42 @@ func TestModel_HandleEventSkipped(t *testing.T) {
 	}
 }
 
+func TestModel_HandleEventFailFast_IncrementsCompleted(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+	m := NewModel("bundle:default", events)
+
+	// Queue 3 skills, complete 1, leave 2 pending
+	for i := range 3 {
+		m = m.handleEvent(orchestrator.Event{
+			Kind: orchestrator.EventQueued, Index: i, Total: 3,
+			SkillName: "skill-" + string(rune('a'+i)), Cost: "cheap", Mandatory: true,
+		})
+	}
+	m = m.handleEvent(orchestrator.Event{
+		Kind: orchestrator.EventDone, Index: 0,
+		SkillName: "skill-a", Elapsed: 100 * time.Millisecond,
+		Result: &orchestrator.Result{
+			Name: "skill-a", Status: "fail", ExitCode: 1, Mandatory: true,
+		},
+	})
+
+	if m.completed != 1 {
+		t.Fatalf("completed before fail-fast = %d, want 1", m.completed)
+	}
+
+	// Fire fail-fast — remaining 2 pending skills should become skipped
+	m = m.handleEvent(orchestrator.Event{Kind: orchestrator.EventFailFast})
+
+	if m.completed != 3 {
+		t.Errorf("completed after fail-fast = %d, want 3 (1 done + 2 skipped)", m.completed)
+	}
+	for i := 1; i <= 2; i++ {
+		if m.skills[i].state != stateSkipped {
+			t.Errorf("skills[%d].state = %d, want stateSkipped", i, m.skills[i].state)
+		}
+	}
+}
+
 func TestModel_HandleEventComplete(t *testing.T) {
 	events := make(chan orchestrator.Event, 10)
 	m := NewModel("bundle:default", events)

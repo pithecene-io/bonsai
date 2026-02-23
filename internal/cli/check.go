@@ -130,12 +130,19 @@ func runCheck(c *cli.Context) error {
 	if useTUI {
 		events := make(chan orchestrator.Event, len(skills)*4)
 		var runErr error
+		orchDone := make(chan struct{})
 		go func() {
 			report, runErr = orch.Run(c.Context, opts, events)
 			close(events)
+			close(orchDone)
 		}()
 
 		tuiReport, tuiErr := tui.RunWithTUI(events, source)
+
+		// Always wait for the orchestrator goroutine to finish so we don't
+		// leak it and so report/runErr are safe to read.
+		<-orchDone
+
 		if tuiErr != nil {
 			return tuiErr
 		}
@@ -145,6 +152,13 @@ func runCheck(c *cli.Context) error {
 		// Prefer the TUI's report (same object) but fall back
 		if tuiReport != nil {
 			report = tuiReport
+		}
+		// If user quit early (q / ctrl+c) before EventComplete, report may
+		// still be nil from the TUI but populated by the orchestrator goroutine.
+		// If both are nil, exit gracefully.
+		if report == nil {
+			fmt.Fprintln(os.Stderr, "\n⚠ check interrupted — no results")
+			return nil
 		}
 	} else {
 		// Plain text output via LoggerSink

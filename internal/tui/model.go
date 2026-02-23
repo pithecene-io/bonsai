@@ -167,6 +167,7 @@ func (m Model) handleEvent(ev orchestrator.Event) Model {
 			if m.skills[i].state == statePending {
 				m.skills[i].state = stateSkipped
 				m.skills[i].reason = "cancelled (fail-fast)"
+				m.completed++
 			}
 		}
 
