@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -128,19 +129,29 @@ func runCheck(c *cli.Context) error {
 	var report *orchestrator.Report
 
 	if useTUI {
+		// Derive a cancellable context so an early TUI quit (q / ctrl+c)
+		// signals the orchestrator to abort in-flight skills promptly.
+		orchCtx, orchCancel := context.WithCancel(c.Context)
+		defer orchCancel()
+
 		events := make(chan orchestrator.Event, len(skills)*4)
 		var runErr error
 		orchDone := make(chan struct{})
 		go func() {
-			report, runErr = orch.Run(c.Context, opts, events)
+			report, runErr = orch.Run(orchCtx, opts, events)
 			close(events)
 			close(orchDone)
 		}()
 
 		tuiReport, tuiErr := tui.RunWithTUI(events, source)
 
-		// Always wait for the orchestrator goroutine to finish so we don't
-		// leak it and so report/runErr are safe to read.
+		// Cancel the orchestrator context — in the normal path this is a
+		// no-op (orchestrator already finished); on early quit it kills
+		// in-flight agent subprocesses via exec.CommandContext.
+		orchCancel()
+
+		// Wait for the orchestrator goroutine to finish so we don't leak
+		// it and so report/runErr are safe to read.
 		<-orchDone
 
 		if tuiErr != nil {
