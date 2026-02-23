@@ -91,6 +91,72 @@ func TestLoadEnvOverride(t *testing.T) {
 	}
 }
 
+func TestLoadRepoConfig_SliceReplacesDefaults(t *testing.T) {
+	dir := t.TempDir()
+	repoConfig := filepath.Join(dir, ".bonsai.yaml")
+	yaml := "routing:\n  public_surface_globs:\n    - \"api/\"\n"
+	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// Slice override is a full replacement, not an extension.
+	// Setting public_surface_globs to ["api/"] must discard the defaults
+	// (sdk/, public/, cmd/, cli/).
+	if len(cfg.Routing.PublicSurfaceGlobs) != 1 {
+		t.Fatalf("PublicSurfaceGlobs len = %d, want 1 (full replacement)", len(cfg.Routing.PublicSurfaceGlobs))
+	}
+	if cfg.Routing.PublicSurfaceGlobs[0] != "api/" {
+		t.Errorf("PublicSurfaceGlobs[0] = %q, want \"api/\"", cfg.Routing.PublicSurfaceGlobs[0])
+	}
+
+	// Other slices should retain defaults when not overridden.
+	defaults := config.Default()
+	if len(cfg.Routing.StructuralPatterns) != len(defaults.Routing.StructuralPatterns) {
+		t.Errorf("StructuralPatterns len = %d, want %d (untouched defaults)",
+			len(cfg.Routing.StructuralPatterns), len(defaults.Routing.StructuralPatterns))
+	}
+	if len(cfg.Routing.MergeBaseCandidates) != len(defaults.Routing.MergeBaseCandidates) {
+		t.Errorf("MergeBaseCandidates len = %d, want %d (untouched defaults)",
+			len(cfg.Routing.MergeBaseCandidates), len(defaults.Routing.MergeBaseCandidates))
+	}
+}
+
+func TestLoadRepoConfig_AllSlicesReplace(t *testing.T) {
+	dir := t.TempDir()
+	repoConfig := filepath.Join(dir, ".bonsai.yaml")
+	yaml := `routing:
+  public_surface_globs:
+    - "proto/"
+  structural_patterns:
+    - "core/"
+  merge_base_candidates:
+    - "develop"
+`
+	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if len(cfg.Routing.PublicSurfaceGlobs) != 1 || cfg.Routing.PublicSurfaceGlobs[0] != "proto/" {
+		t.Errorf("PublicSurfaceGlobs = %v, want [proto/]", cfg.Routing.PublicSurfaceGlobs)
+	}
+	if len(cfg.Routing.StructuralPatterns) != 1 || cfg.Routing.StructuralPatterns[0] != "core/" {
+		t.Errorf("StructuralPatterns = %v, want [core/]", cfg.Routing.StructuralPatterns)
+	}
+	if len(cfg.Routing.MergeBaseCandidates) != 1 || cfg.Routing.MergeBaseCandidates[0] != "develop" {
+		t.Errorf("MergeBaseCandidates = %v, want [develop]", cfg.Routing.MergeBaseCandidates)
+	}
+}
+
 func TestLoadEnvOverridesRepoConfig(t *testing.T) {
 	dir := t.TempDir()
 	repoConfig := filepath.Join(dir, ".bonsai.yaml")

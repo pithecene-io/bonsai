@@ -144,6 +144,119 @@ func TestBuildValidator_WithRepoClaude(t *testing.T) {
 	assertContains(t, result, "# Repo Constitution")
 }
 
+func TestBuildInteractive_InjectionOrder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# AGENTS-MARKER"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docs", "ARCH_INDEX.md"), []byte("# ARCH-INDEX-MARKER"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := assets.NewResolver(dir)
+	b := prompt.NewBuilder(r, dir)
+
+	result, err := b.BuildInteractive(prompt.InteractiveOpts{
+		Mode:         prompt.ModeImplementer,
+		ExtraContext: "FINDINGS-MARKER",
+	})
+	if err != nil {
+		t.Fatalf("BuildInteractive: %v", err)
+	}
+
+	// Required ordering: mode → CLAUDE.md → role → AGENTS.md → ARCH_INDEX → findings
+	markers := []struct {
+		label string
+		text  string
+	}{
+		{"mode declaration", "IMPLEMENTER mode"},
+		{"global CLAUDE.md", "CLAUDE.md — Constitution"},
+		{"role definition", "precision implementation assistant"},
+		{"AGENTS.md", "# AGENTS-MARKER"},
+		{"ARCH_INDEX.md", "# ARCH-INDEX-MARKER"},
+		{"extra context (findings)", "FINDINGS-MARKER"},
+	}
+
+	for i := 0; i < len(markers)-1; i++ {
+		posA := strings.Index(result, markers[i].text)
+		posB := strings.Index(result, markers[i+1].text)
+		if posA < 0 {
+			t.Errorf("missing %s (%q)", markers[i].label, markers[i].text)
+			continue
+		}
+		if posB < 0 {
+			t.Errorf("missing %s (%q)", markers[i+1].label, markers[i+1].text)
+			continue
+		}
+		if posA >= posB {
+			t.Errorf("injection order violation: %s (pos %d) must appear before %s (pos %d)",
+				markers[i].label, posA, markers[i+1].label, posB)
+		}
+	}
+}
+
+func TestBuildValidator_InjectionOrder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# REPO-CLAUDE-MARKER"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# AGENTS-MARKER"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docs", "ARCH_INDEX.md"), []byte("# ARCH-INDEX-MARKER"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := assets.NewResolver(dir)
+	b := prompt.NewBuilder(r, dir)
+
+	result, err := b.BuildValidator(prompt.ValidatorOpts{
+		SkillBody:    "SKILL-BODY-MARKER",
+		OutputSchema: "SCHEMA-MARKER",
+	})
+	if err != nil {
+		t.Fatalf("BuildValidator: %v", err)
+	}
+
+	// Required ordering: mode → global CLAUDE.md → repo CLAUDE.md → AGENTS.md → ARCH_INDEX → skill → schema → JSON-only suffix
+	markers := []struct {
+		label string
+		text  string
+	}{
+		{"mode declaration", "VALIDATOR mode"},
+		{"global CLAUDE.md", "CLAUDE.md — Constitution"},
+		{"repo CLAUDE.md", "# REPO-CLAUDE-MARKER"},
+		{"AGENTS.md", "# AGENTS-MARKER"},
+		{"ARCH_INDEX.md", "# ARCH-INDEX-MARKER"},
+		{"skill body", "SKILL-BODY-MARKER"},
+		{"output schema", "SCHEMA-MARKER"},
+		{"JSON-only suffix", "No markdown. No prose."},
+	}
+
+	for i := 0; i < len(markers)-1; i++ {
+		posA := strings.Index(result, markers[i].text)
+		posB := strings.Index(result, markers[i+1].text)
+		if posA < 0 {
+			t.Errorf("missing %s (%q)", markers[i].label, markers[i].text)
+			continue
+		}
+		if posB < 0 {
+			t.Errorf("missing %s (%q)", markers[i+1].label, markers[i+1].text)
+			continue
+		}
+		if posA >= posB {
+			t.Errorf("injection order violation: %s (pos %d) must appear before %s (pos %d)",
+				markers[i].label, posA, markers[i+1].label, posB)
+		}
+	}
+}
+
 func assertContains(t *testing.T, haystack, needle string) {
 	t.Helper()
 	if !strings.Contains(haystack, needle) {
