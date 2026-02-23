@@ -1,0 +1,10 @@
+routing:
+  public_surface_globs:
+    - "cmd/"
+    - "internal/cli/"
+  structural_patterns:
+    - "orchestrator/"
+    - "gate/"
+    - "registry/"
+    - "config/"
+    - "assets/"
