@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/urfave/cli/v2"
+	"golang.org/x/term"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
@@ -14,6 +15,7 @@ import (
 	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/registry"
+	"github.com/pithecene-io/bonsai/internal/tui"
 )
 
 func checkCommand() *cli.Command {
@@ -27,6 +29,8 @@ func checkCommand() *cli.Command {
 			&cli.StringFlag{Name: "base", Usage: "Git ref for diff context"},
 			&cli.BoolFlag{Name: "fail-fast", Usage: "Stop on first mandatory failure"},
 			&cli.StringFlag{Name: "diff-profile", Usage: "JSON diff profile (reserved)"},
+			&cli.IntFlag{Name: "jobs", Aliases: []string{"j"}, Usage: "Max parallel skill invocations"},
+			&cli.BoolFlag{Name: "no-progress", Usage: "Disable TUI progress display"},
 		},
 		Action: runCheck,
 	}
@@ -39,6 +43,7 @@ func runCheck(c *cli.Context) error {
 	baseRef := c.String("base")
 	failFast := c.Bool("fail-fast")
 	bundleExplicit := c.IsSet("bundle")
+	noProgress := c.Bool("no-progress")
 
 	// Mutual exclusion
 	if mode != "" && bundleExplicit {
@@ -92,13 +97,20 @@ func runCheck(c *cli.Context) error {
 		source = "bundle:" + bundle
 	}
 
+	// Resolve concurrency: flag > config > default(4)
+	concurrency := cfg.Check.Concurrency
+	if c.IsSet("jobs") {
+		concurrency = c.Int("jobs")
+	}
+	if concurrency <= 0 {
+		concurrency = 4
+	}
+
 	// Create orchestrator
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
 	orch := orchestrator.New(claudeAgent, resolver)
 
-	// Run
-	logger := func(msg string) { fmt.Println(msg) }
-	report, err := orch.Run(c.Context, orchestrator.RunOpts{
+	opts := orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              source,
 		BaseRef:             baseRef,
@@ -107,9 +119,42 @@ func runCheck(c *cli.Context) error {
 		RepoRoot:            repoRoot,
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
-	}, logger)
-	if err != nil {
-		return err
+		Concurrency:         concurrency,
+	}
+
+	// TTY detection: use TUI if stdout is a terminal and --no-progress is not set
+	useTUI := term.IsTerminal(int(os.Stdout.Fd())) && !noProgress
+
+	var report *orchestrator.Report
+
+	if useTUI {
+		events := make(chan orchestrator.Event, len(skills)*4)
+		var runErr error
+		go func() {
+			report, runErr = orch.Run(c.Context, opts, events)
+			close(events)
+		}()
+
+		tuiReport, tuiErr := tui.RunWithTUI(events, source)
+		if tuiErr != nil {
+			return tuiErr
+		}
+		if runErr != nil {
+			return runErr
+		}
+		// Prefer the TUI's report (same object) but fall back
+		if tuiReport != nil {
+			report = tuiReport
+		}
+	} else {
+		// Plain text output via LoggerSink
+		sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
+		report, err = orch.Run(c.Context, opts, sink)
+		close(sink)
+		<-sinkDone
+		if err != nil {
+			return err
+		}
 	}
 
 	// Write report

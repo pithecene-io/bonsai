@@ -1,6 +1,9 @@
 package agent
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // NonInteractiveCall records a call to NonInteractive.
 type NonInteractiveCall struct {
@@ -16,13 +19,20 @@ type InteractiveCall struct {
 
 // MockAgent is a test double implementing Agent.
 // It records calls and returns configurable responses.
+// All methods are safe for concurrent use.
 type MockAgent struct {
+	mu                     sync.Mutex
 	NameVal                string
 	NonInteractiveResponse string
 	NonInteractiveErr      error
 	NonInteractiveCalls    []NonInteractiveCall
 	InteractiveErr         error
 	InteractiveCalls       []InteractiveCall
+
+	// NonInteractiveFunc, when set, is called instead of returning
+	// the static NonInteractiveResponse/NonInteractiveErr. Useful for
+	// per-call mock responses in parallel tests.
+	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt string) (string, error)
 }
 
 // Name returns the configured name.
@@ -30,6 +40,8 @@ func (m *MockAgent) Name() string { return m.NameVal }
 
 // Interactive records the call and returns the configured error.
 func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArgs []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.InteractiveCalls = append(m.InteractiveCalls, InteractiveCall{
 		SystemPrompt: systemPrompt,
 		ExtraArgs:    extraArgs,
@@ -38,10 +50,26 @@ func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArg
 }
 
 // NonInteractive records the call and returns the configured response/error.
-func (m *MockAgent) NonInteractive(_ context.Context, systemPrompt, userPrompt string) (string, error) {
+func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	m.mu.Lock()
 	m.NonInteractiveCalls = append(m.NonInteractiveCalls, NonInteractiveCall{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 	})
-	return m.NonInteractiveResponse, m.NonInteractiveErr
+	fn := m.NonInteractiveFunc
+	resp := m.NonInteractiveResponse
+	err := m.NonInteractiveErr
+	m.mu.Unlock()
+
+	if fn != nil {
+		return fn(ctx, systemPrompt, userPrompt)
+	}
+	return resp, err
+}
+
+// CallCount returns the number of NonInteractive calls recorded.
+func (m *MockAgent) CallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.NonInteractiveCalls)
 }

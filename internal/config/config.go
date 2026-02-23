@@ -7,9 +7,15 @@ type Config struct {
 	Diff    DiffConfig    `yaml:"diff"`
 	Routing RoutingConfig `yaml:"routing"`
 	Gate    GateConfig    `yaml:"gate"`
+	Check   CheckConfig   `yaml:"check"`
 	Agents  AgentsConfig  `yaml:"agents"`
 	Output  OutputConfig  `yaml:"output"`
 	Skills  SkillsConfig  `yaml:"skills"`
+}
+
+// CheckConfig controls the check command.
+type CheckConfig struct {
+	Concurrency int `yaml:"concurrency"`
 }
 
 // DiffConfig controls diff profiling thresholds.
@@ -85,6 +91,9 @@ func Default() *Config {
 		},
 		Gate: GateConfig{
 			MaxIterations: 3,
+		},
+		Check: CheckConfig{
+			Concurrency: 4,
 		},
 		Agents: AgentsConfig{
 			Claude: AgentBinConfig{Bin: "claude"},

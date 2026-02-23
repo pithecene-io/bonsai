@@ -98,6 +98,11 @@ func mergeConfig(dst, src *Config) {
 		dst.Gate.MaxIterations = src.Gate.MaxIterations
 	}
 
+	// Check
+	if src.Check.Concurrency > 0 {
+		dst.Check.Concurrency = src.Check.Concurrency
+	}
+
 	// Agents
 	if src.Agents.Claude.Bin != "" {
 		dst.Agents.Claude.Bin = src.Agents.Claude.Bin
@@ -147,6 +152,11 @@ func mergeFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BONSAI_OUTPUT_DIR"); v != "" {
 		cfg.Output.Dir = v
+	}
+	if v := os.Getenv("BONSAI_CHECK_JOBS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Check.Concurrency = n
+		}
 	}
 	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {
 		cfg.Skills.ExtraDirs = strings.Split(v, ":")

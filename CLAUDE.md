@@ -16,7 +16,6 @@ framework in [dotfiles/ai/](https://github.com/justapithecus/dotfiles/tree/main/
 Required directories:
 - `cmd/bonsai/` — single entrypoint
 - `internal/` — all application packages (no `pkg/`)
-- `assets/` — source files for `go:embed`
 
 Forbidden:
 - `pkg/` directory (everything is internal)
@@ -41,6 +40,7 @@ internal/skill   → internal/agent, internal/prompt, internal/registry
 internal/registry → internal/assets
 internal/diff    → internal/gitutil, internal/repo
 internal/orchestrator → internal/skill, internal/registry
+internal/tui     → internal/orchestrator
 internal/gate    → internal/orchestrator, internal/diff, internal/agent, internal/prompt
 ```
 

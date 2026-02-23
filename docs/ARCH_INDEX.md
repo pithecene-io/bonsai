@@ -13,6 +13,21 @@ relationships: `CLAUDE.md` §4 (dependency DAG).
 | `Taskfile.yaml` | Developer task runner (build, test, lint) |
 | `.bonsai.yaml` | Repo-local bonsai config overrides |
 
+## `ai/`
+
+Output directory for governance artifacts (reports, patches, plans).
+Created at runtime by `bonsai check` and `bonsai implement`.
+
+- **Key files:** `out/` (generated, gitignored)
+- **Depends on:** *(nothing — runtime output)*
+
+## `docs/`
+
+Explanatory documentation and navigation indexes.
+
+- **Key files:** `ARCH_INDEX.md` (this file)
+- **Depends on:** *(nothing)*
+
 ## `cmd/bonsai/`
 
 Binary entrypoint. Calls `cli.NewApp()` and runs it. No logic beyond
@@ -118,11 +133,22 @@ Diff profiling and governance mode determination. Ports of
 
 ## `internal/orchestrator`
 
-Multi-skill execution engine with fail-fast logic, skip detection, and
-aggregate JSON report generation.
+Multi-skill execution engine with parallel worker pool, fail-fast logic,
+skip detection, structured event emission, and aggregate JSON report
+generation.
 
-- **Key files:** `orchestrator.go`
+- **Key files:** `orchestrator.go` (run + worker pool), `event.go` (event types), `sink.go` (LoggerSink adapter)
 - **Depends on:** `internal/skill`, `internal/registry`
+
+## `internal/tui`
+
+Bubbletea-based terminal UI for `bonsai check`. Renders per-skill
+progress with spinner, timing, finding details, and a progress bar.
+Falls back to plain text (LoggerSink) when stdout is not a TTY or
+`--no-progress` is set.
+
+- **Key files:** `model.go` (bubbletea Model), `events.go` (message types), `styles.go` (lipgloss styles), `tui.go` (entry point)
+- **Depends on:** `internal/orchestrator`
 
 ## `internal/gate`
 

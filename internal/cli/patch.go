@@ -147,7 +147,7 @@ func runPatch(c *cli.Context) error {
 
 	checkAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
 	orch := orchestrator.New(checkAgent, resolver)
-	logger := func(msg string) { fmt.Println(msg) }
+	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{
 		Skills:              skills,
@@ -157,7 +157,10 @@ func runPatch(c *cli.Context) error {
 		RepoRoot:            repoRoot,
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
-	}, logger)
+		Concurrency:         1,
+	}, sink)
+	close(sink)
+	<-sinkDone
 	if err != nil {
 		return err
 	}

@@ -393,7 +393,7 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 
 	checkAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
 	orch := orchestrator.New(checkAgent, resolver)
-	logger := func(msg string) { fmt.Println(msg) }
+	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)
 	defer cancel()
@@ -404,7 +404,10 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 		RepoRoot:            target,
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
-	}, logger)
+		Concurrency:         1,
+	}, sink)
+	close(sink)
+	<-sinkDone
 	if err != nil {
 		if valCtx.Err() == context.DeadlineExceeded {
 			fmt.Fprintln(os.Stderr, "  ⚠ Validation timed out (2m) — skipping (advisory only)")
