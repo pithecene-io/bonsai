@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
 
@@ -29,6 +31,19 @@ func TestModel_HandleEventQueued(t *testing.T) {
 	}
 	if m.total != 3 {
 		t.Errorf("total = %d, want 3", m.total)
+	}
+}
+
+func TestModel_Update_KeyQuit_SetsInterrupted(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+	m := NewModel("bundle:default", events)
+
+	// Simulate q keypress
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	um := updated.(Model)
+
+	if !um.interrupted {
+		t.Error("expected interrupted = true after q keypress")
 	}
 }
 

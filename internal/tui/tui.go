@@ -1,12 +1,17 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
+
+// ErrInterrupted is returned by RunWithTUI when the user quits early
+// via q or ctrl+c, before the orchestrator completes.
+var ErrInterrupted = errors.New("interrupted by user")
 
 // RunWithTUI starts the bubbletea program that displays progress
 // while the orchestrator runs in a separate goroutine.
@@ -23,6 +28,9 @@ func RunWithTUI(events <-chan orchestrator.Event, source string) (*orchestrator.
 	}
 
 	fm := finalModel.(Model)
+	if fm.interrupted {
+		return fm.report, ErrInterrupted
+	}
 	if fm.err != nil {
 		return fm.report, fm.err
 	}

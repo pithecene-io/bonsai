@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -154,6 +155,12 @@ func runCheck(c *cli.Context) error {
 		// it and so report/runErr are safe to read.
 		<-orchDone
 
+		// User-initiated quit: exit cleanly without treating cancelled
+		// skills as governance failures.
+		if errors.Is(tuiErr, tui.ErrInterrupted) {
+			fmt.Fprintln(os.Stderr, "\n⚠ check interrupted by user")
+			return nil
+		}
 		if tuiErr != nil {
 			return tuiErr
 		}
@@ -163,13 +170,6 @@ func runCheck(c *cli.Context) error {
 		// Prefer the TUI's report (same object) but fall back
 		if tuiReport != nil {
 			report = tuiReport
-		}
-		// If user quit early (q / ctrl+c) before EventComplete, report may
-		// still be nil from the TUI but populated by the orchestrator goroutine.
-		// If both are nil, exit gracefully.
-		if report == nil {
-			fmt.Fprintln(os.Stderr, "\n⚠ check interrupted — no results")
-			return nil
 		}
 	} else {
 		// Plain text output via LoggerSink

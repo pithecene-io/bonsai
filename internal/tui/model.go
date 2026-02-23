@@ -36,15 +36,16 @@ type skillEntry struct {
 
 // Model is the bubbletea model for the check TUI.
 type Model struct {
-	source    string
-	skills    []skillEntry
-	total     int
-	completed int
-	startTime time.Time
-	done      bool
-	report    *orchestrator.Report
-	err       error
-	events    <-chan orchestrator.Event
+	source      string
+	skills      []skillEntry
+	total       int
+	completed   int
+	startTime   time.Time
+	done        bool
+	interrupted bool // user pressed q/ctrl+c before completion
+	report      *orchestrator.Report
+	err         error
+	events      <-chan orchestrator.Event
 
 	// Spinner state
 	spinnerFrames []string
@@ -77,6 +78,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
+			m.interrupted = true
 			return m, tea.Quit
 		}
 
