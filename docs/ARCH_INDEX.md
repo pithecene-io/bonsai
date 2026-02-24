@@ -13,14 +13,6 @@ relationships: `CLAUDE.md` §4 (dependency DAG).
 | `Taskfile.yaml` | Developer task runner (build, test, lint) |
 | `.bonsai.yaml` | Repo-local bonsai config overrides |
 
-## `ai/`
-
-Output directory for governance artifacts (reports, patches, plans).
-Created at runtime by `bonsai check` and `bonsai implement`.
-
-- **Key files:** `out/` (generated, gitignored)
-- **Depends on:** *(nothing — runtime output)*
-
 ## `docs/`
 
 Explanatory documentation and navigation indexes.
@@ -70,7 +62,7 @@ Embedded governance assets consumed at runtime:
 - `governance.md` — governance framework reference
 - `review_architecture.md` — review-mode architecture doc
 - `roles/` — role definitions (architect, implementer, planner, reviewer, patcher, patch-architect)
-- `skills/` — 35 governance skill definitions (SKILL.md + schemas)
+- `skills/` — 43 governance skill definitions (SKILL.md + schemas)
 - `skills.yaml` — skill registry (bundles, modes, costs)
 - `templates/` — migration templates
 
@@ -103,7 +95,7 @@ ARCH_INDEX.md.
 AI agent backend interface and exec-based implementations for `claude`
 and `codex` CLIs. Supports interactive and non-interactive invocation.
 
-- **Key files:** `agent.go` (interface), `claude.go`, `codex.go`, `mock.go`
+- **Key files:** `agent.go` (interface), `claude.go`, `codex.go`, `router.go` (model-based dispatch), `mock.go`
 - **Depends on:** *(nothing internal)*
 
 ## `internal/registry`

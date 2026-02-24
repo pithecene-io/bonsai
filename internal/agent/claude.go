@@ -27,7 +27,7 @@ func NewClaude(bin string) *Claude {
 func (c *Claude) Name() string { return "claude" }
 
 // Interactive starts an interactive claude session.
-// Matches: claude --system-prompt "$SYSTEM_PROMPT" "$@"
+// When model is non-empty, passes --model to the claude CLI.
 func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
 	args := []string{"--system-prompt", systemPrompt}
 	args = append(args, extraArgs...)
@@ -40,30 +40,42 @@ func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs
 	return cmd.Run()
 }
 
-// NonInteractive runs claude in non-interactive mode.
-// Matches: echo "$USER_PROMPT" | CLAUDECODE= claude -p \
-//
-//	--system-prompt "$SYSTEM_PROMPT" \
-//	--tools "" \
-//	--disable-slash-commands \
-//	--no-session-persistence \
-//	--output-format text
+// NonInteractive runs claude in non-interactive (print) mode.
+// The --model flag is placed early in the args to ensure the CLI
+// parses it before processing the system prompt.
 func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
-	args := []string{
+	var args []string
+
+	// --model MUST come before other flags to ensure correct parsing
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+
+	args = append(args,
 		"-p",
 		"--system-prompt", systemPrompt,
 		"--tools", "",
 		"--disable-slash-commands",
 		"--no-session-persistence",
 		"--output-format", "text",
-	}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
+	)
 
 	cmd := exec.CommandContext(ctx, c.Bin, args...)
 	cmd.Stdin = strings.NewReader(userPrompt)
-	cmd.Env = append(os.Environ(), "CLAUDECODE=")
+
+	// Remove CLAUDECODE from env so nested invocations work.
+	cmd.Env = filterEnv(os.Environ(), "CLAUDECODE")
+
+	if os.Getenv("BONSAI_DEBUG") != "" {
+		debugArgs := make([]string, len(args))
+		copy(debugArgs, args)
+		for i, a := range debugArgs {
+			if a == "--system-prompt" && i+1 < len(debugArgs) {
+				debugArgs[i+1] = fmt.Sprintf("[%d chars]", len(debugArgs[i+1]))
+			}
+		}
+		fmt.Fprintf(os.Stderr, "[bonsai:debug] claude %s\n", strings.Join(debugArgs, " "))
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -74,4 +86,16 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	}
 
 	return stdout.String(), nil
+}
+
+// filterEnv returns a copy of environ with the named variable removed.
+func filterEnv(environ []string, name string) []string {
+	prefix := name + "="
+	out := make([]string, 0, len(environ))
+	for _, e := range environ {
+		if !strings.HasPrefix(e, prefix) {
+			out = append(out, e)
+		}
+	}
+	return out
 }

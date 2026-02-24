@@ -70,10 +70,17 @@ func runChat(c *cli.Context) error {
 		extraArgs = c.Args().Slice()[1:]
 	}
 
+	// Resolve model for chat role
+	chatModel := cfg.Agents.Models.ModelForRole("chat")
+
 	// Start interactive session
-	// Matches: exec claude --system-prompt "$SYSTEM_PROMPT" "$@"
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	return claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
+	modelArgs := []string{}
+	if chatModel != "" {
+		modelArgs = append(modelArgs, "--model", chatModel)
+	}
+	modelArgs = append(modelArgs, extraArgs...)
+	return claudeAgent.Interactive(c.Context, systemPrompt, modelArgs)
 }
 
 // roleToMode maps role names to prompt modes.

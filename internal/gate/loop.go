@@ -121,9 +121,18 @@ func (l *Loop) Run(ctx context.Context) error {
 			return fmt.Errorf("build prompt: %w", err)
 		}
 
+		// Resolve model for implement role
+		extraArgs := l.opts.ExtraArgs
+		if l.opts.Config != nil {
+			implModel := l.opts.Config.Agents.Models.ModelForRole("implement")
+			if implModel != "" {
+				extraArgs = append([]string{"--model", implModel}, extraArgs...)
+			}
+		}
+
 		// Invoke claude interactively.
 		// Match shell: `claude ... || true` — ignore exit from ctrl-C or session end.
-		_ = l.opts.Agent.Interactive(ctx, systemPrompt, l.opts.ExtraArgs)
+		_ = l.opts.Agent.Interactive(ctx, systemPrompt, extraArgs)
 
 		// 2. CAPTURE DIFF: Check for changes
 		if l.mergeBase == "" {

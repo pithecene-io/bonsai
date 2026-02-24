@@ -27,7 +27,7 @@ func NewCodex(bin string) *Codex {
 func (c *Codex) Name() string { return "codex" }
 
 // Interactive starts an interactive codex session.
-// Matches: codex "$PROMPT" (prompt as first positional argument)
+// Matches: codex "$PROMPT"
 func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
 	args := []string{systemPrompt}
 	args = append(args, extraArgs...)
@@ -40,16 +40,33 @@ func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs 
 	return cmd.Run()
 }
 
-// NonInteractive runs codex non-interactively. Codex uses the same
-// flag conventions as claude for non-interactive mode.
+// NonInteractive runs codex in non-interactive mode via `codex exec`.
+// The system prompt and user prompt are combined into a single prompt
+// since codex doesn't have a separate system prompt concept.
 func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
+	// Combine system + user prompt (codex has no --system-prompt)
+	combinedPrompt := systemPrompt + "\n\n" + userPrompt
+
 	args := []string{
-		"-p",
-		"--system-prompt", systemPrompt,
+		"exec",
+		"--ephemeral",
+		"--sandbox", "read-only",
 	}
+	if model != "" && model != "codex" {
+		args = append(args, "-m", model)
+	}
+	// Prompt via stdin (use "-" placeholder if needed, but codex reads
+	// stdin when no positional prompt is given)
+	args = append(args, "-")
 
 	cmd := exec.CommandContext(ctx, c.Bin, args...)
-	cmd.Stdin = strings.NewReader(userPrompt)
+	cmd.Stdin = strings.NewReader(combinedPrompt)
+
+	if os.Getenv("BONSAI_DEBUG") != "" {
+		debugArgs := make([]string, len(args))
+		copy(debugArgs, args)
+		fmt.Fprintf(os.Stderr, "[bonsai:debug] codex %s\n", strings.Join(debugArgs, " "))
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
