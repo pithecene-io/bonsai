@@ -1,6 +1,10 @@
 package agent
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"os"
+)
 
 // Router implements Agent by dispatching to Claude CLI, Codex CLI, or
 // the direct Anthropic API backend based on the model string.
@@ -39,6 +43,8 @@ func (r *Router) Interactive(ctx context.Context, systemPrompt string, extraArgs
 }
 
 // NonInteractive dispatches based on the model string.
+// When the Anthropic direct API is selected but fails (auth error,
+// outage, network), it falls back to Claude CLI automatically.
 func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
 	m := Model(model)
 
@@ -46,7 +52,16 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	case m.IsCodex():
 		return r.Codex.NonInteractive(ctx, systemPrompt, userPrompt, model)
 	case m.IsClaude() && r.Anthropic != nil:
-		return r.Anthropic.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		out, err := r.Anthropic.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		if err == nil {
+			return out, nil
+		}
+		// Anthropic failed — fall back to Claude CLI so a bad key or
+		// transient outage doesn't hard-fail the entire check run.
+		if os.Getenv("BONSAI_DEBUG") != "" {
+			fmt.Fprintf(os.Stderr, "[bonsai:debug] anthropic failed, falling back to claude CLI: %v\n", err)
+		}
+		return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
 	default:
 		return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
 	}

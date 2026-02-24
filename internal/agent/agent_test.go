@@ -273,6 +273,9 @@ func TestRouter_Implements(_ *testing.T) {
 }
 
 func TestRouter_RoutesToClaude(t *testing.T) {
+	// Ensure no ambient API key causes Anthropic routing.
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
 	fakeBin := filepath.Join(dir, "fake-claude")
@@ -304,6 +307,9 @@ cat
 }
 
 func TestRouter_RoutesToCodex(t *testing.T) {
+	// Ensure no ambient API key interferes with routing.
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
 	dir := t.TempDir()
 	markerFile := filepath.Join(dir, "codex-called")
 	fakeCodex := filepath.Join(dir, "fake-codex")
@@ -332,6 +338,9 @@ cat
 }
 
 func TestRouter_RoutesToCodexVariant(t *testing.T) {
+	// Ensure no ambient API key interferes with routing.
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
 	dir := t.TempDir()
 	markerFile := filepath.Join(dir, "codex-called")
 	fakeCodex := filepath.Join(dir, "fake-codex")
@@ -376,6 +385,48 @@ func TestRouter_FallsBackToClaudeWhenNoKey(t *testing.T) {
 	r := agent.NewRouter("nonexistent-claude", "nonexistent-codex")
 	if r.Anthropic != nil {
 		t.Error("expected Anthropic backend to be nil when no API key is available")
+	}
+}
+
+// TestRouter_FallsBackToClaudeOnAnthropicError verifies that when the
+// Anthropic direct API fails (e.g. bad key, outage), the router falls
+// back to Claude CLI instead of hard-failing.
+func TestRouter_FallsBackToClaudeOnAnthropicError(t *testing.T) {
+	dir := t.TempDir()
+	argsFile := filepath.Join(dir, "args.txt")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+printf '%s\n' "$@" > "` + argsFile + `"
+cat
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	// Build router with a bad Anthropic key — API call will fail with
+	// auth error, router should fall back to the fake Claude binary.
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	r := agent.NewRouter(fakeBin, "nonexistent-codex", agent.WithAPIKey("sk-bad-key"))
+	if r.Anthropic == nil {
+		t.Fatal("expected Anthropic to be non-nil with explicit key")
+	}
+
+	out, err := r.NonInteractive(t.Context(), "sys", "user-input", "haiku")
+	if err != nil {
+		t.Fatalf("NonInteractive should succeed via Claude CLI fallback: %v", err)
+	}
+	if !strings.Contains(out, "user-input") {
+		t.Errorf("output = %q, expected user-input from Claude CLI fallback", out)
+	}
+
+	// Verify Claude CLI was actually called (not just Anthropic error).
+	argsData, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read args: %v", err)
+	}
+	if !strings.Contains(string(argsData), "--model") || !strings.Contains(string(argsData), "haiku") {
+		t.Errorf("expected --model haiku in Claude CLI fallback args:\n%s", argsData)
 	}
 }
 
