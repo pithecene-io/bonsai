@@ -40,13 +40,22 @@ const claudeCodeSystemPrefix = "You are Claude Code, Anthropic's official CLI fo
 type AnthropicOption func(*anthropicConfig)
 
 type anthropicConfig struct {
-	apiKey string
+	apiKey  string
+	baseURL string
 }
 
 // WithAPIKey sets an explicit API key, overriding ANTHROPIC_API_KEY.
 func WithAPIKey(key string) AnthropicOption {
 	return func(c *anthropicConfig) {
 		c.apiKey = key
+	}
+}
+
+// WithBaseURL overrides the Anthropic API base URL. Intended for tests
+// that capture request shape via httptest.
+func WithBaseURL(url string) AnthropicOption {
+	return func(c *anthropicConfig) {
+		c.baseURL = url
 	}
 }
 
@@ -78,14 +87,18 @@ func NewAnthropic(opts ...AnthropicOption) *Anthropic {
 
 	// 1. Explicit API key (option).
 	if cfg.apiKey != "" {
-		client := anthropic.NewClient(option.WithAPIKey(cfg.apiKey))
+		opts := []option.RequestOption{option.WithAPIKey(cfg.apiKey)}
+		if cfg.baseURL != "" {
+			opts = append(opts, option.WithBaseURL(cfg.baseURL))
+		}
+		client := anthropic.NewClient(opts...)
 		return &Anthropic{client: client}
 	}
 
 	// 2. Claude CLI OAuth token — match the Claude Code request shape
 	//    so the API routes billing to the Max/Pro subscription.
 	if token := readClaudeOAuthToken(); token != "" {
-		client := anthropic.NewClient(
+		oauthOpts := []option.RequestOption{
 			option.WithAuthToken(token),
 			// Suppress the env-based X-Api-Key header. The SDK reads
 			// ANTHROPIC_API_KEY from the environment and sends it alongside
@@ -99,13 +112,21 @@ func NewAnthropic(opts ...AnthropicOption) *Anthropic {
 			option.WithHeader("User-Agent", "claude-cli/2.1.52 (external, cli)"),
 			option.WithHeader("x-app", "cli"),
 			option.WithHeader("anthropic-dangerous-direct-browser-access", "true"),
-		)
+		}
+		if cfg.baseURL != "" {
+			oauthOpts = append(oauthOpts, option.WithBaseURL(cfg.baseURL))
+		}
+		client := anthropic.NewClient(oauthOpts...)
 		return &Anthropic{client: client, oauth: true}
 	}
 
 	// 3. ANTHROPIC_API_KEY environment variable (billed to API credits).
 	if envKey := os.Getenv("ANTHROPIC_API_KEY"); envKey != "" {
-		client := anthropic.NewClient(option.WithAPIKey(envKey))
+		envOpts := []option.RequestOption{option.WithAPIKey(envKey)}
+		if cfg.baseURL != "" {
+			envOpts = append(envOpts, option.WithBaseURL(cfg.baseURL))
+		}
+		client := anthropic.NewClient(envOpts...)
 		return &Anthropic{client: client}
 	}
 
@@ -139,6 +160,9 @@ func readClaudeOAuthToken() string {
 
 // Name returns "anthropic".
 func (a *Anthropic) Name() string { return "anthropic" }
+
+// IsOAuth reports whether this backend is using a Claude CLI OAuth token.
+func (a *Anthropic) IsOAuth() bool { return a.oauth }
 
 // Interactive returns an error — the direct API backend cannot attach
 // to a terminal for interactive sessions.
