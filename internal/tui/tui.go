@@ -18,10 +18,18 @@ var ErrInterrupted = errors.New("interrupted by user")
 // It blocks until the TUI exits. The report is obtained from the
 // EventComplete message.
 func RunWithTUI(events <-chan orchestrator.Event, source string) (*orchestrator.Report, error) {
+	return runTUI(events, source)
+}
+
+// runTUI is the internal implementation. Extra tea.ProgramOptions can be
+// passed for testing (e.g. tea.WithInput).
+func runTUI(events <-chan orchestrator.Event, source string, opts ...tea.ProgramOption) (*orchestrator.Report, error) {
 	m := NewModel(source, events)
 
 	// No alt-screen — output stays in scrollback
-	p := tea.NewProgram(m, tea.WithoutSignalHandler())
+	baseOpts := []tea.ProgramOption{tea.WithoutSignalHandler()}
+	baseOpts = append(baseOpts, opts...)
+	p := tea.NewProgram(m, baseOpts...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, fmt.Errorf("TUI error: %w", err)

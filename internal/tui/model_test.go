@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -236,5 +238,82 @@ func TestModel_RenderProgress(t *testing.T) {
 	}
 	if !strings.Contains(progress, "█") {
 		t.Errorf("progress = %q, want filled blocks", progress)
+	}
+}
+
+// --- integration tests for RunWithTUI interrupt contract ---
+
+// TestRunTUI_UserQuit_ReturnsErrInterrupted exercises the full TUI
+// interrupt path end-to-end: event channel with a queued skill, user
+// sends "q" via input pipe, RunWithTUI returns ErrInterrupted.
+// This is the exact contract that internal/cli/check.go relies on.
+func TestRunTUI_UserQuit_ReturnsErrInterrupted(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+
+	// Queue one skill so there's something in-flight
+	events <- orchestrator.Event{
+		Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+		SkillName: "slow-skill", Cost: "expensive", Mandatory: true,
+	}
+
+	// Pipe "q" as user input — bubbletea reads it and triggers KeyMsg
+	pr, pw := io.Pipe()
+	go func() {
+		// Small delay so the TUI processes the queued event first
+		time.Sleep(50 * time.Millisecond)
+		_, _ = pw.Write([]byte("q"))
+		_ = pw.Close()
+	}()
+
+	_, err := runTUI(events, "bundle:default",
+		tea.WithInput(pr),
+		tea.WithOutput(io.Discard),
+	)
+
+	// Verify the sentinel error
+	if !errors.Is(err, ErrInterrupted) {
+		t.Fatalf("err = %v, want ErrInterrupted", err)
+	}
+}
+
+// TestRunTUI_NormalCompletion_NoError verifies that a normal run
+// (EventComplete received) returns no error.
+func TestRunTUI_NormalCompletion_NoError(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+
+	report := &orchestrator.Report{Total: 1, Passed: 1}
+	events <- orchestrator.Event{
+		Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+		SkillName: "fast-skill", Cost: "cheap",
+	}
+	events <- orchestrator.Event{
+		Kind: orchestrator.EventDone, Index: 0,
+		SkillName: "fast-skill", Elapsed: 50 * time.Millisecond,
+		Result: &orchestrator.Result{
+			Name: "fast-skill", Status: "pass", ExitCode: 0,
+		},
+	}
+	events <- orchestrator.Event{
+		Kind:   orchestrator.EventComplete,
+		Total:  1,
+		Report: report,
+	}
+	close(events)
+
+	// Pipe that never sends anything — TUI exits on EventComplete, not
+	// on user input.
+	pr, pw := io.Pipe()
+	defer pw.Close()
+
+	got, err := runTUI(events, "bundle:default",
+		tea.WithInput(pr),
+		tea.WithOutput(io.Discard),
+	)
+
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	if got != report {
+		t.Errorf("report = %v, want %v", got, report)
 	}
 }
