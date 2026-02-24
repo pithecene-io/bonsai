@@ -257,6 +257,65 @@ func TestBuildValidator_InjectionOrder(t *testing.T) {
 	}
 }
 
+func TestBuildValidator_Lite(t *testing.T) {
+	r := assets.NewResolver("")
+	b := prompt.NewBuilder(r, "/tmp/test-repo")
+
+	result, err := b.BuildValidator(prompt.ValidatorOpts{
+		SkillBody:    "Check for convention violations.",
+		OutputSchema: `{"type": "object"}`,
+		Lite:         true,
+	})
+	if err != nil {
+		t.Fatalf("BuildValidator: %v", err)
+	}
+
+	assertContains(t, result, "VALIDATOR mode")
+	assertContains(t, result, "code-quality validator")
+	assertContains(t, result, "Check for convention violations.")
+	assertContains(t, result, `{"type": "object"}`)
+	assertContains(t, result, "No markdown. No prose. No explanation. No code fences. JSON only.")
+
+	// Governance layers must NOT be present in lite mode
+	if strings.Contains(result, "Validator Preamble") {
+		t.Error("lite mode should not contain Validator Preamble header")
+	}
+}
+
+func TestBuildValidator_Lite_SkipsRepoFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("REPO-CLAUDE-SENTINEL"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("AGENTS-SENTINEL"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docs", "ARCH_INDEX.md"), []byte("ARCH-INDEX-SENTINEL"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := assets.NewResolver(dir)
+	b := prompt.NewBuilder(r, dir)
+
+	result, err := b.BuildValidator(prompt.ValidatorOpts{
+		SkillBody:    "Test skill body",
+		OutputSchema: "{}",
+		Lite:         true,
+	})
+	if err != nil {
+		t.Fatalf("BuildValidator: %v", err)
+	}
+
+	for _, sentinel := range []string{"REPO-CLAUDE-SENTINEL", "AGENTS-SENTINEL", "ARCH-INDEX-SENTINEL"} {
+		if strings.Contains(result, sentinel) {
+			t.Errorf("lite mode should not contain repo file content %q", sentinel)
+		}
+	}
+}
+
 func assertContains(t *testing.T, haystack, needle string) {
 	t.Helper()
 	if !strings.Contains(haystack, needle) {

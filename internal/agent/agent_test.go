@@ -192,6 +192,34 @@ cat
 	}
 }
 
+func TestRouter_RoutesToCodexVariant(t *testing.T) {
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "codex-called")
+	fakeCodex := filepath.Join(dir, "fake-codex")
+
+	script := `#!/bin/sh
+echo "codex-was-called" > "` + markerFile + `"
+cat
+`
+	if err := os.WriteFile(fakeCodex, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := agent.NewRouter("nonexistent-claude", fakeCodex)
+	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "codex-mini")
+	if err != nil {
+		t.Fatalf("NonInteractive: %v", err)
+	}
+	if !strings.Contains(out, "user-input") {
+		t.Errorf("output = %q, expected user-input", out)
+	}
+
+	// Verify codex was actually called (not claude)
+	if _, err := os.Stat(markerFile); err != nil {
+		t.Errorf("codex marker file not created — codex-mini was not routed to codex backend")
+	}
+}
+
 // TestClaude_NonInteractive_NoModelWhenEmpty verifies --model is omitted
 // when model is empty.
 func TestClaude_NonInteractive_NoModelWhenEmpty(t *testing.T) {
