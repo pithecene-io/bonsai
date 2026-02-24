@@ -391,8 +391,8 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 		return
 	}
 
-	checkAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	orch := orchestrator.New(checkAgent, resolver)
+	checkRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+	orch := orchestrator.New(checkRouter, resolver)
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)

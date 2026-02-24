@@ -72,7 +72,8 @@ func runPatch(c *cli.Context) error {
 
 	userPrompt := fmt.Sprintf("Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n%s", task)
 
-	architectPlan, err := claudeAgent.NonInteractive(c.Context, architectPrompt, userPrompt)
+	patchModel := cfg.Agents.Models.ModelForRole("patch")
+	architectPlan, err := claudeAgent.NonInteractive(c.Context, architectPrompt, userPrompt, patchModel)
 	if err != nil {
 		return fmt.Errorf("patch architecture phase failed: %w", err)
 	}
@@ -145,8 +146,8 @@ func runPatch(c *cli.Context) error {
 		}
 	}
 
-	checkAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	orch := orchestrator.New(checkAgent, resolver)
+	checkRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+	orch := orchestrator.New(checkRouter, resolver)
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{

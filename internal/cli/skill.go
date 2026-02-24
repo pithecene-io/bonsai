@@ -28,6 +28,7 @@ func skillCommand() *cli.Command {
 			&cli.StringFlag{Name: "version", Usage: "Skill version override"},
 			&cli.StringFlag{Name: "scope", Usage: "Comma-separated path prefixes to filter repo tree"},
 			&cli.StringFlag{Name: "base", Usage: "Git ref for diff context"},
+			&cli.StringFlag{Name: "model", Usage: "Model override (e.g. haiku, sonnet, opus)"},
 		},
 		Action: runSkill,
 	}
@@ -42,6 +43,7 @@ func runSkill(c *cli.Context) error {
 	skillVersion := c.String("version")
 	scope := c.String("scope")
 	baseRef := c.String("base")
+	modelOverride := c.String("model")
 
 	// Detect repo
 	repoRoot := "."
@@ -93,16 +95,31 @@ func runSkill(c *cli.Context) error {
 	// Build diff payload
 	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
-	// Create agent and builder
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
+	// Create agent router (routes to codex/anthropic/claude based on model)
+	var apiOpts []agent.AnthropicOption
+	if cfg.Agents.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	}
+	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	builder := prompt.NewBuilder(resolver, repoRoot)
-	runner := skill.NewRunner(claudeAgent, builder)
+	runner := skill.NewRunner(agentRouter, builder)
+
+	// Resolve model: explicit flag > config routing by cost tier
+	model := modelOverride
+	if model == "" {
+		if s, ok := reg.LookupSkill(skillName); ok {
+			model = cfg.Agents.Models.ModelForCheck(s.Cost)
+		} else {
+			model = cfg.Agents.Models.Default
+		}
+	}
 
 	// Run skill
 	output, err := runner.Run(context.Background(), def, skill.RunOpts{
 		RepoTree:    strings.Join(repoTree, "\n"),
 		DiffPayload: diffPayload,
 		BaseRef:     baseRef,
+		Model:       agent.Model(model),
 	})
 	if err != nil {
 		return err

@@ -9,6 +9,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/pithecene-io/bonsai/internal/xio"
+
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
 
@@ -303,13 +305,12 @@ func TestRunTUI_NormalCompletion_NoError(t *testing.T) {
 	// Pipe that never sends anything — TUI exits on EventComplete, not
 	// on user input.
 	pr, pw := io.Pipe()
-	defer pw.Close()
+	defer xio.DiscardClose(pw)
 
 	got, err := runTUI(events, "bundle:default",
 		tea.WithInput(pr),
 		tea.WithOutput(io.Discard),
 	)
-
 	if err != nil {
 		t.Fatalf("err = %v, want nil", err)
 	}

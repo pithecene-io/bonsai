@@ -33,7 +33,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	delay := 50 * time.Millisecond
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
 			time.Sleep(delay)
 			return passJSON(), nil
 		},
@@ -73,7 +73,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	// skill 2 should never run.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, userPrompt string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
 			// All skills get the same fail response; mandatory matters for fail-fast
 			return failJSON(), nil
 		},
@@ -83,7 +83,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	skills := []registry.Skill{
 		passSkill("repo-convention-enforcer", false), // non-mandatory — fails but continues
 		passSkill("arch-index-alignment", true),      // mandatory — fails, triggers fail-fast
-		passSkill("orphan-directory-detector", true),  // should be skipped by fail-fast
+		passSkill("orphan-directory-detector", true), // should be skipped by fail-fast
 	}
 
 	opts := defaultOpts(skills, t.TempDir())
@@ -282,5 +282,174 @@ func TestRun_FindingDetails(t *testing.T) {
 	}
 	if r.Elapsed < 0 {
 		t.Errorf("Elapsed = %f, want >= 0", r.Elapsed)
+	}
+}
+
+func TestRun_ModelRouting(t *testing.T) {
+	// Verify that the model from config.ModelRouting reaches the agent.
+	mock := &agent.MockAgent{
+		NameVal:                "test",
+		NonInteractiveResponse: passJSON(),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	cheapSkill := registry.Skill{
+		Name: "repo-convention-enforcer", Version: "v1", Cost: "cheap",
+		RequiresDiff: boolPtr(false),
+	}
+	heavySkill := registry.Skill{
+		Name: "arch-index-alignment", Version: "v1", Cost: "heavy",
+		RequiresDiff: boolPtr(false),
+	}
+
+	cfg := config.Default()
+	cfg.Agents.Models.Check.Cheap = "haiku"
+	cfg.Agents.Models.Check.Heavy = "opus"
+
+	opts := orchestrator.RunOpts{
+		Skills:              []registry.Skill{cheapSkill, heavySkill},
+		Source:              "test",
+		RepoRoot:            t.TempDir(),
+		Config:              cfg,
+		DefaultRequiresDiff: true,
+		Concurrency:         1,
+	}
+
+	_, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if mock.CallCount() != 2 {
+		t.Fatalf("calls = %d, want 2", mock.CallCount())
+	}
+	if got := mock.NonInteractiveCalls[0].Model; got != "haiku" {
+		t.Errorf("call[0].Model = %q, want haiku", got)
+	}
+	if got := mock.NonInteractiveCalls[1].Model; got != "opus" {
+		t.Errorf("call[1].Model = %q, want opus", got)
+	}
+}
+
+func TestRun_ModelOverride(t *testing.T) {
+	// Verify that ModelOverride in RunOpts takes precedence over config routing.
+	mock := &agent.MockAgent{
+		NameVal:                "test",
+		NonInteractiveResponse: passJSON(),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	cheapSkill := registry.Skill{
+		Name: "repo-convention-enforcer", Version: "v1", Cost: "cheap",
+		RequiresDiff: boolPtr(false),
+	}
+	heavySkill := registry.Skill{
+		Name: "arch-index-alignment", Version: "v1", Cost: "heavy",
+		RequiresDiff: boolPtr(false),
+	}
+
+	cfg := config.Default()
+	// Config says cheap=haiku, heavy=sonnet, but override should win
+	cfg.Agents.Models.Check.Cheap = "haiku"
+	cfg.Agents.Models.Check.Heavy = "sonnet"
+
+	opts := orchestrator.RunOpts{
+		Skills:              []registry.Skill{cheapSkill, heavySkill},
+		Source:              "test",
+		RepoRoot:            t.TempDir(),
+		Config:              cfg,
+		DefaultRequiresDiff: true,
+		Concurrency:         1,
+		ModelOverride:       "opus",
+	}
+
+	_, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if mock.CallCount() != 2 {
+		t.Fatalf("calls = %d, want 2", mock.CallCount())
+	}
+	// Both should be "opus" regardless of cost tier
+	if got := mock.NonInteractiveCalls[0].Model; got != "opus" {
+		t.Errorf("call[0].Model = %q, want opus (override)", got)
+	}
+	if got := mock.NonInteractiveCalls[1].Model; got != "opus" {
+		t.Errorf("call[1].Model = %q, want opus (override)", got)
+	}
+}
+
+func TestRun_ModelRouting_DefaultFallback(t *testing.T) {
+	// Verify that an empty cost field falls back to ModelRouting.Default.
+	mock := &agent.MockAgent{
+		NameVal:                "test",
+		NonInteractiveResponse: passJSON(),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	// Skill with empty cost
+	noCostSkill := registry.Skill{
+		Name: "repo-convention-enforcer", Version: "v1", Cost: "",
+		RequiresDiff: boolPtr(false),
+	}
+
+	cfg := config.Default()
+	cfg.Agents.Models.Default = "custom-model"
+
+	opts := orchestrator.RunOpts{
+		Skills:              []registry.Skill{noCostSkill},
+		Source:              "test",
+		RepoRoot:            t.TempDir(),
+		Config:              cfg,
+		DefaultRequiresDiff: true,
+		Concurrency:         1,
+	}
+
+	_, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if mock.CallCount() != 1 {
+		t.Fatalf("calls = %d, want 1", mock.CallCount())
+	}
+	if got := mock.NonInteractiveCalls[0].Model; got != "custom-model" {
+		t.Errorf("call[0].Model = %q, want custom-model (default fallback)", got)
+	}
+}
+
+func TestRun_ModelRouting_NilConfig(t *testing.T) {
+	// Verify no panic when Config is nil (model should be empty).
+	mock := &agent.MockAgent{
+		NameVal:                "test",
+		NonInteractiveResponse: passJSON(),
+	}
+
+	orch := newTestOrch(t, mock)
+	skills := []registry.Skill{passSkill("repo-convention-enforcer", false)}
+
+	opts := orchestrator.RunOpts{
+		Skills:              skills,
+		Source:              "test",
+		RepoRoot:            t.TempDir(),
+		Config:              nil,
+		DefaultRequiresDiff: true,
+		Concurrency:         1,
+	}
+
+	_, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if mock.CallCount() != 1 {
+		t.Fatalf("calls = %d, want 1", mock.CallCount())
+	}
+	if got := mock.NonInteractiveCalls[0].Model; got != "" {
+		t.Errorf("call[0].Model = %q, want empty (nil config)", got)
 	}
 }
