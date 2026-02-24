@@ -2,6 +2,7 @@ package agent_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -391,6 +392,8 @@ func TestRouter_FallsBackToClaudeWhenNoKey(t *testing.T) {
 // TestRouter_FallsBackToClaudeOnAnthropicError verifies that when the
 // Anthropic direct API fails (e.g. bad key, outage), the router falls
 // back to Claude CLI instead of hard-failing.
+//
+// Uses MockAgent for the Anthropic slot — no network calls.
 func TestRouter_FallsBackToClaudeOnAnthropicError(t *testing.T) {
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
@@ -404,12 +407,16 @@ cat
 		t.Fatalf("write: %v", err)
 	}
 
-	// Build router with a bad Anthropic key — API call will fail with
-	// auth error, router should fall back to the fake Claude binary.
+	// Construct router manually: Anthropic slot is a mock that always
+	// returns an error, simulating auth failure / outage.
 	t.Setenv("ANTHROPIC_API_KEY", "")
-	r := agent.NewRouter(fakeBin, "nonexistent-codex", agent.WithAPIKey("sk-bad-key"))
-	if r.Anthropic == nil {
-		t.Fatal("expected Anthropic to be non-nil with explicit key")
+	r := &agent.Router{
+		Claude: agent.NewClaude(fakeBin),
+		Codex:  agent.NewCodex("nonexistent-codex"),
+		Anthropic: &agent.MockAgent{
+			NameVal:           "anthropic",
+			NonInteractiveErr: errors.New("401 authentication_error"),
+		},
 	}
 
 	out, err := r.NonInteractive(t.Context(), "sys", "user-input", "haiku")
@@ -420,13 +427,19 @@ cat
 		t.Errorf("output = %q, expected user-input from Claude CLI fallback", out)
 	}
 
-	// Verify Claude CLI was actually called (not just Anthropic error).
+	// Verify Claude CLI was actually called after Anthropic failure.
 	argsData, err := os.ReadFile(argsFile)
 	if err != nil {
 		t.Fatalf("read args: %v", err)
 	}
 	if !strings.Contains(string(argsData), "--model") || !strings.Contains(string(argsData), "haiku") {
 		t.Errorf("expected --model haiku in Claude CLI fallback args:\n%s", argsData)
+	}
+
+	// Verify Anthropic was attempted first.
+	mock := r.Anthropic.(*agent.MockAgent)
+	if mock.CallCount() != 1 {
+		t.Errorf("Anthropic CallCount = %d, want 1", mock.CallCount())
 	}
 }
 

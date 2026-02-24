@@ -19,7 +19,7 @@ import (
 type Router struct {
 	Claude    *Claude
 	Codex     *Codex
-	Anthropic *Anthropic // nil when no API key is available
+	Anthropic Agent // nil when no API key is available
 }
 
 // NewRouter creates an agent router with all backends configured.
@@ -27,11 +27,16 @@ type Router struct {
 // key is available the Anthropic field is nil and Claude CLI is used
 // as the fallback for claude-family models.
 func NewRouter(claudeBin, codexBin string, opts ...AnthropicOption) *Router {
-	return &Router{
-		Claude:    NewClaude(claudeBin),
-		Codex:     NewCodex(codexBin),
-		Anthropic: NewAnthropic(opts...),
+	r := &Router{
+		Claude: NewClaude(claudeBin),
+		Codex:  NewCodex(codexBin),
 	}
+	// Assign only when non-nil to avoid the nil-concrete-in-interface
+	// trap: (*Anthropic)(nil) stored in an Agent interface is non-nil.
+	if a := NewAnthropic(opts...); a != nil {
+		r.Anthropic = a
+	}
+	return r
 }
 
 // Name returns "router".
