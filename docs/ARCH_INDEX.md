@@ -93,11 +93,13 @@ ARCH_INDEX.md.
 
 ## `internal/agent`
 
-AI agent backend interface and exec-based implementations for `claude`
-and `codex` CLIs. Supports interactive and non-interactive invocation.
+AI agent backend interface with three implementations: direct Anthropic
+API (Go SDK), Claude CLI (subprocess), and Codex CLI (subprocess).
+Supports interactive and non-interactive invocation.
 
-- **Key files:** `agent.go` (interface), `claude.go`, `codex.go`, `router.go` (model-based dispatch), `mock.go`
+- **Key files:** `agent.go` (interface + Model type), `anthropic.go` (direct API), `claude.go`, `codex.go`, `router.go` (model-based dispatch + fallback), `mock.go`
 - **Depends on:** *(nothing internal)*
+- **See also:** [`docs/agent_backends.md`](agent_backends.md) for provider-specific behavior and quirks
 
 ## `internal/registry`
 

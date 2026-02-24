@@ -6,7 +6,7 @@ Characteristics:
 - Single binary (`bonsai`)
 - Strictly internal packages (no `pkg/`)
 - Embedded assets via `go:embed`
-- Shell-outs to `claude` and `codex` CLIs for AI agent backends
+- Shell-outs to `claude` and `codex` CLIs, plus direct Anthropic API calls via SDK, for AI agent backends
 - No CGo, no libgit2 — exec-based git wrappers only
 
 Expect:
