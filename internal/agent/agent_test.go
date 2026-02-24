@@ -10,6 +10,64 @@ import (
 	"github.com/pithecene-io/bonsai/internal/agent"
 )
 
+func TestModel_IsHaiku(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"haiku", true},
+		{"Haiku", true},
+		{"claude-3-5-haiku-latest", true},
+		{"sonnet", false},
+		{"codex", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		if got := agent.Model(tt.model).IsHaiku(); got != tt.want {
+			t.Errorf("Model(%q).IsHaiku() = %v, want %v", tt.model, got, tt.want)
+		}
+	}
+}
+
+func TestModel_IsCodex(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"codex", true},
+		{"codex-mini", true},
+		{"Codex-4o", true},
+		{"haiku", false},
+		{"sonnet", false},
+		{"mycodex", false}, // prefix, not substring
+		{"", false},
+	}
+	for _, tt := range tests {
+		if got := agent.Model(tt.model).IsCodex(); got != tt.want {
+			t.Errorf("Model(%q).IsCodex() = %v, want %v", tt.model, got, tt.want)
+		}
+	}
+}
+
+func TestModel_IsLite(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"haiku", true},
+		{"codex", true},
+		{"codex-mini", true},
+		{"sonnet", false},
+		{"opus", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		if got := agent.Model(tt.model).IsLite(); got != tt.want {
+			t.Errorf("Model(%q).IsLite() = %v, want %v", tt.model, got, tt.want)
+		}
+	}
+}
+
 func TestNewClaude_DefaultBin(t *testing.T) {
 	c := agent.NewClaude("")
 	if c.Bin != "claude" {

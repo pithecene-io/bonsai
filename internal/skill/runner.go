@@ -11,10 +11,10 @@ import (
 
 // RunOpts holds options for running a skill.
 type RunOpts struct {
-	RepoTree    string // Repository tree listing
-	DiffPayload string // Diff content (from --base)
-	BaseRef     string // Base ref for diff context
-	Model       string // Model override (e.g. "haiku", "sonnet"); empty = agent default
+	RepoTree    string      // Repository tree listing
+	DiffPayload string      // Diff content (from --base)
+	BaseRef     string      // Base ref for diff context
+	Model       agent.Model // Model override (e.g. "haiku", "sonnet"); empty = agent default
 }
 
 // Runner invokes skills via an AI agent.
@@ -34,7 +34,7 @@ func (r *Runner) Run(ctx context.Context, def *Definition, opts RunOpts) (*Outpu
 	systemPrompt, err := r.builder.BuildValidator(prompt.ValidatorOpts{
 		SkillBody:    def.Body,
 		OutputSchema: def.OutputSchema,
-		Lite:         strings.Contains(strings.ToLower(opts.Model), "haiku"),
+		Lite:         opts.Model.IsLite(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build system prompt: %w", err)
@@ -44,7 +44,7 @@ func (r *Runner) Run(ctx context.Context, def *Definition, opts RunOpts) (*Outpu
 	userPrompt := buildUserPrompt(opts)
 
 	// Invoke agent non-interactively
-	response, err := r.agent.NonInteractive(ctx, systemPrompt, userPrompt, opts.Model)
+	response, err := r.agent.NonInteractive(ctx, systemPrompt, userPrompt, string(opts.Model))
 	if err != nil {
 		return nil, fmt.Errorf("agent invocation: %w", err)
 	}

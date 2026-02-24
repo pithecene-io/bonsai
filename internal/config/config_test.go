@@ -168,7 +168,7 @@ func TestModelForCheck(t *testing.T) {
 			name: "cheap returns check.cheap",
 			r:    config.Default().Agents.Models,
 			cost: "cheap",
-			want: "haiku",
+			want: "codex",
 		},
 		{
 			name: "moderate returns check.moderate",
@@ -284,8 +284,8 @@ func TestDefaultModelRouting(t *testing.T) {
 	if m.Default != "sonnet" {
 		t.Errorf("Default = %q, want sonnet", m.Default)
 	}
-	if m.Check.Cheap != "haiku" {
-		t.Errorf("Check.Cheap = %q, want haiku", m.Check.Cheap)
+	if m.Check.Cheap != "codex" {
+		t.Errorf("Check.Cheap = %q, want codex", m.Check.Cheap)
 	}
 	if m.Check.Moderate != "sonnet" {
 		t.Errorf("Check.Moderate = %q, want sonnet", m.Check.Moderate)

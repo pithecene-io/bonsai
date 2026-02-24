@@ -61,7 +61,7 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	)
 
 	// Use low effort for haiku to minimize latency on cheap evaluation.
-	if strings.Contains(strings.ToLower(model), "haiku") {
+	if Model(model).IsHaiku() {
 		args = append(args, "--effort", "low")
 	}
 

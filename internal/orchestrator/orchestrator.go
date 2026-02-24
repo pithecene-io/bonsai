@@ -292,11 +292,11 @@ func (o *Orchestrator) runSingleSkill(
 	}
 
 	// Resolve model: explicit override > config routing by cost tier
-	var model string
+	var model agent.Model
 	if opts.ModelOverride != "" {
-		model = opts.ModelOverride
+		model = agent.Model(opts.ModelOverride)
 	} else if opts.Config != nil {
-		model = opts.Config.Agents.Models.ModelForCheck(s.Cost)
+		model = agent.Model(opts.Config.Agents.Models.ModelForCheck(s.Cost))
 	}
 
 	output, err := runner.Run(ctx, def, skill.RunOpts{

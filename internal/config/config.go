@@ -59,7 +59,7 @@ type AgentBinConfig struct {
 //	  models:
 //	    default: sonnet         # fallback for unspecified roles/costs
 //	    check:
-//	      cheap: haiku          # fast governance checks
+//	      cheap: codex          # fast governance checks
 //	      moderate: sonnet      # medium-complexity checks
 //	      heavy: sonnet         # expensive checks
 //	    implement: opus         # feature work
@@ -179,7 +179,7 @@ func Default() *Config {
 			Models: ModelRouting{
 				Default: "sonnet",
 				Check: CostModels{
-					Cheap:    "haiku",
+					Cheap:    "codex",
 					Moderate: "sonnet",
 					Heavy:    "sonnet",
 				},

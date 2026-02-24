@@ -1,9 +1,6 @@
 package agent
 
-import (
-	"context"
-	"strings"
-)
+import "context"
 
 // Router implements Agent by dispatching to either the Claude or Codex
 // backend based on the model string. When model is "codex", the Codex
@@ -36,7 +33,7 @@ func (r *Router) Interactive(ctx context.Context, systemPrompt string, extraArgs
 // NonInteractive dispatches based on the model string.
 // "codex*" → Codex agent; anything else → Claude agent with that model.
 func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
-	if strings.HasPrefix(model, "codex") {
+	if Model(model).IsCodex() {
 		return r.Codex.NonInteractive(ctx, systemPrompt, userPrompt, model)
 	}
 	return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)

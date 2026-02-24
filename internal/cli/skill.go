@@ -115,7 +115,7 @@ func runSkill(c *cli.Context) error {
 		RepoTree:    strings.Join(repoTree, "\n"),
 		DiffPayload: diffPayload,
 		BaseRef:     baseRef,
-		Model:       model,
+		Model:       agent.Model(model),
 	})
 	if err != nil {
 		return err
