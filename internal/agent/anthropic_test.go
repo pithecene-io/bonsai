@@ -332,12 +332,18 @@ func TestAnthropic_RequestShape_OAuth(t *testing.T) {
 		t.Errorf("Authorization = %q, want Bearer prefix", auth)
 	}
 
-	// X-Api-Key must be suppressed — this is the billing-critical
-	// contract from option.WithAPIKey("").  If present, the API
-	// checks that account's credit balance instead of routing to
-	// the Max/Pro subscription.
-	if got := captured.Header.Get("X-Api-Key"); got != "" {
-		t.Errorf("X-Api-Key should be suppressed on OAuth path, got %q", got)
+	// X-Api-Key must not carry a real key — this is the billing-critical
+	// contract from option.WithAPIKey("").  The SDK sends the header with
+	// an empty value (present but empty); what matters is that no actual
+	// API key leaks through, which would cause the API to check that
+	// account's credit balance instead of routing to the Max/Pro
+	// subscription.  Use the map form to inspect every value.
+	if vals, exists := captured.Header["X-Api-Key"]; exists {
+		for _, v := range vals {
+			if v != "" {
+				t.Errorf("X-Api-Key should be empty on OAuth path, got %q", v)
+			}
+		}
 	}
 
 	// OAuth-specific headers.
