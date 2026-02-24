@@ -293,14 +293,14 @@ func TestDefaultModelRouting(t *testing.T) {
 	if m.Check.Heavy != "sonnet" {
 		t.Errorf("Check.Heavy = %q, want sonnet", m.Check.Heavy)
 	}
-	if m.Implement != "sonnet" {
-		t.Errorf("Implement = %q, want sonnet", m.Implement)
+	if m.Implement != "opus" {
+		t.Errorf("Implement = %q, want opus", m.Implement)
 	}
-	if m.Plan != "sonnet" {
-		t.Errorf("Plan = %q, want sonnet", m.Plan)
+	if m.Plan != "opus" {
+		t.Errorf("Plan = %q, want opus", m.Plan)
 	}
-	if m.Review != "sonnet" {
-		t.Errorf("Review = %q, want sonnet", m.Review)
+	if m.Review != "codex" {
+		t.Errorf("Review = %q, want codex", m.Review)
 	}
 	if m.Patch != "sonnet" {
 		t.Errorf("Patch = %q, want sonnet", m.Patch)
@@ -347,8 +347,8 @@ func TestLoadRepoConfig_ModelRouting(t *testing.T) {
 		t.Errorf("Models.Plan = %q, want opus", cfg.Agents.Models.Plan)
 	}
 	// Unset fields should retain defaults
-	if cfg.Agents.Models.Review != "sonnet" {
-		t.Errorf("Models.Review = %q, want sonnet (default)", cfg.Agents.Models.Review)
+	if cfg.Agents.Models.Review != "codex" {
+		t.Errorf("Models.Review = %q, want codex (default)", cfg.Agents.Models.Review)
 	}
 	if cfg.Agents.Models.Check.Moderate != "sonnet" {
 		t.Errorf("Models.Check.Moderate = %q, want sonnet (default)", cfg.Agents.Models.Check.Moderate)

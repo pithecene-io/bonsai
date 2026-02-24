@@ -57,16 +57,16 @@ type AgentBinConfig struct {
 //
 //	agents:
 //	  models:
-//	    default: sonnet
+//	    default: sonnet         # fallback for unspecified roles/costs
 //	    check:
-//	      cheap: haiku
-//	      moderate: sonnet
-//	      heavy: sonnet
-//	    implement: opus
-//	    plan: opus
-//	    review: sonnet
-//	    patch: sonnet
-//	    chat: sonnet
+//	      cheap: haiku          # fast governance checks
+//	      moderate: sonnet      # medium-complexity checks
+//	      heavy: sonnet         # expensive checks
+//	    implement: opus         # feature work
+//	    plan: opus              # planning sessions
+//	    review: codex            # code review (uses codex agent)
+//	    patch: sonnet           # patch surgery
+//	    chat: sonnet            # interactive chat
 type ModelRouting struct {
 	Default   string      `yaml:"default"`
 	Check     CostModels  `yaml:"check"`
@@ -183,9 +183,9 @@ func Default() *Config {
 					Moderate: "sonnet",
 					Heavy:    "sonnet",
 				},
-				Implement: "sonnet",
-				Plan:      "sonnet",
-				Review:    "sonnet",
+				Implement: "opus",
+				Plan:      "opus",
+				Review:    "codex",
 				Patch:     "sonnet",
 				Chat:      "sonnet",
 			},
