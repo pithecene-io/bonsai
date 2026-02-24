@@ -62,9 +62,14 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 		if err == nil {
 			return out, nil
 		}
-		// Context cancellation means the caller is done — falling back
-		// would just add noise and latency.
-		if ctx.Err() != nil {
+		// Context cancellation or deadline exceeded means the caller is
+		// done — falling back would just add noise and latency.  Check
+		// both the context and the error chain: the context reflects the
+		// caller's intent, while the error chain catches transport-level
+		// timeouts where ctx.Err() may still be nil.
+		if ctx.Err() != nil ||
+			errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) {
 			return "", err
 		}
 		// Anthropic failed — fall back to Claude CLI so a bad key or

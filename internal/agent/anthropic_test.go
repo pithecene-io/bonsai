@@ -104,32 +104,40 @@ func writeOAuthCredentials(t *testing.T, dir string) {
 
 // TestNewAnthropic_CredentialPrecedence verifies the 3-tier credential
 // resolution order: explicit key → OAuth → env var.
+//
+// For the "explicit wins over all" case, both explicit and env keys are
+// non-OAuth, so IsOAuth alone cannot distinguish them.  We additionally
+// point a WithBaseURL at an httptest server and assert which X-Api-Key
+// actually arrives on the wire.
 func TestNewAnthropic_CredentialPrecedence(t *testing.T) {
 	tests := []struct {
-		name      string
-		explicit  string
-		oauth     bool
-		envKey    string
-		wantNil   bool
-		wantOAuth bool
+		name       string
+		explicit   string
+		oauth      bool
+		envKey     string
+		wantNil    bool
+		wantOAuth  bool
+		wantAPIKey string // if non-empty, verified via httptest
 	}{
 		{
-			name:      "explicit wins over all",
-			explicit:  "sk-x",
-			oauth:     true,
-			envKey:    "sk-e",
-			wantOAuth: false,
+			name:       "explicit wins over all",
+			explicit:   "sk-explicit",
+			oauth:      true,
+			envKey:     "sk-env",
+			wantOAuth:  false,
+			wantAPIKey: "sk-explicit",
 		},
 		{
 			name:      "OAuth wins over env",
 			oauth:     true,
-			envKey:    "sk-e",
+			envKey:    "sk-env",
 			wantOAuth: true,
 		},
 		{
-			name:      "env used when alone",
-			envKey:    "sk-e",
-			wantOAuth: false,
+			name:       "env used when alone",
+			envKey:     "sk-env",
+			wantOAuth:  false,
+			wantAPIKey: "sk-env",
 		},
 		{
 			name:    "nil when nothing",
@@ -151,7 +159,17 @@ func TestNewAnthropic_CredentialPrecedence(t *testing.T) {
 				t.Setenv("ANTHROPIC_API_KEY", "")
 			}
 
+			// Capture the key that actually hits the wire.
+			var gotKey string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotKey = r.Header.Get("X-Api-Key")
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(anthropicStubResponse()))
+			}))
+			defer srv.Close()
+
 			var opts []agent.AnthropicOption
+			opts = append(opts, agent.WithBaseURL(srv.URL))
 			if tt.explicit != "" {
 				opts = append(opts, agent.WithAPIKey(tt.explicit))
 			}
@@ -168,6 +186,18 @@ func TestNewAnthropic_CredentialPrecedence(t *testing.T) {
 			}
 			if got := a.IsOAuth(); got != tt.wantOAuth {
 				t.Errorf("IsOAuth() = %v, want %v", got, tt.wantOAuth)
+			}
+
+			// When wantAPIKey is set, make a real request and verify
+			// the key that arrives on the wire.
+			if tt.wantAPIKey != "" {
+				_, err := a.NonInteractive(t.Context(), "sys", "user", "haiku")
+				if err != nil {
+					t.Fatalf("NonInteractive: %v", err)
+				}
+				if gotKey != tt.wantAPIKey {
+					t.Errorf("X-Api-Key on wire = %q, want %q", gotKey, tt.wantAPIKey)
+				}
 			}
 		})
 	}
@@ -300,6 +330,14 @@ func TestAnthropic_RequestShape_OAuth(t *testing.T) {
 	auth := captured.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, "Bearer ") {
 		t.Errorf("Authorization = %q, want Bearer prefix", auth)
+	}
+
+	// X-Api-Key must be suppressed — this is the billing-critical
+	// contract from option.WithAPIKey("").  If present, the API
+	// checks that account's credit balance instead of routing to
+	// the Max/Pro subscription.
+	if got := captured.Header.Get("X-Api-Key"); got != "" {
+		t.Errorf("X-Api-Key should be suppressed on OAuth path, got %q", got)
 	}
 
 	// OAuth-specific headers.
