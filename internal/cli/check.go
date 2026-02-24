@@ -33,6 +33,7 @@ func checkCommand() *cli.Command {
 			&cli.StringFlag{Name: "diff-profile", Usage: "JSON diff profile (reserved)"},
 			&cli.IntFlag{Name: "jobs", Aliases: []string{"j"}, Usage: "Max parallel skill invocations"},
 			&cli.BoolFlag{Name: "no-progress", Usage: "Disable TUI progress display"},
+			&cli.StringFlag{Name: "model", Usage: "Override model for all skills (e.g. haiku, sonnet, opus)"},
 		},
 		Action: runCheck,
 	}
@@ -46,6 +47,7 @@ func runCheck(c *cli.Context) error {
 	failFast := c.Bool("fail-fast")
 	bundleExplicit := c.IsSet("bundle")
 	noProgress := c.Bool("no-progress")
+	modelOverride := c.String("model")
 
 	// Mutual exclusion
 	if mode != "" && bundleExplicit {
@@ -122,6 +124,7 @@ func runCheck(c *cli.Context) error {
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         concurrency,
+		ModelOverride:       modelOverride,
 	}
 
 	// TTY detection: use TUI if stdout is a terminal and --no-progress is not set

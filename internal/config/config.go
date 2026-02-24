@@ -37,33 +37,36 @@ type GateConfig struct {
 	MaxIterations int `yaml:"max_iterations"`
 }
 
-// AgentsConfig holds agent binary paths.
+// AgentsConfig holds agent binary paths and model routing.
+// Model routing is a bonsai-level concern (not per-agent), so Models
+// lives here rather than inside each AgentBinConfig.
 type AgentsConfig struct {
 	Claude AgentBinConfig `yaml:"claude"`
 	Codex  AgentBinConfig `yaml:"codex"`
+	Models ModelRouting   `yaml:"models"`
 }
 
-// AgentBinConfig holds the path to an agent binary and model routing.
+// AgentBinConfig holds the path to an agent binary.
 type AgentBinConfig struct {
-	Bin    string       `yaml:"bin"`
-	Models ModelRouting `yaml:"models"`
+	Bin string `yaml:"bin"`
 }
 
 // ModelRouting controls model selection per role and cost tier.
 //
-// YAML example:
+// YAML path: agents.models
 //
-//	models:
-//	  default: sonnet
-//	  check:
-//	    cheap: haiku
-//	    moderate: sonnet
-//	    heavy: sonnet
-//	  implement: opus
-//	  plan: opus
-//	  review: sonnet
-//	  patch: sonnet
-//	  chat: sonnet
+//	agents:
+//	  models:
+//	    default: sonnet
+//	    check:
+//	      cheap: haiku
+//	      moderate: sonnet
+//	      heavy: sonnet
+//	    implement: opus
+//	    plan: opus
+//	    review: sonnet
+//	    patch: sonnet
+//	    chat: sonnet
 type ModelRouting struct {
 	Default   string      `yaml:"default"`
 	Check     CostModels  `yaml:"check"`
@@ -171,23 +174,21 @@ func Default() *Config {
 			Concurrency: 4,
 		},
 		Agents: AgentsConfig{
-			Claude: AgentBinConfig{
-				Bin: "claude",
-				Models: ModelRouting{
-					Default: "sonnet",
-					Check: CostModels{
-						Cheap:    "haiku",
-						Moderate: "sonnet",
-						Heavy:    "sonnet",
-					},
-					Implement: "sonnet",
-					Plan:      "sonnet",
-					Review:    "sonnet",
-					Patch:     "sonnet",
-					Chat:      "sonnet",
+			Claude: AgentBinConfig{Bin: "claude"},
+			Codex:  AgentBinConfig{Bin: "codex"},
+			Models: ModelRouting{
+				Default: "sonnet",
+				Check: CostModels{
+					Cheap:    "haiku",
+					Moderate: "sonnet",
+					Heavy:    "sonnet",
 				},
+				Implement: "sonnet",
+				Plan:      "sonnet",
+				Review:    "sonnet",
+				Patch:     "sonnet",
+				Chat:      "sonnet",
 			},
-			Codex: AgentBinConfig{Bin: "codex"},
 		},
 		Output: OutputConfig{
 			Dir: "ai/out",

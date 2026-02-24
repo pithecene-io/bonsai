@@ -27,8 +27,9 @@ type RunOpts struct {
 	FailFast            bool             // Stop on first mandatory failure
 	RepoRoot            string           // Repository root
 	Config              *config.Config
-	DefaultRequiresDiff bool // Registry defaults.requires_diff value
-	Concurrency         int  // Max parallel skills; <= 0 defaults to 1
+	DefaultRequiresDiff bool   // Registry defaults.requires_diff value
+	Concurrency         int    // Max parallel skills; <= 0 defaults to 1
+	ModelOverride       string // When non-empty, overrides config-based model routing for all skills
 }
 
 // Result holds the outcome of a single skill invocation.
@@ -290,10 +291,12 @@ func (o *Orchestrator) runSingleSkill(
 		}
 	}
 
-	// Resolve model from config based on cost tier
+	// Resolve model: explicit override > config routing by cost tier
 	var model string
-	if opts.Config != nil {
-		model = opts.Config.Agents.Claude.Models.ModelForCheck(s.Cost)
+	if opts.ModelOverride != "" {
+		model = opts.ModelOverride
+	} else if opts.Config != nil {
+		model = opts.Config.Agents.Models.ModelForCheck(s.Cost)
 	}
 
 	output, err := runner.Run(ctx, def, skill.RunOpts{
