@@ -186,6 +186,7 @@ func (b *Builder) BuildReview() (string, error) {
 type ValidatorOpts struct {
 	SkillBody    string // SKILL.md body (frontmatter stripped)
 	OutputSchema string // output.schema.json content
+	Lite         bool   // Lite skips governance layers for fast evaluation (haiku)
 }
 
 // BuildValidator builds a system prompt for skill validation.
@@ -196,26 +197,38 @@ func (b *Builder) BuildValidator(opts ValidatorOpts) (string, error) {
 	// Preamble + mode
 	parts = append(parts, "You are operating in VALIDATOR mode.", "")
 
-	// Global CLAUDE.md (sovereign)
-	claudeMD, err := b.resolver.ReadEmbedded("claude.md")
-	if err != nil {
-		return "", fmt.Errorf("read claude.md: %w", err)
-	}
-	parts = append(parts, string(claudeMD))
+	if opts.Lite {
+		// Minimal preamble for fast evaluation (haiku). Skips all
+		// governance layers to stay within tight token/latency budgets.
+		parts = append(parts,
+			"You are a code-quality validator. Evaluate the repository and emit JSON.",
+			"",
+		)
+	} else {
+		// Validator-trimmed governance preamble (sovereign).
+		// Uses a minimal subset of claude.md — omits commit/PR conventions,
+		// gitmoji table, diff-only rules, and other interactive-only content
+		// to keep system prompt small and fast for non-interactive evaluation.
+		claudeVal, err := b.resolver.ReadEmbedded("claude_validator.md")
+		if err != nil {
+			return "", fmt.Errorf("read claude_validator.md: %w", err)
+		}
+		parts = append(parts, string(claudeVal))
 
-	// Repo-local CLAUDE.md (additive)
-	if repoClaude := b.readRepoFile("CLAUDE.md"); repoClaude != "" {
-		parts = append(parts, "", "Repo-local constitution (CLAUDE.md):", "", repoClaude)
-	}
+		// Repo-local CLAUDE.md (additive)
+		if repoClaude := b.readRepoFile("CLAUDE.md"); repoClaude != "" {
+			parts = append(parts, "", "Repo-local constitution (CLAUDE.md):", "", repoClaude)
+		}
 
-	// AGENTS.md
-	if agentsMD := b.readRepoFile("AGENTS.md"); agentsMD != "" {
-		parts = append(parts, "", "Repo-local constraints (AGENTS.md):", "", agentsMD)
-	}
+		// AGENTS.md
+		if agentsMD := b.readRepoFile("AGENTS.md"); agentsMD != "" {
+			parts = append(parts, "", "Repo-local constraints (AGENTS.md):", "", agentsMD)
+		}
 
-	// ARCH_INDEX.md
-	if archIndex := b.readArchIndex(); archIndex != "" {
-		parts = append(parts, "", "Architecture index (docs/ARCH_INDEX.md):", "", archIndex)
+		// ARCH_INDEX.md
+		if archIndex := b.readArchIndex(); archIndex != "" {
+			parts = append(parts, "", "Architecture index (docs/ARCH_INDEX.md):", "", archIndex)
+		}
 	}
 
 	// SKILL.md body

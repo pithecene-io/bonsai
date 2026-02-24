@@ -20,3 +20,7 @@ Thumbs.db
 
 # AI governance runtime artifacts
 ai/out/
+*.log
+
+# Task runner
+.task/

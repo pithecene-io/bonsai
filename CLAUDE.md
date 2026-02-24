@@ -36,6 +36,7 @@ internal/config  → internal/assets
 internal/repo    → internal/gitutil
 internal/prompt  → internal/assets, internal/repo
 internal/agent   → (nothing internal)
+internal/xio     → (nothing internal)
 internal/skill   → internal/agent, internal/prompt, internal/registry
 internal/registry → internal/assets
 internal/diff    → internal/gitutil, internal/repo

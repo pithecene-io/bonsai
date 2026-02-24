@@ -27,8 +27,9 @@ type RunOpts struct {
 	FailFast            bool             // Stop on first mandatory failure
 	RepoRoot            string           // Repository root
 	Config              *config.Config
-	DefaultRequiresDiff bool // Registry defaults.requires_diff value
-	Concurrency         int  // Max parallel skills; <= 0 defaults to 1
+	DefaultRequiresDiff bool   // Registry defaults.requires_diff value
+	Concurrency         int    // Max parallel skills; <= 0 defaults to 1
+	ModelOverride       string // When non-empty, overrides config-based model routing for all skills
 }
 
 // Result holds the outcome of a single skill invocation.
@@ -197,7 +198,7 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 				Mandatory: s.Mandatory,
 			})
 
-			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts.BaseRef)
+			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts)
 			results[idx] = result
 
 			elapsed := time.Duration(result.Elapsed * float64(time.Millisecond))
@@ -270,7 +271,8 @@ func (o *Orchestrator) runSingleSkill(
 	ctx context.Context,
 	s registry.Skill,
 	runner *skill.Runner,
-	repoTreeStr, diffPayload, baseRef string,
+	repoTreeStr, diffPayload string,
+	opts RunOpts,
 ) Result {
 	start := time.Now()
 
@@ -289,10 +291,19 @@ func (o *Orchestrator) runSingleSkill(
 		}
 	}
 
+	// Resolve model: explicit override > config routing by cost tier
+	var model agent.Model
+	if opts.ModelOverride != "" {
+		model = agent.Model(opts.ModelOverride)
+	} else if opts.Config != nil {
+		model = agent.Model(opts.Config.Agents.Models.ModelForCheck(s.Cost))
+	}
+
 	output, err := runner.Run(ctx, def, skill.RunOpts{
 		RepoTree:    repoTreeStr,
 		DiffPayload: diffPayload,
-		BaseRef:     baseRef,
+		BaseRef:     opts.BaseRef,
+		Model:       model,
 	})
 	elapsed := float64(time.Since(start).Milliseconds())
 

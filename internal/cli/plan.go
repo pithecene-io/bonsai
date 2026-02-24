@@ -61,7 +61,13 @@ func runPlan(c *cli.Context) error {
 
 	// Create agent and start interactive session
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	extraArgs := c.Args().Slice()
+	planModel := cfg.Agents.Models.ModelForRole("plan")
+
+	extraArgs := []string{}
+	if planModel != "" {
+		extraArgs = append(extraArgs, "--model", planModel)
+	}
+	extraArgs = append(extraArgs, c.Args().Slice()...)
 
 	// Run session. Match shell: `claude ... || true` — ignore ctrl-C / session end.
 	_ = claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)

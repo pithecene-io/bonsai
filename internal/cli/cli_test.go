@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pithecene-io/bonsai/internal/cli"
+	"github.com/pithecene-io/bonsai/internal/xio"
 )
 
 // runApp runs the CLI with the given args and captures stdout.
@@ -89,7 +90,8 @@ func TestHooksInstall_ExistingHook_NoOverwrite(t *testing.T) {
 	origStdin := os.Stdin
 	devNull, _ := os.Open(os.DevNull)
 	os.Stdin = devNull
-	defer func() { os.Stdin = origStdin; _ = devNull.Close() }()
+	defer func() { os.Stdin = origStdin }()
+	defer xio.DiscardClose(devNull)
 
 	_, err := runApp(t, "hooks", "install")
 	if err != nil {

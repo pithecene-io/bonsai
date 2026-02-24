@@ -9,6 +9,7 @@ import (
 type NonInteractiveCall struct {
 	SystemPrompt string
 	UserPrompt   string
+	Model        string
 }
 
 // InteractiveCall records a call to Interactive.
@@ -32,7 +33,7 @@ type MockAgent struct {
 	// NonInteractiveFunc, when set, is called instead of returning
 	// the static NonInteractiveResponse/NonInteractiveErr. Useful for
 	// per-call mock responses in parallel tests.
-	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt string) (string, error)
+	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt, model string) (string, error)
 }
 
 // Name returns the configured name.
@@ -50,11 +51,12 @@ func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArg
 }
 
 // NonInteractive records the call and returns the configured response/error.
-func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
 	m.mu.Lock()
 	m.NonInteractiveCalls = append(m.NonInteractiveCalls, NonInteractiveCall{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
+		Model:        model,
 	})
 	fn := m.NonInteractiveFunc
 	resp := m.NonInteractiveResponse
@@ -62,7 +64,7 @@ func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt
 	m.mu.Unlock()
 
 	if fn != nil {
-		return fn(ctx, systemPrompt, userPrompt)
+		return fn(ctx, systemPrompt, userPrompt, model)
 	}
 	return resp, err
 }

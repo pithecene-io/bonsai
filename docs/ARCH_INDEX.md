@@ -13,14 +13,6 @@ relationships: `CLAUDE.md` §4 (dependency DAG).
 | `Taskfile.yaml` | Developer task runner (build, test, lint) |
 | `.bonsai.yaml` | Repo-local bonsai config overrides |
 
-## `ai/`
-
-Output directory for governance artifacts (reports, patches, plans).
-Created at runtime by `bonsai check` and `bonsai implement`.
-
-- **Key files:** `out/` (generated, gitignored)
-- **Depends on:** *(nothing — runtime output)*
-
 ## `docs/`
 
 Explanatory documentation and navigation indexes.
@@ -66,11 +58,12 @@ override resolution. Provides `Resolver` for skills, roles, and config.
 
 Embedded governance assets consumed at runtime:
 
-- `claude.md` — sovereign global CLAUDE.md
+- `claude.md` — sovereign global CLAUDE.md (interactive modes)
+- `claude_validator.md` — trimmed governance preamble for validator mode
 - `governance.md` — governance framework reference
 - `review_architecture.md` — review-mode architecture doc
 - `roles/` — role definitions (architect, implementer, planner, reviewer, patcher, patch-architect)
-- `skills/` — 35 governance skill definitions (SKILL.md + schemas)
+- `skills/` — 43 governance skill definitions (SKILL.md + schemas)
 - `skills.yaml` — skill registry (bundles, modes, costs)
 - `templates/` — migration templates
 
@@ -100,11 +93,13 @@ ARCH_INDEX.md.
 
 ## `internal/agent`
 
-AI agent backend interface and exec-based implementations for `claude`
-and `codex` CLIs. Supports interactive and non-interactive invocation.
+AI agent backend interface with three implementations: direct Anthropic
+API (Go SDK), Claude CLI (subprocess), and Codex CLI (subprocess).
+Supports interactive and non-interactive invocation.
 
-- **Key files:** `agent.go` (interface), `claude.go`, `codex.go`, `mock.go`
+- **Key files:** `agent.go` (interface + Model type), `anthropic.go` (direct API), `claude.go`, `codex.go`, `router.go` (model-based dispatch + fallback), `mock.go`
 - **Depends on:** *(nothing internal)*
+- **See also:** [`docs/agent_backends.md`](agent_backends.md) for provider-specific behavior and quirks
 
 ## `internal/registry`
 
@@ -149,6 +144,13 @@ Falls back to plain text (LoggerSink) when stdout is not a TTY or
 
 - **Key files:** `model.go` (bubbletea Model), `events.go` (message types), `styles.go` (lipgloss styles), `tui.go` (entry point)
 - **Depends on:** `internal/orchestrator`
+
+## `internal/xio`
+
+Small I/O helper functions (e.g. `DiscardClose` for lint-clean defers).
+
+- **Key file:** `close.go`
+- **Depends on:** *(nothing internal)*
 
 ## `internal/gate`
 
