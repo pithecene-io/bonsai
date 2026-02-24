@@ -230,7 +230,7 @@ func TestBuildValidator_InjectionOrder(t *testing.T) {
 		text  string
 	}{
 		{"mode declaration", "VALIDATOR mode"},
-		{"global CLAUDE.md", "CLAUDE.md — Constitution"},
+		{"global CLAUDE.md", "CLAUDE.md — Validator Preamble"},
 		{"repo CLAUDE.md", "# REPO-CLAUDE-MARKER"},
 		{"AGENTS.md", "# AGENTS-MARKER"},
 		{"ARCH_INDEX.md", "# ARCH-INDEX-MARKER"},

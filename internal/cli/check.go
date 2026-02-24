@@ -218,7 +218,7 @@ func runCheck(c *cli.Context) error {
 		} else {
 			fmt.Fprintf(os.Stderr, "\n✖ %d skill(s) had blocking findings\n", report.BlockingFailed)
 		}
-		os.Exit(1)
+		return cli.Exit("", 1)
 	}
 
 	return nil

@@ -58,7 +58,8 @@ override resolution. Provides `Resolver` for skills, roles, and config.
 
 Embedded governance assets consumed at runtime:
 
-- `claude.md` — sovereign global CLAUDE.md
+- `claude.md` — sovereign global CLAUDE.md (interactive modes)
+- `claude_validator.md` — trimmed governance preamble for validator mode
 - `governance.md` — governance framework reference
 - `review_architecture.md` — review-mode architecture doc
 - `roles/` — role definitions (architect, implementer, planner, reviewer, patcher, patch-architect)
@@ -141,6 +142,13 @@ Falls back to plain text (LoggerSink) when stdout is not a TTY or
 
 - **Key files:** `model.go` (bubbletea Model), `events.go` (message types), `styles.go` (lipgloss styles), `tui.go` (entry point)
 - **Depends on:** `internal/orchestrator`
+
+## `internal/xio`
+
+Small I/O helper functions (e.g. `DiscardClose` for lint-clean defers).
+
+- **Key file:** `close.go`
+- **Depends on:** *(nothing internal)*
 
 ## `internal/gate`
 

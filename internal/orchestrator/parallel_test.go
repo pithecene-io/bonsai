@@ -83,7 +83,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	skills := []registry.Skill{
 		passSkill("repo-convention-enforcer", false), // non-mandatory — fails but continues
 		passSkill("arch-index-alignment", true),      // mandatory — fails, triggers fail-fast
-		passSkill("orphan-directory-detector", true),  // should be skipped by fail-fast
+		passSkill("orphan-directory-detector", true), // should be skipped by fail-fast
 	}
 
 	opts := defaultOpts(skills, t.TempDir())

@@ -95,10 +95,10 @@ func runSkill(c *cli.Context) error {
 	// Build diff payload
 	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
-	// Create agent and builder
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
+	// Create agent router (routes to codex when model="codex") and builder
+	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
 	builder := prompt.NewBuilder(resolver, repoRoot)
-	runner := skill.NewRunner(claudeAgent, builder)
+	runner := skill.NewRunner(agentRouter, builder)
 
 	// Resolve model: explicit flag > config routing by cost tier
 	model := modelOverride

@@ -196,12 +196,15 @@ func (b *Builder) BuildValidator(opts ValidatorOpts) (string, error) {
 	// Preamble + mode
 	parts = append(parts, "You are operating in VALIDATOR mode.", "")
 
-	// Global CLAUDE.md (sovereign)
-	claudeMD, err := b.resolver.ReadEmbedded("claude.md")
+	// Validator-trimmed governance preamble (sovereign).
+	// Uses a minimal subset of claude.md — omits commit/PR conventions,
+	// gitmoji table, diff-only rules, and other interactive-only content
+	// to keep system prompt small and fast for non-interactive evaluation.
+	claudeVal, err := b.resolver.ReadEmbedded("claude_validator.md")
 	if err != nil {
-		return "", fmt.Errorf("read claude.md: %w", err)
+		return "", fmt.Errorf("read claude_validator.md: %w", err)
 	}
-	parts = append(parts, string(claudeMD))
+	parts = append(parts, string(claudeVal))
 
 	// Repo-local CLAUDE.md (additive)
 	if repoClaude := b.readRepoFile("CLAUDE.md"); repoClaude != "" {

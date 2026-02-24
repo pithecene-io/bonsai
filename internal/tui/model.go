@@ -146,11 +146,12 @@ func (m Model) handleEvent(ev orchestrator.Event) Model {
 			entry := &m.skills[ev.Index]
 			entry.elapsed = ev.Elapsed
 			entry.result = ev.Result
-			if ev.Result != nil && ev.Result.ExitCode == 0 {
+			switch {
+			case ev.Result != nil && ev.Result.ExitCode == 0:
 				entry.state = statePassed
-			} else if ev.Result != nil && ev.Result.Mandatory {
+			case ev.Result != nil && ev.Result.Mandatory:
 				entry.state = stateFailed
-			} else {
+			default:
 				entry.state = stateWarning
 			}
 			m.completed++

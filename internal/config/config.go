@@ -68,13 +68,13 @@ type AgentBinConfig struct {
 //	    patch: sonnet           # patch surgery
 //	    chat: sonnet            # interactive chat
 type ModelRouting struct {
-	Default   string      `yaml:"default"`
-	Check     CostModels  `yaml:"check"`
-	Implement string      `yaml:"implement"`
-	Plan      string      `yaml:"plan"`
-	Review    string      `yaml:"review"`
-	Patch     string      `yaml:"patch"`
-	Chat      string      `yaml:"chat"`
+	Default   string     `yaml:"default"`
+	Check     CostModels `yaml:"check"`
+	Implement string     `yaml:"implement"`
+	Plan      string     `yaml:"plan"`
+	Review    string     `yaml:"review"`
+	Patch     string     `yaml:"patch"`
+	Chat      string     `yaml:"chat"`
 }
 
 // CostModels maps cost tiers to model names within a role.

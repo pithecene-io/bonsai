@@ -25,14 +25,14 @@ const (
 // Event represents a lifecycle event during orchestrator execution.
 type Event struct {
 	Kind      EventKind
-	Index     int            // position in skill list (0-based)
-	Total     int            // total number of skills
-	SkillName string         // skill name
-	Cost      string         // skill cost tier
-	Mandatory bool           // whether the skill is mandatory
-	Result    *Result        // for EventDone/EventError
-	Report    *Report        // for EventComplete only
-	Reason    string         // skip/error/fail-fast reason
-	Elapsed   time.Duration  // elapsed time (EventDone/EventError)
-	Err       error          // underlying error (EventError)
+	Index     int           // position in skill list (0-based)
+	Total     int           // total number of skills
+	SkillName string        // skill name
+	Cost      string        // skill cost tier
+	Mandatory bool          // whether the skill is mandatory
+	Result    *Result       // for EventDone/EventError
+	Report    *Report       // for EventComplete only
+	Reason    string        // skip/error/fail-fast reason
+	Elapsed   time.Duration // elapsed time (EventDone/EventError)
+	Err       error         // underlying error (EventError)
 }
