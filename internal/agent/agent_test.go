@@ -448,6 +448,93 @@ cat
 
 // TestClaude_NonInteractive_NoModelWhenEmpty verifies --model is omitted
 // when model is empty.
+// TestRouter_NoFallbackOnContextCancel verifies that when the context is
+// already canceled, the router does NOT fall back to Claude CLI — a canceled
+// context means the caller is done.
+func TestRouter_NoFallbackOnContextCancel(t *testing.T) {
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "claude-called")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+echo "claude-was-called" > "` + markerFile + `"
+cat
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling NonInteractive
+
+	r := &agent.Router{
+		Claude: agent.NewClaude(fakeBin),
+		Codex:  agent.NewCodex("nonexistent-codex"),
+		Anthropic: &agent.MockAgent{
+			NameVal:           "anthropic",
+			NonInteractiveErr: context.Canceled,
+		},
+	}
+
+	_, err := r.NonInteractive(ctx, "sys", "user-input", "haiku")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled in error chain, got: %v", err)
+	}
+
+	// Verify Claude CLI was NOT called.
+	if _, statErr := os.Stat(markerFile); statErr == nil {
+		t.Error("Claude CLI marker file was created — fallback should be skipped on context cancellation")
+	}
+
+	// Verify Anthropic was attempted exactly once.
+	mock := r.Anthropic.(*agent.MockAgent)
+	if mock.CallCount() != 1 {
+		t.Errorf("Anthropic CallCount = %d, want 1", mock.CallCount())
+	}
+}
+
+// TestRouter_FallbackPreservesBothErrors verifies that when both the
+// Anthropic direct API and the Claude CLI fallback fail, the returned
+// error contains both root causes.
+func TestRouter_FallbackPreservesBothErrors(t *testing.T) {
+	dir := t.TempDir()
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	// Fake Claude binary that always exits 1 with known stderr.
+	script := `#!/bin/sh
+echo "claude-cli: connection refused" >&2
+exit 1
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := &agent.Router{
+		Claude: agent.NewClaude(fakeBin),
+		Codex:  agent.NewCodex("nonexistent-codex"),
+		Anthropic: &agent.MockAgent{
+			NameVal:           "anthropic",
+			NonInteractiveErr: errors.New("401 authentication_error"),
+		},
+	}
+
+	_, err := r.NonInteractive(t.Context(), "sys", "user-input", "haiku")
+	if err == nil {
+		t.Fatal("expected error when both backends fail, got nil")
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "401 authentication_error") {
+		t.Errorf("combined error should contain Anthropic error, got: %v", err)
+	}
+	if !strings.Contains(errStr, "connection refused") {
+		t.Errorf("combined error should contain Claude CLI error, got: %v", err)
+	}
+}
+
 func TestClaude_NonInteractive_NoModelWhenEmpty(t *testing.T) {
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")

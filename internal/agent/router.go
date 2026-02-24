@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -61,12 +62,21 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 		if err == nil {
 			return out, nil
 		}
+		// Context cancellation means the caller is done — falling back
+		// would just add noise and latency.
+		if ctx.Err() != nil {
+			return "", err
+		}
 		// Anthropic failed — fall back to Claude CLI so a bad key or
 		// transient outage doesn't hard-fail the entire check run.
 		if os.Getenv("BONSAI_DEBUG") != "" {
 			fmt.Fprintf(os.Stderr, "[bonsai:debug] anthropic failed, falling back to claude CLI: %v\n", err)
 		}
-		return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		out, fallbackErr := r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		if fallbackErr != nil {
+			return "", errors.Join(err, fallbackErr)
+		}
+		return out, nil
 	default:
 		return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
 	}
