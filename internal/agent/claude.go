@@ -60,6 +60,11 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 		"--output-format", "text",
 	)
 
+	// Use low effort for haiku to minimize latency on cheap evaluation.
+	if strings.Contains(strings.ToLower(model), "haiku") {
+		args = append(args, "--effort", "low")
+	}
+
 	cmd := exec.CommandContext(ctx, c.Bin, args...)
 	cmd.Stdin = strings.NewReader(userPrompt)
 

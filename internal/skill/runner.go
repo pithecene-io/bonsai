@@ -34,7 +34,7 @@ func (r *Runner) Run(ctx context.Context, def *Definition, opts RunOpts) (*Outpu
 	systemPrompt, err := r.builder.BuildValidator(prompt.ValidatorOpts{
 		SkillBody:    def.Body,
 		OutputSchema: def.OutputSchema,
-		Lite:         strings.Contains(opts.Model, "haiku"),
+		Lite:         strings.Contains(strings.ToLower(opts.Model), "haiku"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build system prompt: %w", err)

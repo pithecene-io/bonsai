@@ -126,6 +126,42 @@ cat
 	if !strings.Contains(args, "haiku") {
 		t.Errorf("args missing model value 'haiku':\n%s", args)
 	}
+	// Haiku should get --effort low for latency
+	if !strings.Contains(args, "--effort") || !strings.Contains(args, "low") {
+		t.Errorf("haiku args missing --effort low:\n%s", args)
+	}
+}
+
+// TestClaude_NonInteractive_NoEffortForSonnet verifies --effort is NOT
+// passed for non-haiku models.
+func TestClaude_NonInteractive_NoEffortForSonnet(t *testing.T) {
+	dir := t.TempDir()
+	argsFile := filepath.Join(dir, "args.txt")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+printf '%s\n' "$@" > "` + argsFile + `"
+cat
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake binary: %v", err)
+	}
+
+	c := agent.NewClaude(fakeBin)
+	_, err := c.NonInteractive(context.Background(), "test-system", "test-user", "sonnet")
+	if err != nil {
+		t.Fatalf("NonInteractive: %v", err)
+	}
+
+	argsData, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read args: %v", err)
+	}
+	args := string(argsData)
+
+	if strings.Contains(args, "--effort") {
+		t.Errorf("sonnet args should NOT contain --effort:\n%s", args)
+	}
 }
 
 func TestRouter_Implements(_ *testing.T) {
