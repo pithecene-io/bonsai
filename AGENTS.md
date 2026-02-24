@@ -11,7 +11,7 @@ Characteristics:
 
 Expect:
 - Go source code under `cmd/` and `internal/`
-- Asset files (Markdown, YAML, JSON) under `assets/`
+- Embedded assets (Markdown, YAML, JSON) under `internal/assets/data/`
 - Test fixtures under `testdata/`
 
 Guidelines for agents:

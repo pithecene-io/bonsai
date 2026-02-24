@@ -6,6 +6,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
@@ -27,18 +28,24 @@ type RunOpts struct {
 	RepoRoot            string           // Repository root
 	Config              *config.Config
 	DefaultRequiresDiff bool // Registry defaults.requires_diff value
+	Concurrency         int  // Max parallel skills; <= 0 defaults to 1
 }
 
 // Result holds the outcome of a single skill invocation.
 type Result struct {
-	Name          string `json:"name"`
-	Status        string `json:"status"`
-	SkippedReason string `json:"skipped_reason,omitempty"`
-	Blocking      int    `json:"blocking"`
-	Major         int    `json:"major"`
-	Warning       int    `json:"warning"`
-	ExitCode      int    `json:"exit_code"`
-	Mandatory     bool   `json:"mandatory"`
+	Name            string   `json:"name"`
+	Status          string   `json:"status"`
+	SkippedReason   string   `json:"skipped_reason,omitempty"`
+	Blocking        int      `json:"blocking"`
+	Major           int      `json:"major"`
+	Warning         int      `json:"warning"`
+	ExitCode        int      `json:"exit_code"`
+	Mandatory       bool     `json:"mandatory"`
+	Elapsed         float64  `json:"elapsed_ms"`
+	BlockingDetails []string `json:"blocking_details,omitempty"`
+	MajorDetails    []string `json:"major_details,omitempty"`
+	WarningDetails  []string `json:"warning_details,omitempty"`
+	InfoDetails     []string `json:"info_details,omitempty"`
 }
 
 // Report holds the aggregate orchestrator output.
@@ -64,9 +71,17 @@ func New(a agent.Agent, resolver *assets.Resolver) *Orchestrator {
 	return &Orchestrator{agent: a, resolver: resolver}
 }
 
+// emit sends an event if the channel is non-nil.
+func emit(events chan<- Event, ev Event) {
+	if events != nil {
+		events <- ev
+	}
+}
+
 // Run executes the skill set and returns an aggregate report.
-// Logger is called for each skill with status updates.
-func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string)) (*Report, error) {
+// events may be nil; when non-nil, lifecycle events are sent for each skill.
+// The caller must not close the events channel; Run does not close it either.
+func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Event) (*Report, error) {
 	timestamp := time.Now().Format("20060102-150405")
 
 	report := &Report{
@@ -90,133 +105,226 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, logger func(string
 		diffPayload = buildDiffPayload(opts.RepoRoot, opts.BaseRef)
 	}
 
-	for i := range opts.Skills {
-		s := opts.Skills[i]
-		report.Total++
+	total := len(opts.Skills)
 
-		// Check if skill requires diff and no base provided.
-		// Uses registry defaults.requires_diff (ref: ai-check.sh:166-168).
+	// Pre-filter: separate skippable from runnable
+	type indexedSkill struct {
+		index int
+		skill registry.Skill
+	}
+	var runnable []indexedSkill
+	results := make([]Result, total)
+
+	for i, s := range opts.Skills {
 		requiresDiff := s.EffectiveRequiresDiff(opts.DefaultRequiresDiff)
 		if requiresDiff && opts.BaseRef == "" {
-			report.Skipped++
-			result := Result{
+			results[i] = Result{
 				Name:          s.Name,
 				Status:        "skipped",
 				SkippedReason: "requires_diff without --base",
 				Mandatory:     s.Mandatory,
 			}
-			report.Results = append(report.Results, result)
-			if logger != nil {
-				logger(fmt.Sprintf("  ⊘ %s [skipped: requires --base for diff context]", s.Name))
-			}
-			continue
-		}
-
-		if logger != nil {
-			logger(fmt.Sprintf("▶ Running: %s [%s]", s.Name, s.Cost))
-		}
-
-		// Load skill definition
-		version := s.Version
-		if version == "" {
-			version = "v1"
-		}
-		def, err := skill.Load(o.resolver, s.Name, version)
-		if err != nil {
-			// Skill load failure — treat as error
-			report.Failed++
-			result := Result{
-				Name:      s.Name,
-				Status:    "error",
-				ExitCode:  1,
+			emit(events, Event{
+				Kind:      EventSkipped,
+				Index:     i,
+				Total:     total,
+				SkillName: s.Name,
+				Cost:      s.Cost,
 				Mandatory: s.Mandatory,
-			}
-			if s.Mandatory {
-				report.BlockingFailed++
-			}
-			report.Results = append(report.Results, result)
-			if logger != nil {
-				logger(fmt.Sprintf("  ✖ %s [error: %v]", s.Name, err))
-			}
-			if opts.FailFast && s.Mandatory {
-				if logger != nil {
-					logger(fmt.Sprintf("✖ Mandatory failure (--fail-fast): %s", s.Name))
-				}
-				break
-			}
-			continue
-		}
-
-		// Run skill
-		output, err := runner.Run(ctx, def, skill.RunOpts{
-			RepoTree:    repoTreeStr,
-			DiffPayload: diffPayload,
-			BaseRef:     opts.BaseRef,
-		})
-
-		var result Result
-		if err != nil {
-			report.Failed++
-			result = Result{
-				Name:      s.Name,
-				Status:    "error",
-				ExitCode:  1,
-				Mandatory: s.Mandatory,
-			}
-			if s.Mandatory {
-				report.BlockingFailed++
-			}
-			if logger != nil {
-				logger(fmt.Sprintf("  ✖ %s [error: %v]", s.Name, err))
-			}
+				Reason:    "requires --base for diff context",
+			})
 		} else {
-			exitCode := 0
-			if output.ShouldFail() {
-				exitCode = 1
-			}
-
-			result = Result{
-				Name:      s.Name,
-				Status:    output.Status,
-				Blocking:  len(output.Blocking),
-				Major:     len(output.Major),
-				Warning:   len(output.Warning),
-				ExitCode:  exitCode,
+			runnable = append(runnable, indexedSkill{index: i, skill: s})
+			emit(events, Event{
+				Kind:      EventQueued,
+				Index:     i,
+				Total:     total,
+				SkillName: s.Name,
+				Cost:      s.Cost,
 				Mandatory: s.Mandatory,
-			}
-
-			if exitCode == 0 {
-				report.Passed++
-				if logger != nil {
-					logger(fmt.Sprintf("  ✔ %s (blocking:%d major:%d warning:%d)",
-						s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
-				}
-			} else {
-				report.Failed++
-				if s.Mandatory {
-					report.BlockingFailed++
-					if logger != nil {
-						logger(fmt.Sprintf("  ✖ %s [mandatory] (blocking:%d major:%d warning:%d)",
-							s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
-					}
-				} else if logger != nil {
-					logger(fmt.Sprintf("  ⚠ %s [non-mandatory] (blocking:%d major:%d warning:%d)",
-						s.Name, len(output.Blocking), len(output.Major), len(output.Warning)))
-				}
-			}
-		}
-
-		report.Results = append(report.Results, result)
-
-		if opts.FailFast && result.ExitCode != 0 && s.Mandatory {
-			if logger != nil {
-				logger(fmt.Sprintf("✖ Mandatory failure (--fail-fast): %s", s.Name))
-			}
-			break
+			})
 		}
 	}
 
+	concurrency := opts.Concurrency
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+
+	// Context with cancellation for fail-fast
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	sem := make(chan struct{}, concurrency)
+	var wg sync.WaitGroup
+	var failFastOnce sync.Once
+	failFastTriggered := false
+	var ffMu sync.Mutex
+
+	for _, is := range runnable {
+		// Check for fail-fast before launching
+		ffMu.Lock()
+		stopped := failFastTriggered
+		ffMu.Unlock()
+		if stopped {
+			break
+		}
+
+		// Acquire semaphore in the dispatch goroutine to guarantee
+		// ordered startup — skills acquire the sem in list order.
+		select {
+		case sem <- struct{}{}:
+		case <-runCtx.Done():
+			continue
+		}
+
+		wg.Add(1)
+		go func(idx int, s registry.Skill) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			// Check context before running
+			if runCtx.Err() != nil {
+				return
+			}
+
+			emit(events, Event{
+				Kind:      EventStart,
+				Index:     idx,
+				Total:     total,
+				SkillName: s.Name,
+				Cost:      s.Cost,
+				Mandatory: s.Mandatory,
+			})
+
+			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts.BaseRef)
+			results[idx] = result
+
+			elapsed := time.Duration(result.Elapsed * float64(time.Millisecond))
+			emit(events, Event{
+				Kind:      EventDone,
+				Index:     idx,
+				Total:     total,
+				SkillName: s.Name,
+				Cost:      s.Cost,
+				Mandatory: s.Mandatory,
+				Result:    &results[idx],
+				Elapsed:   elapsed,
+			})
+
+			// Fail-fast: cancel context on mandatory failure
+			if opts.FailFast && result.ExitCode != 0 && s.Mandatory {
+				failFastOnce.Do(func() {
+					ffMu.Lock()
+					failFastTriggered = true
+					ffMu.Unlock()
+					emit(events, Event{
+						Kind:      EventFailFast,
+						Index:     idx,
+						Total:     total,
+						SkillName: s.Name,
+						Mandatory: s.Mandatory,
+						Reason:    "mandatory failure with --fail-fast",
+					})
+					cancel()
+				})
+			}
+		}(is.index, is.skill)
+	}
+
+	wg.Wait()
+
+	// Aggregate results in original order
+	for i := range opts.Skills {
+		r := results[i]
+		if r.Name == "" {
+			continue // was not scheduled or cancelled before starting
+		}
+		report.Total++
+		switch {
+		case r.Status == "skipped":
+			report.Skipped++
+		case r.Status == "error" || r.ExitCode != 0:
+			report.Failed++
+			if r.Mandatory && r.Status != "skipped" {
+				report.BlockingFailed++
+			}
+		default:
+			report.Passed++
+		}
+		report.Results = append(report.Results, r)
+	}
+
+	emit(events, Event{
+		Kind:   EventComplete,
+		Total:  total,
+		Report: report,
+	})
+
 	return report, nil
+}
+
+// runSingleSkill executes one skill and returns its Result.
+// It does not mutate any shared state and is safe for concurrent use.
+func (o *Orchestrator) runSingleSkill(
+	ctx context.Context,
+	s registry.Skill,
+	runner *skill.Runner,
+	repoTreeStr, diffPayload, baseRef string,
+) Result {
+	start := time.Now()
+
+	version := s.Version
+	if version == "" {
+		version = "v1"
+	}
+	def, err := skill.Load(o.resolver, s.Name, version)
+	if err != nil {
+		return Result{
+			Name:      s.Name,
+			Status:    "error",
+			ExitCode:  1,
+			Mandatory: s.Mandatory,
+			Elapsed:   float64(time.Since(start).Milliseconds()),
+		}
+	}
+
+	output, err := runner.Run(ctx, def, skill.RunOpts{
+		RepoTree:    repoTreeStr,
+		DiffPayload: diffPayload,
+		BaseRef:     baseRef,
+	})
+	elapsed := float64(time.Since(start).Milliseconds())
+
+	if err != nil {
+		return Result{
+			Name:      s.Name,
+			Status:    "error",
+			ExitCode:  1,
+			Mandatory: s.Mandatory,
+			Elapsed:   elapsed,
+		}
+	}
+
+	exitCode := 0
+	if output.ShouldFail() {
+		exitCode = 1
+	}
+
+	return Result{
+		Name:            s.Name,
+		Status:          output.Status,
+		Blocking:        len(output.Blocking),
+		Major:           len(output.Major),
+		Warning:         len(output.Warning),
+		ExitCode:        exitCode,
+		Mandatory:       s.Mandatory,
+		Elapsed:         elapsed,
+		BlockingDetails: output.Blocking,
+		MajorDetails:    output.Major,
+		WarningDetails:  output.Warning,
+		InfoDetails:     output.Info,
+	}
 }
 
 // ShouldFail returns true if the report indicates a blocking failure.
@@ -228,6 +336,12 @@ func (r *Report) ShouldFail() bool {
 		return true // All skipped = false pass
 	}
 	return r.BlockingFailed > 0
+}
+
+func logFindingDetails(logger func(string), severity string, details []string) {
+	for _, d := range details {
+		logger(fmt.Sprintf("    %s: %s", severity, d))
+	}
 }
 
 func joinLines(lines []string) string {

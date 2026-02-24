@@ -249,7 +249,11 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 	claudeAgent := agent.NewClaude(l.opts.Config.Agents.Claude.Bin)
 	orch := orchestrator.New(claudeAgent, l.opts.Resolver)
 
-	logger := func(msg string) { fmt.Println(msg) }
+	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
+	defer func() {
+		close(sink)
+		<-sinkDone
+	}()
 
 	return orch.Run(ctx, orchestrator.RunOpts{
 		Skills:              skills,
@@ -259,7 +263,8 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 		RepoRoot:            l.opts.RepoRoot,
 		Config:              l.opts.Config,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
-	}, logger)
+		Concurrency:         1,
+	}, sink)
 }
 
 // saveArtifacts saves the patch and report on governance pass.
