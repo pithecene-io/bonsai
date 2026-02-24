@@ -14,6 +14,7 @@ type RunOpts struct {
 	RepoTree    string // Repository tree listing
 	DiffPayload string // Diff content (from --base)
 	BaseRef     string // Base ref for diff context
+	Model       string // Model override (e.g. "haiku", "sonnet"); empty = agent default
 }
 
 // Runner invokes skills via an AI agent.
@@ -42,7 +43,7 @@ func (r *Runner) Run(ctx context.Context, def *Definition, opts RunOpts) (*Outpu
 	userPrompt := buildUserPrompt(opts)
 
 	// Invoke agent non-interactively
-	response, err := r.agent.NonInteractive(ctx, systemPrompt, userPrompt)
+	response, err := r.agent.NonInteractive(ctx, systemPrompt, userPrompt, opts.Model)
 	if err != nil {
 		return nil, fmt.Errorf("agent invocation: %w", err)
 	}

@@ -33,7 +33,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	delay := 50 * time.Millisecond
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
 			time.Sleep(delay)
 			return passJSON(), nil
 		},
@@ -73,7 +73,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	// skill 2 should never run.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, userPrompt string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
 			// All skills get the same fail response; mandatory matters for fail-fast
 			return failJSON(), nil
 		},
@@ -282,5 +282,52 @@ func TestRun_FindingDetails(t *testing.T) {
 	}
 	if r.Elapsed < 0 {
 		t.Errorf("Elapsed = %f, want >= 0", r.Elapsed)
+	}
+}
+
+func TestRun_ModelRouting(t *testing.T) {
+	// Verify that the model from config.ModelRouting reaches the agent.
+	mock := &agent.MockAgent{
+		NameVal:                "test",
+		NonInteractiveResponse: passJSON(),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	cheapSkill := registry.Skill{
+		Name: "repo-convention-enforcer", Version: "v1", Cost: "cheap",
+		RequiresDiff: boolPtr(false),
+	}
+	heavySkill := registry.Skill{
+		Name: "arch-index-alignment", Version: "v1", Cost: "heavy",
+		RequiresDiff: boolPtr(false),
+	}
+
+	cfg := config.Default()
+	cfg.Agents.Claude.Models.Check.Cheap = "haiku"
+	cfg.Agents.Claude.Models.Check.Heavy = "opus"
+
+	opts := orchestrator.RunOpts{
+		Skills:              []registry.Skill{cheapSkill, heavySkill},
+		Source:              "test",
+		RepoRoot:            t.TempDir(),
+		Config:              cfg,
+		DefaultRequiresDiff: true,
+		Concurrency:         1,
+	}
+
+	_, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if mock.CallCount() != 2 {
+		t.Fatalf("calls = %d, want 2", mock.CallCount())
+	}
+	if got := mock.NonInteractiveCalls[0].Model; got != "haiku" {
+		t.Errorf("call[0].Model = %q, want haiku", got)
+	}
+	if got := mock.NonInteractiveCalls[1].Model; got != "opus" {
+		t.Errorf("call[1].Model = %q, want opus", got)
 	}
 }

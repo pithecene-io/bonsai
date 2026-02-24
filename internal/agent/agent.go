@@ -13,7 +13,8 @@ type Agent interface {
 
 	// NonInteractive runs a non-interactive query with the given system
 	// prompt and user prompt. Returns the agent's text response.
-	NonInteractive(ctx context.Context, systemPrompt, userPrompt string) (string, error)
+	// model is optional; when non-empty it overrides the agent's default model.
+	NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error)
 
 	// Name returns the agent name (e.g., "claude", "codex").
 	Name() string

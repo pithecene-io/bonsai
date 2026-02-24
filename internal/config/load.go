@@ -107,9 +107,11 @@ func mergeConfig(dst, src *Config) {
 	if src.Agents.Claude.Bin != "" {
 		dst.Agents.Claude.Bin = src.Agents.Claude.Bin
 	}
+	mergeModelRouting(&dst.Agents.Claude.Models, &src.Agents.Claude.Models)
 	if src.Agents.Codex.Bin != "" {
 		dst.Agents.Codex.Bin = src.Agents.Codex.Bin
 	}
+	mergeModelRouting(&dst.Agents.Codex.Models, &src.Agents.Codex.Models)
 
 	// Output
 	if src.Output.Dir != "" {
@@ -119,6 +121,37 @@ func mergeConfig(dst, src *Config) {
 	// Skills
 	if len(src.Skills.ExtraDirs) > 0 {
 		dst.Skills.ExtraDirs = src.Skills.ExtraDirs
+	}
+}
+
+// mergeModelRouting merges non-empty model routing fields from src into dst.
+func mergeModelRouting(dst, src *ModelRouting) {
+	if src.Default != "" {
+		dst.Default = src.Default
+	}
+	if src.Check.Cheap != "" {
+		dst.Check.Cheap = src.Check.Cheap
+	}
+	if src.Check.Moderate != "" {
+		dst.Check.Moderate = src.Check.Moderate
+	}
+	if src.Check.Heavy != "" {
+		dst.Check.Heavy = src.Check.Heavy
+	}
+	if src.Implement != "" {
+		dst.Implement = src.Implement
+	}
+	if src.Plan != "" {
+		dst.Plan = src.Plan
+	}
+	if src.Review != "" {
+		dst.Review = src.Review
+	}
+	if src.Patch != "" {
+		dst.Patch = src.Patch
+	}
+	if src.Chat != "" {
+		dst.Chat = src.Chat
 	}
 }
 
@@ -146,6 +179,33 @@ func mergeFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BONSAI_CLAUDE_BIN"); v != "" {
 		cfg.Agents.Claude.Bin = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL"); v != "" {
+		cfg.Agents.Claude.Models.Default = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_CHECK_CHEAP"); v != "" {
+		cfg.Agents.Claude.Models.Check.Cheap = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_CHECK_MODERATE"); v != "" {
+		cfg.Agents.Claude.Models.Check.Moderate = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_CHECK_HEAVY"); v != "" {
+		cfg.Agents.Claude.Models.Check.Heavy = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_IMPLEMENT"); v != "" {
+		cfg.Agents.Claude.Models.Implement = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_PLAN"); v != "" {
+		cfg.Agents.Claude.Models.Plan = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_REVIEW"); v != "" {
+		cfg.Agents.Claude.Models.Review = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_PATCH"); v != "" {
+		cfg.Agents.Claude.Models.Patch = v
+	}
+	if v := os.Getenv("BONSAI_CLAUDE_MODEL_CHAT"); v != "" {
+		cfg.Agents.Claude.Models.Chat = v
 	}
 	if v := os.Getenv("BONSAI_CODEX_BIN"); v != "" {
 		cfg.Agents.Codex.Bin = v

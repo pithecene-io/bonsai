@@ -72,7 +72,8 @@ func runPatch(c *cli.Context) error {
 
 	userPrompt := fmt.Sprintf("Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n%s", task)
 
-	architectPlan, err := claudeAgent.NonInteractive(c.Context, architectPrompt, userPrompt)
+	patchModel := cfg.Agents.Claude.Models.ModelForRole("patch")
+	architectPlan, err := claudeAgent.NonInteractive(c.Context, architectPrompt, userPrompt, patchModel)
 	if err != nil {
 		return fmt.Errorf("patch architecture phase failed: %w", err)
 	}

@@ -43,9 +43,84 @@ type AgentsConfig struct {
 	Codex  AgentBinConfig `yaml:"codex"`
 }
 
-// AgentBinConfig holds the path to an agent binary.
+// AgentBinConfig holds the path to an agent binary and model routing.
 type AgentBinConfig struct {
-	Bin string `yaml:"bin"`
+	Bin    string       `yaml:"bin"`
+	Models ModelRouting `yaml:"models"`
+}
+
+// ModelRouting controls model selection per role and cost tier.
+//
+// YAML example:
+//
+//	models:
+//	  default: sonnet
+//	  check:
+//	    cheap: haiku
+//	    moderate: sonnet
+//	    heavy: sonnet
+//	  implement: opus
+//	  plan: opus
+//	  review: sonnet
+//	  patch: sonnet
+//	  chat: sonnet
+type ModelRouting struct {
+	Default   string      `yaml:"default"`
+	Check     CostModels  `yaml:"check"`
+	Implement string      `yaml:"implement"`
+	Plan      string      `yaml:"plan"`
+	Review    string      `yaml:"review"`
+	Patch     string      `yaml:"patch"`
+	Chat      string      `yaml:"chat"`
+}
+
+// CostModels maps cost tiers to model names within a role.
+type CostModels struct {
+	Cheap    string `yaml:"cheap"`
+	Moderate string `yaml:"moderate"`
+	Heavy    string `yaml:"heavy"`
+}
+
+// ModelForCheck returns the model for a check skill given its cost tier.
+// Falls back to CostModels defaults, then ModelRouting.Default.
+func (r ModelRouting) ModelForCheck(cost string) string {
+	switch cost {
+	case "cheap":
+		if r.Check.Cheap != "" {
+			return r.Check.Cheap
+		}
+	case "moderate":
+		if r.Check.Moderate != "" {
+			return r.Check.Moderate
+		}
+	case "heavy":
+		if r.Check.Heavy != "" {
+			return r.Check.Heavy
+		}
+	}
+	return r.Default
+}
+
+// ModelForRole returns the model for a given interactive role.
+// Falls back to ModelRouting.Default.
+func (r ModelRouting) ModelForRole(role string) string {
+	var m string
+	switch role {
+	case "implement":
+		m = r.Implement
+	case "plan":
+		m = r.Plan
+	case "review":
+		m = r.Review
+	case "patch":
+		m = r.Patch
+	case "chat":
+		m = r.Chat
+	}
+	if m != "" {
+		return m
+	}
+	return r.Default
 }
 
 // OutputConfig controls output directory.
@@ -96,8 +171,23 @@ func Default() *Config {
 			Concurrency: 4,
 		},
 		Agents: AgentsConfig{
-			Claude: AgentBinConfig{Bin: "claude"},
-			Codex:  AgentBinConfig{Bin: "codex"},
+			Claude: AgentBinConfig{
+				Bin: "claude",
+				Models: ModelRouting{
+					Default: "sonnet",
+					Check: CostModels{
+						Cheap:    "haiku",
+						Moderate: "sonnet",
+						Heavy:    "sonnet",
+					},
+					Implement: "sonnet",
+					Plan:      "sonnet",
+					Review:    "sonnet",
+					Patch:     "sonnet",
+					Chat:      "sonnet",
+				},
+			},
+			Codex: AgentBinConfig{Bin: "codex"},
 		},
 		Output: OutputConfig{
 			Dir: "ai/out",

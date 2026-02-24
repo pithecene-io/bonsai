@@ -42,7 +42,7 @@ func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs 
 
 // NonInteractive runs codex non-interactively. Codex uses the same
 // flag conventions as claude for non-interactive mode.
-func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
 	args := []string{
 		"-p",
 		"--system-prompt", systemPrompt,

@@ -48,7 +48,7 @@ func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs
 //	--disable-slash-commands \
 //	--no-session-persistence \
 //	--output-format text
-func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
 	args := []string{
 		"-p",
 		"--system-prompt", systemPrompt,
@@ -56,6 +56,9 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt st
 		"--disable-slash-commands",
 		"--no-session-persistence",
 		"--output-format", "text",
+	}
+	if model != "" {
+		args = append(args, "--model", model)
 	}
 
 	cmd := exec.CommandContext(ctx, c.Bin, args...)

@@ -197,7 +197,7 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 				Mandatory: s.Mandatory,
 			})
 
-			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts.BaseRef)
+			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts)
 			results[idx] = result
 
 			elapsed := time.Duration(result.Elapsed * float64(time.Millisecond))
@@ -270,7 +270,8 @@ func (o *Orchestrator) runSingleSkill(
 	ctx context.Context,
 	s registry.Skill,
 	runner *skill.Runner,
-	repoTreeStr, diffPayload, baseRef string,
+	repoTreeStr, diffPayload string,
+	opts RunOpts,
 ) Result {
 	start := time.Now()
 
@@ -289,10 +290,17 @@ func (o *Orchestrator) runSingleSkill(
 		}
 	}
 
+	// Resolve model from config based on cost tier
+	var model string
+	if opts.Config != nil {
+		model = opts.Config.Agents.Claude.Models.ModelForCheck(s.Cost)
+	}
+
 	output, err := runner.Run(ctx, def, skill.RunOpts{
 		RepoTree:    repoTreeStr,
 		DiffPayload: diffPayload,
-		BaseRef:     baseRef,
+		BaseRef:     opts.BaseRef,
+		Model:       model,
 	})
 	elapsed := float64(time.Since(start).Milliseconds())
 
