@@ -128,6 +128,70 @@ cat
 	}
 }
 
+func TestRouter_Implements(_ *testing.T) {
+	// Compile-time interface check.
+	var _ agent.Agent = (*agent.Router)(nil)
+}
+
+func TestRouter_RoutesToClaude(t *testing.T) {
+	dir := t.TempDir()
+	argsFile := filepath.Join(dir, "args.txt")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+printf '%s\n' "$@" > "` + argsFile + `"
+cat
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := agent.NewRouter(fakeBin, "nonexistent-codex")
+	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "haiku")
+	if err != nil {
+		t.Fatalf("NonInteractive: %v", err)
+	}
+	if !strings.Contains(out, "user-input") {
+		t.Errorf("output = %q, expected user-input", out)
+	}
+
+	argsData, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read args: %v", err)
+	}
+	if !strings.Contains(string(argsData), "--model") || !strings.Contains(string(argsData), "haiku") {
+		t.Errorf("expected --model haiku in claude args:\n%s", argsData)
+	}
+}
+
+func TestRouter_RoutesToCodex(t *testing.T) {
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "codex-called")
+	fakeCodex := filepath.Join(dir, "fake-codex")
+
+	script := `#!/bin/sh
+echo "codex-was-called" > "` + markerFile + `"
+cat
+`
+	if err := os.WriteFile(fakeCodex, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := agent.NewRouter("nonexistent-claude", fakeCodex)
+	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "codex")
+	if err != nil {
+		t.Fatalf("NonInteractive: %v", err)
+	}
+	if !strings.Contains(out, "user-input") {
+		t.Errorf("output = %q, expected user-input", out)
+	}
+
+	// Verify codex was actually called
+	if _, err := os.Stat(markerFile); err != nil {
+		t.Errorf("codex marker file not created — codex was not called")
+	}
+}
+
 // TestClaude_NonInteractive_NoModelWhenEmpty verifies --model is omitted
 // when model is empty.
 func TestClaude_NonInteractive_NoModelWhenEmpty(t *testing.T) {

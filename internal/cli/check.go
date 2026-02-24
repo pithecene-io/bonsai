@@ -110,9 +110,9 @@ func runCheck(c *cli.Context) error {
 		concurrency = 4
 	}
 
-	// Create orchestrator
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	orch := orchestrator.New(claudeAgent, resolver)
+	// Create orchestrator with agent router (claude + codex)
+	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+	orch := orchestrator.New(agentRouter, resolver)
 
 	opts := orchestrator.RunOpts{
 		Skills:              skills,

@@ -245,9 +245,9 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 		return nil, err
 	}
 
-	// Use a separate claude agent for non-interactive skill runs
-	claudeAgent := agent.NewClaude(l.opts.Config.Agents.Claude.Bin)
-	orch := orchestrator.New(claudeAgent, l.opts.Resolver)
+	// Use agent router for non-interactive skill runs (supports both claude and codex)
+	agentRouter := agent.NewRouter(l.opts.Config.Agents.Claude.Bin, l.opts.Config.Agents.Codex.Bin)
+	orch := orchestrator.New(agentRouter, l.opts.Resolver)
 
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 	defer func() {
