@@ -95,8 +95,12 @@ func runSkill(c *cli.Context) error {
 	// Build diff payload
 	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
-	// Create agent router (routes to codex when model="codex") and builder
-	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+	// Create agent router (routes to codex/anthropic/claude based on model)
+	var apiOpts []agent.AnthropicOption
+	if cfg.Agents.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	}
+	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	builder := prompt.NewBuilder(resolver, repoRoot)
 	runner := skill.NewRunner(agentRouter, builder)
 

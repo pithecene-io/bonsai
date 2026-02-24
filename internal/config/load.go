@@ -110,6 +110,9 @@ func mergeConfig(dst, src *Config) {
 	if src.Agents.Codex.Bin != "" {
 		dst.Agents.Codex.Bin = src.Agents.Codex.Bin
 	}
+	if src.Agents.Anthropic.APIKey != "" {
+		dst.Agents.Anthropic.APIKey = src.Agents.Anthropic.APIKey
+	}
 	mergeModelRouting(&dst.Agents.Models, &src.Agents.Models)
 
 	// Output
@@ -181,6 +184,9 @@ func mergeFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BONSAI_CODEX_BIN"); v != "" {
 		cfg.Agents.Codex.Bin = v
+	}
+	if v := os.Getenv("BONSAI_ANTHROPIC_API_KEY"); v != "" {
+		cfg.Agents.Anthropic.APIKey = v
 	}
 	if v := os.Getenv("BONSAI_MODEL_DEFAULT"); v != "" {
 		cfg.Agents.Models.Default = v

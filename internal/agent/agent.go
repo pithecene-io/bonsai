@@ -20,6 +20,32 @@ func (m Model) IsCodex() bool {
 	return strings.HasPrefix(strings.ToLower(string(m)), "codex")
 }
 
+// IsClaude returns true for models served by the Anthropic API
+// (haiku, sonnet, opus, or full claude-* model names).
+func (m Model) IsClaude() bool {
+	low := strings.ToLower(string(m))
+	switch {
+	case strings.Contains(low, "haiku"),
+		strings.Contains(low, "sonnet"),
+		strings.Contains(low, "opus"),
+		strings.HasPrefix(low, "claude"):
+		return true
+	}
+	return false
+}
+
+// Tier returns the model family (haiku, sonnet, opus) extracted from
+// the model name. Falls back to the full lowercase name.
+func (m Model) Tier() string {
+	low := strings.ToLower(string(m))
+	for _, family := range []string{"haiku", "sonnet", "opus"} {
+		if strings.Contains(low, family) {
+			return family
+		}
+	}
+	return low
+}
+
 // IsLite returns true for models that should use the lite (governance-free)
 // validator prompt. Covers cheap-tier models where latency and token budgets
 // are tight.

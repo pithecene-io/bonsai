@@ -61,7 +61,17 @@ func BenchmarkModel(b *testing.B) {
 		{"codex", agent.NewCodex(cfg.Agents.Codex.Bin), "codex", 30 * time.Second},
 		{"sonnet", agent.NewClaude(cfg.Agents.Claude.Bin), "sonnet", 60 * time.Second},
 		{"opus", agent.NewClaude(cfg.Agents.Claude.Bin), "opus", 90 * time.Second},
-		{"haiku", agent.NewClaude(cfg.Agents.Claude.Bin), "haiku", 60 * time.Second},
+		{"haiku-cli", agent.NewClaude(cfg.Agents.Claude.Bin), "haiku", 60 * time.Second},
+	}
+
+	// Add haiku-direct entry when an API key is available.
+	if a := agent.NewAnthropic(); a != nil {
+		models = append(models, struct {
+			name   string
+			agent  agent.Agent
+			model  string
+			budget time.Duration
+		}{"haiku-direct", a, "haiku", 5 * time.Second})
 	}
 
 	for _, m := range models {
@@ -131,7 +141,17 @@ func TestModelLatency(t *testing.T) {
 	}{
 		{"codex", agent.NewCodex(cfg.Agents.Codex.Bin), "codex", 30 * time.Second},
 		{"sonnet", agent.NewClaude(cfg.Agents.Claude.Bin), "sonnet", 60 * time.Second},
-		{"haiku", agent.NewClaude(cfg.Agents.Claude.Bin), "haiku", 60 * time.Second},
+		{"haiku-cli", agent.NewClaude(cfg.Agents.Claude.Bin), "haiku", 60 * time.Second},
+	}
+
+	// Add haiku-direct entry when an API key is available.
+	if a := agent.NewAnthropic(); a != nil {
+		models = append(models, struct {
+			name   string
+			agent  agent.Agent
+			model  string
+			budget time.Duration
+		}{"haiku-direct", a, "haiku", 5 * time.Second})
 	}
 
 	var results []result
@@ -177,6 +197,55 @@ func TestModelLatency(t *testing.T) {
 		t.Logf("║ %-9s ║ %9v ║ %s ║", r.model, r.elapsed.Round(time.Millisecond), status)
 	}
 	t.Log("╚═══════════╩════════════╩════════╝")
+}
+
+// TestAnthropic_NonInteractive_Haiku verifies the direct API backend
+// can complete a cheap skill evaluation within the 5s latency budget.
+//
+// Run with:
+//
+//	go test -tags integration -run TestAnthropic_NonInteractive_Haiku -v -timeout 30s ./internal/agent/
+func TestAnthropic_NonInteractive_Haiku(t *testing.T) {
+	a := agent.NewAnthropic()
+	if a == nil {
+		t.Skip("ANTHROPIC_API_KEY not set — skipping direct API test")
+	}
+
+	repoRoot := detectRepoRoot(t)
+	resolver := assets.NewResolver(repoRoot)
+
+	def, err := skill.Load(resolver, "repo-convention-enforcer", "v1")
+	if err != nil {
+		t.Fatalf("load skill: %v", err)
+	}
+
+	builder := prompt.NewBuilder(resolver, repoRoot)
+	systemPrompt, err := builder.BuildValidator(prompt.ValidatorOpts{
+		SkillBody:    def.Body,
+		OutputSchema: def.OutputSchema,
+	})
+	if err != nil {
+		t.Fatalf("build prompt: %v", err)
+	}
+
+	userPrompt := "Evaluate the following repository.\n\nRepository tree:\ncmd/bonsai/main.go\ninternal/cli/app.go\ngo.mod\nCLAUDE.md\n\nRespond with JSON only. No other text."
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	out, err := a.NonInteractive(ctx, systemPrompt, userPrompt, "haiku")
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("NonInteractive: %v (after %v)", err, elapsed)
+	}
+
+	t.Logf("[haiku-direct] %v — %d chars output", elapsed, len(out))
+
+	if elapsed > 5*time.Second {
+		t.Errorf("[haiku-direct] EXCEEDED 5s budget: %v", elapsed)
+	}
 }
 
 // detectRepoRoot finds the bonsai repo root for benchmark tests.

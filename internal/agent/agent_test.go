@@ -222,6 +222,51 @@ cat
 	}
 }
 
+func TestModel_IsClaude(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"haiku", true},
+		{"sonnet", true},
+		{"opus", true},
+		{"claude-3-5-haiku-latest", true},
+		{"claude-sonnet-4-6", true},
+		{"Claude-Opus-4-6", true},
+		{"codex", false},
+		{"codex-mini", false},
+		{"gpt-4", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		if got := agent.Model(tt.model).IsClaude(); got != tt.want {
+			t.Errorf("Model(%q).IsClaude() = %v, want %v", tt.model, got, tt.want)
+		}
+	}
+}
+
+func TestModel_Tier(t *testing.T) {
+	tests := []struct {
+		model string
+		want  string
+	}{
+		{"haiku", "haiku"},
+		{"claude-3-5-haiku-latest", "haiku"},
+		{"sonnet", "sonnet"},
+		{"claude-sonnet-4-6", "sonnet"},
+		{"opus", "opus"},
+		{"claude-opus-4-6", "opus"},
+		{"codex", "codex"},
+		{"gpt-4", "gpt-4"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := agent.Model(tt.model).Tier(); got != tt.want {
+			t.Errorf("Model(%q).Tier() = %q, want %q", tt.model, got, tt.want)
+		}
+	}
+}
+
 func TestRouter_Implements(_ *testing.T) {
 	// Compile-time interface check.
 	var _ agent.Agent = (*agent.Router)(nil)
@@ -311,6 +356,26 @@ cat
 	// Verify codex was actually called (not claude)
 	if _, err := os.Stat(markerFile); err != nil {
 		t.Errorf("codex marker file not created — codex-mini was not routed to codex backend")
+	}
+}
+
+func TestRouter_RoutesToAnthropicDirect(t *testing.T) {
+	// When Anthropic is non-nil and model is a claude-family model,
+	// the router should use the Anthropic backend.
+	r := agent.NewRouter("nonexistent-claude", "nonexistent-codex", agent.WithAPIKey("test-key"))
+	if r.Anthropic == nil {
+		t.Fatal("expected Anthropic backend to be non-nil with explicit key")
+	}
+	if r.Anthropic.Name() != "anthropic" {
+		t.Errorf("Anthropic.Name() = %q, want %q", r.Anthropic.Name(), "anthropic")
+	}
+}
+
+func TestRouter_FallsBackToClaudeWhenNoKey(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	r := agent.NewRouter("nonexistent-claude", "nonexistent-codex")
+	if r.Anthropic != nil {
+		t.Error("expected Anthropic backend to be nil when no API key is available")
 	}
 }
 

@@ -41,9 +41,16 @@ type GateConfig struct {
 // Model routing is a bonsai-level concern (not per-agent), so Models
 // lives here rather than inside each AgentBinConfig.
 type AgentsConfig struct {
-	Claude AgentBinConfig `yaml:"claude"`
-	Codex  AgentBinConfig `yaml:"codex"`
-	Models ModelRouting   `yaml:"models"`
+	Claude    AgentBinConfig  `yaml:"claude"`
+	Codex     AgentBinConfig  `yaml:"codex"`
+	Anthropic AnthropicConfig `yaml:"anthropic"`
+	Models    ModelRouting    `yaml:"models"`
+}
+
+// AnthropicConfig holds direct Anthropic API settings.
+// When APIKey is empty, the agent falls back to ANTHROPIC_API_KEY env.
+type AnthropicConfig struct {
+	APIKey string `yaml:"api_key"`
 }
 
 // AgentBinConfig holds the path to an agent binary.
@@ -179,7 +186,7 @@ func Default() *Config {
 			Models: ModelRouting{
 				Default: "sonnet",
 				Check: CostModels{
-					Cheap:    "codex",
+					Cheap:    "haiku",
 					Moderate: "sonnet",
 					Heavy:    "sonnet",
 				},

@@ -57,7 +57,7 @@ func TestCheckLatency_SingleSkill(t *testing.T) {
 	}
 	t.Logf("Using skill: %s (cost: %s)", cheapSkill.Name, cheapSkill.Cost)
 
-	models := []string{"codex", "sonnet"}
+	models := []string{"haiku", "codex", "sonnet"}
 
 	type result struct {
 		model   string
@@ -69,7 +69,11 @@ func TestCheckLatency_SingleSkill(t *testing.T) {
 
 	for _, model := range models {
 		t.Run(model, func(t *testing.T) {
-			router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+			var apiOpts []agent.AnthropicOption
+			if cfg.Agents.Anthropic.APIKey != "" {
+				apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+			}
+			router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 			orch := orchestrator.New(router, resolver)
 
 			// Override requires_diff so skill runs without --base
@@ -113,11 +117,17 @@ func TestCheckLatency_SingleSkill(t *testing.T) {
 
 			results = append(results, r)
 
-			// Codex cheap skills: log latency for SLO tracking.
-			// Not a hard assertion — API/network variance makes
-			// sub-minute guarantees unreliable in CI.
-			if model == "codex" && elapsed > 30*time.Second {
-				t.Logf("[codex] WARNING: exceeded 30s target: %v (API variance expected)", elapsed)
+			// Latency SLO tracking (soft warnings — API/network
+			// variance makes hard assertions unreliable in CI).
+			switch model {
+			case "haiku":
+				if elapsed > 5*time.Second {
+					t.Logf("[haiku] WARNING: exceeded 5s direct API target: %v", elapsed)
+				}
+			case "codex":
+				if elapsed > 30*time.Second {
+					t.Logf("[codex] WARNING: exceeded 30s target: %v (API variance expected)", elapsed)
+				}
 			}
 		})
 	}
@@ -175,7 +185,11 @@ func TestCheckLatency_ParallelBundle(t *testing.T) {
 	t.Logf("Bundle: %d skills (cheap:%d moderate:%d heavy:%d)",
 		len(skills), costs["cheap"], costs["moderate"], costs["heavy"])
 
-	router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
+	var bundleOpts []agent.AnthropicOption
+	if cfg.Agents.Anthropic.APIKey != "" {
+		bundleOpts = append(bundleOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	}
+	router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, bundleOpts...)
 	orch := orchestrator.New(router, resolver)
 
 	opts := orchestrator.RunOpts{
