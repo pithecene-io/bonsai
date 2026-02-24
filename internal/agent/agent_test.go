@@ -274,8 +274,9 @@ func TestRouter_Implements(_ *testing.T) {
 }
 
 func TestRouter_RoutesToClaude(t *testing.T) {
-	// Ensure no ambient API key causes Anthropic routing.
+	// Ensure no credentials cause Anthropic routing.
 	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("HOME", t.TempDir())
 
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
@@ -383,9 +384,11 @@ func TestRouter_RoutesToAnthropicDirect(t *testing.T) {
 
 func TestRouter_FallsBackToClaudeWhenNoKey(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
+	// Isolate HOME so OAuth credential lookup also finds nothing.
+	t.Setenv("HOME", t.TempDir())
 	r := agent.NewRouter("nonexistent-claude", "nonexistent-codex")
 	if r.Anthropic != nil {
-		t.Error("expected Anthropic backend to be nil when no API key is available")
+		t.Error("expected Anthropic backend to be nil when no credentials are available")
 	}
 }
 

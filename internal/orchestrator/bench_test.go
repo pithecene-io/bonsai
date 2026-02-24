@@ -121,8 +121,8 @@ func TestCheckLatency_SingleSkill(t *testing.T) {
 			// variance makes hard assertions unreliable in CI).
 			switch model {
 			case "haiku":
-				if elapsed > 5*time.Second {
-					t.Logf("[haiku] WARNING: exceeded 5s direct API target: %v", elapsed)
+				if elapsed > 10*time.Second {
+					t.Logf("[haiku] WARNING: exceeded 10s direct API target: %v", elapsed)
 				}
 			case "codex":
 				if elapsed > 30*time.Second {
