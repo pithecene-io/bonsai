@@ -28,7 +28,7 @@ type RunOpts struct {
 	RepoRoot            string           // Repository root
 	Config              *config.Config
 	DefaultRequiresDiff bool   // Registry defaults.requires_diff value
-	Concurrency         int    // Max parallel skills; <= 0 defaults to 1
+	Concurrency         int    // Max parallel skills; <= 0 means unlimited (sized to skill count)
 	ModelOverride       string // When non-empty, overrides config-based model routing for all skills
 }
 
@@ -149,7 +149,10 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 
 	concurrency := opts.Concurrency
 	if concurrency <= 0 {
-		concurrency = 1
+		concurrency = len(runnable) // unlimited: all skills at once
+	}
+	if concurrency == 0 {
+		concurrency = 1 // edge case: no runnable skills
 	}
 
 	// Context with cancellation for fail-fast

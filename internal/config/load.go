@@ -99,7 +99,7 @@ func mergeConfig(dst, src *Config) {
 	}
 
 	// Check
-	if src.Check.Concurrency > 0 {
+	if src.Check.Concurrency != nil {
 		dst.Check.Concurrency = src.Check.Concurrency
 	}
 
@@ -220,7 +220,7 @@ func mergeFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BONSAI_CHECK_JOBS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Check.Concurrency = n
+			cfg.Check.Concurrency = intPtr(n)
 		}
 	}
 	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {

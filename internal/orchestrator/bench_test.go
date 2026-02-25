@@ -198,7 +198,7 @@ func TestCheckLatency_ParallelBundle(t *testing.T) {
 		RepoRoot:            repoRoot,
 		Config:              cfg,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
-		Concurrency:         cfg.Check.Concurrency,
+		Concurrency:         derefInt(cfg.Check.Concurrency, 0),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -215,7 +215,7 @@ func TestCheckLatency_ParallelBundle(t *testing.T) {
 	t.Logf("")
 	t.Logf("══════════════════════════════════════════")
 	t.Logf("Total wall time:  %v", elapsed.Round(time.Millisecond))
-	t.Logf("Concurrency:      %d", cfg.Check.Concurrency)
+	t.Logf("Concurrency:      %d", derefInt(cfg.Check.Concurrency, 0))
 	t.Logf("Passed:           %d/%d", report.Passed, report.Total)
 	t.Logf("Failed:           %d", report.Failed)
 	t.Logf("Skipped:          %d", report.Skipped)
@@ -243,4 +243,11 @@ func detectRepoRoot(tb testing.TB) string {
 	}
 	tb.Skip("could not detect bonsai repo root")
 	return ""
+}
+
+func derefInt(p *int, fallback int) int {
+	if p != nil {
+		return *p
+	}
+	return fallback
 }

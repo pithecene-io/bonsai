@@ -415,3 +415,35 @@ func TestLoadEnvOverridesRepoConfig(t *testing.T) {
 		t.Errorf("HeavyDiffLines = %d, want 2000 (env override)", cfg.Diff.HeavyDiffLines)
 	}
 }
+
+func TestLoadRepoConfig_ConcurrencyZeroOverridesNonZero(t *testing.T) {
+	// First layer: user config sets concurrency to 4
+	userDir := t.TempDir()
+	userCfg := filepath.Join(userDir, "bonsai", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(userCfg), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(userCfg, []byte("check:\n  concurrency: 4\n"), 0o644); err != nil {
+		t.Fatalf("write user config: %v", err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+
+	// Second layer: repo config sets concurrency to 0 (unlimited)
+	repoDir := t.TempDir()
+	repoConfig := filepath.Join(repoDir, ".bonsai.yaml")
+	if err := os.WriteFile(repoConfig, []byte("check:\n  concurrency: 0\n"), 0o644); err != nil {
+		t.Fatalf("write repo config: %v", err)
+	}
+
+	cfg, err := config.Load(repoDir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Check.Concurrency == nil {
+		t.Fatal("Check.Concurrency is nil, want 0 (unlimited)")
+	}
+	if *cfg.Check.Concurrency != 0 {
+		t.Errorf("Check.Concurrency = %d, want 0 (unlimited overrides prior 4)", *cfg.Check.Concurrency)
+	}
+}

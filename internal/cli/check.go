@@ -101,14 +101,15 @@ func runCheck(c *cli.Context) error {
 		source = "bundle:" + bundle
 	}
 
-	// Resolve concurrency: flag > config > default(4)
-	concurrency := cfg.Check.Concurrency
+	// Resolve concurrency: flag > config > unlimited (0)
+	concurrency := 0
+	if cfg.Check.Concurrency != nil {
+		concurrency = *cfg.Check.Concurrency
+	}
 	if c.IsSet("jobs") {
 		concurrency = c.Int("jobs")
 	}
-	if concurrency <= 0 {
-		concurrency = 4
-	}
+	// 0 means unlimited — orchestrator sizes semaphore to skill count
 
 	// Create orchestrator with agent router (claude + codex + anthropic direct)
 	var apiOpts []agent.AnthropicOption
