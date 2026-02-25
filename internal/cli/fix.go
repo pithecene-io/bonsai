@@ -135,9 +135,16 @@ func runFix(c *urfave.Context) error {
 				extraArgs = append([]string{"--model", implModel}, extraArgs...)
 			}
 		}
-
-		// Interactive session — ignore exit (ctrl-C / session end)
-		_ = claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
+		// Interactive session — ctrl-C and normal exit are expected.
+		// Log unexpected errors (binary not found, auth failure) but
+		// continue to re-check so the user sees current state.
+		if err := claudeAgent.Interactive(c.Context, systemPrompt, extraArgs); err != nil {
+			if c.Context.Err() != nil {
+				// Parent context cancelled — user wants out entirely
+				return nil
+			}
+			fmt.Fprintf(os.Stderr, "warning: fix session exited with error: %v\n", err)
+		}
 
 		// Re-check
 		fmt.Printf("\n═══ Re-check after fix session %d/%d ═══\n", iteration, maxIter)
@@ -258,6 +265,7 @@ func saveFixArtifacts(repoRoot string, cfg *config.Config, report *orchestrator.
 
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to marshal report: %v\n", err)
 		return
 	}
 
