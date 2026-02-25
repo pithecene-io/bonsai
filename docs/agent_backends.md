@@ -212,7 +212,7 @@ cost tiers and interactive roles to model names.
 |---------|-------|
 | **Skill — cheap** | `haiku` |
 | **Skill — moderate** | `sonnet` |
-| **Skill — heavy** | `opus` |
+| **Skill — heavy** | `sonnet` |
 | **Role — implement** | `opus` |
 | **Role — plan** | `opus` |
 | **Role — review** | `codex` |

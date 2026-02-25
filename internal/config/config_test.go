@@ -180,7 +180,7 @@ func TestModelForSkill(t *testing.T) {
 			name: "heavy returns skills.heavy",
 			m:    config.Default().Models,
 			cost: "heavy",
-			want: "opus",
+			want: "sonnet",
 		},
 		{
 			name: "unknown cost returns empty",
@@ -287,8 +287,8 @@ func TestDefaultModelsConfig(t *testing.T) {
 	if m.Skills.Moderate != "sonnet" {
 		t.Errorf("Skills.Moderate = %q, want sonnet", m.Skills.Moderate)
 	}
-	if m.Skills.Heavy != "opus" {
-		t.Errorf("Skills.Heavy = %q, want opus", m.Skills.Heavy)
+	if m.Skills.Heavy != "sonnet" {
+		t.Errorf("Skills.Heavy = %q, want sonnet", m.Skills.Heavy)
 	}
 	if m.Roles.Implement != "opus" {
 		t.Errorf("Roles.Implement = %q, want opus", m.Roles.Implement)

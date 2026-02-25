@@ -186,7 +186,7 @@ func Default() *Config {
 			Skills: SkillModels{
 				Cheap:    "haiku",
 				Moderate: "sonnet",
-				Heavy:    "opus",
+				Heavy:    "sonnet",
 			},
 			Roles: RoleModels{
 				Implement: "opus",
