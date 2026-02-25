@@ -25,6 +25,7 @@ func NewApp() *cli.App {
 			patchCommand(),
 			skillCommand(),
 			checkCommand(),
+			fixCommand(),
 			listCommand(),
 			migrateCommand(),
 			hooksCommand(),

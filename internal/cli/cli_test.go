@@ -255,6 +255,50 @@ func TestCompletion_Fish(t *testing.T) {
 	}
 }
 
+// --- fix CLI wiring ---
+
+func TestFix_UnknownBundle(t *testing.T) {
+	// Exercises the full runFix wiring: flag parsing → repo detect →
+	// config load → resolver → registry load → bundle lookup → error.
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	_, err := runApp(t, "fix", "--bundle", "nonexistent-bundle-xyz")
+	if err == nil {
+		t.Fatal("expected error for unknown bundle")
+	}
+	if !strings.Contains(err.Error(), "bundle not found") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestFix_CommandRegistered(t *testing.T) {
+	// Verify the fix command is registered with expected flags.
+	app := cli.NewApp()
+	var found bool
+	for _, cmd := range app.Commands {
+		if cmd.Name != "fix" {
+			continue
+		}
+		found = true
+		flagNames := map[string]bool{}
+		for _, f := range cmd.Flags {
+			for _, n := range f.Names() {
+				flagNames[n] = true
+			}
+		}
+		for _, expected := range []string{"bundle", "base", "max-iterations", "model"} {
+			if !flagNames[expected] {
+				t.Errorf("fix command missing --%s flag", expected)
+			}
+		}
+		break
+	}
+	if !found {
+		t.Fatal("fix command not registered in app")
+	}
+}
+
 // --- check error paths ---
 
 func TestCheck_MutualExclusion(t *testing.T) {
