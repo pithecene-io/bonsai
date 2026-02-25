@@ -238,9 +238,9 @@ func profileFor(tier string) modelProfile {
 // extractText concatenates all text blocks from an Anthropic response.
 func extractText(msg *anthropic.Message) string {
 	var parts []string
-	for _, block := range msg.Content {
-		if block.Type == "text" {
-			parts = append(parts, block.AsText().Text)
+	for i := range msg.Content {
+		if msg.Content[i].Type == "text" {
+			parts = append(parts, msg.Content[i].AsText().Text)
 		}
 	}
 	return strings.Join(parts, "")
