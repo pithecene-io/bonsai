@@ -87,9 +87,14 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	}
 }
 
-// Autonomous always routes to Claude CLI. Tool-enabled autonomous mode
-// requires the Claude CLI — neither the Anthropic API nor Codex
-// supports the required tool-use + streaming pattern.
+// Autonomous dispatches based on the model string.
+// Codex supports autonomous tool-use; for claude-family models the
+// Claude CLI is used (the Anthropic direct API does not support
+// autonomous mode).
 func (r *Router) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+	m := Model(model)
+	if m.IsCodex() {
+		return r.Codex.Autonomous(ctx, systemPrompt, userPrompt, model)
+	}
 	return r.Claude.Autonomous(ctx, systemPrompt, userPrompt, model)
 }

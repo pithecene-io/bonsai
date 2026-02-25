@@ -275,7 +275,7 @@ func runFixCheck(ctx context.Context, opts fixOpts) (*orchestrator.Report, error
 
 		if errors.Is(tuiErr, tui.ErrInterrupted) {
 			fmt.Fprintln(os.Stderr, "\n⚠ check interrupted by user")
-			return nil, fmt.Errorf("interrupted")
+			return nil, nil
 		}
 		if tuiErr != nil {
 			return nil, tuiErr
