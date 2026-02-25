@@ -27,8 +27,8 @@ func TestResolveModel(t *testing.T) {
 
 func TestProfileFor(t *testing.T) {
 	tests := []struct {
-		tier      string
-		wantMax   int64
+		tier    string
+		wantMax int64
 	}{
 		{"haiku", 4096},
 		{"sonnet", 8192},
