@@ -168,7 +168,7 @@ func testSkill() registry.Skill {
 }
 
 // testFixOpts returns fixOpts wired to mock agents for testing.
-func testFixOpts(t *testing.T, checkMock agent.Agent, sessionMock agent.Agent) fixOpts {
+func testFixOpts(t *testing.T, checkMock, sessionMock agent.Agent) fixOpts {
 	t.Helper()
 	resolver := assets.NewResolver("")
 	reg := &registry.Registry{
@@ -289,7 +289,6 @@ func TestFixLoop_ContextCancellation(t *testing.T) {
 
 	opts := testFixOpts(t, checkMock, sessionMock)
 	err := fixLoop(ctx, opts)
-
 	// Should return nil (clean exit on cancellation)
 	if err != nil {
 		t.Errorf("expected nil on context cancellation, got: %v", err)

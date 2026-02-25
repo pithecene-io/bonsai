@@ -277,21 +277,22 @@ func TestFix_CommandRegistered(t *testing.T) {
 	app := cli.NewApp()
 	var found bool
 	for _, cmd := range app.Commands {
-		if cmd.Name == "fix" {
-			found = true
-			flagNames := map[string]bool{}
-			for _, f := range cmd.Flags {
-				for _, n := range f.Names() {
-					flagNames[n] = true
-				}
-			}
-			for _, expected := range []string{"bundle", "base", "max-iterations", "model"} {
-				if !flagNames[expected] {
-					t.Errorf("fix command missing --%s flag", expected)
-				}
-			}
-			break
+		if cmd.Name != "fix" {
+			continue
 		}
+		found = true
+		flagNames := map[string]bool{}
+		for _, f := range cmd.Flags {
+			for _, n := range f.Names() {
+				flagNames[n] = true
+			}
+		}
+		for _, expected := range []string{"bundle", "base", "max-iterations", "model"} {
+			if !flagNames[expected] {
+				t.Errorf("fix command missing --%s flag", expected)
+			}
+		}
+		break
 	}
 	if !found {
 		t.Fatal("fix command not registered in app")

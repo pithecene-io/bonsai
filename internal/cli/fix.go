@@ -112,8 +112,8 @@ func runFix(c *urfave.Context) error {
 
 // fixOpts holds dependencies for the fix loop, enabling testability.
 type fixOpts struct {
-	checkAgent    agent.Agent       // non-interactive agent for running checks
-	sessionAgent  agent.Agent       // interactive agent for fix sessions
+	checkAgent    agent.Agent // non-interactive agent for running checks
+	sessionAgent  agent.Agent // interactive agent for fix sessions
 	resolver      *assets.Resolver
 	registry      *registry.Registry
 	config        *config.Config
@@ -157,25 +157,17 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 			return fmt.Errorf("build prompt: %w", err)
 		}
 
-		// Resolve model: flag > config > default
-		extraArgs := append([]string{}, opts.extraArgs...)
-		if opts.modelOverride != "" {
-			extraArgs = append([]string{"--model", opts.modelOverride}, extraArgs...)
-		} else if opts.config != nil {
-			implModel := opts.config.Agents.Models.ModelForRole("implement")
-			if implModel != "" {
-				extraArgs = append([]string{"--model", implModel}, extraArgs...)
-			}
-		}
+		extraArgs := fixSessionArgs(opts)
 		// Interactive session — ctrl-C and normal exit are expected.
 		// Log unexpected errors (binary not found, auth failure) but
 		// continue to re-check so the user sees current state.
-		if err := opts.sessionAgent.Interactive(ctx, systemPrompt, extraArgs); err != nil {
+		if sessErr := opts.sessionAgent.Interactive(ctx, systemPrompt, extraArgs); sessErr != nil {
 			if ctx.Err() != nil {
-				// Parent context cancelled — user wants out entirely
-				return nil
+				// Parent context cancelled — user wants out entirely.
+				// Return nil: cancellation is a clean exit, not an error.
+				return nil //nolint:nilerr // cancellation is intentional clean exit
 			}
-			fmt.Fprintf(os.Stderr, "warning: fix session exited with error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "warning: fix session exited with error: %v\n", sessErr)
 		}
 
 		// Re-check
@@ -206,12 +198,27 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 	return fmt.Errorf("fix loop exited unexpectedly")
 }
 
+// fixSessionArgs resolves extra CLI args for the interactive fix session.
+// Precedence: --model flag > config agents.models > none.
+func fixSessionArgs(opts fixOpts) []string {
+	args := append([]string{}, opts.extraArgs...)
+	if opts.modelOverride != "" {
+		return append([]string{"--model", opts.modelOverride}, args...)
+	}
+	if opts.config != nil {
+		if m := opts.config.Agents.Models.ModelForRole("implement"); m != "" {
+			return append([]string{"--model", m}, args...)
+		}
+	}
+	return args
+}
+
 // filterCheapSkills returns only skills with cost == "cheap".
 func filterCheapSkills(skills []registry.Skill) []registry.Skill {
 	var cheap []registry.Skill
-	for _, s := range skills {
-		if s.Cost == "cheap" {
-			cheap = append(cheap, s)
+	for i := range skills {
+		if skills[i].Cost == "cheap" {
+			cheap = append(cheap, skills[i])
 		}
 	}
 	return cheap
@@ -250,7 +257,8 @@ func runFixCheck(
 // strings, not just counts. This gives the AI enough context to know WHAT to fix.
 func extractDetailedFindings(report *orchestrator.Report) string {
 	var sections []string
-	for _, r := range report.Results {
+	for i := range report.Results {
+		r := &report.Results[i]
 		if r.ExitCode == 0 {
 			continue
 		}
@@ -272,7 +280,8 @@ func extractDetailedFindings(report *orchestrator.Report) string {
 
 // printDetailedFindings prints failed findings to stderr.
 func printDetailedFindings(report *orchestrator.Report) {
-	for _, r := range report.Results {
+	for i := range report.Results {
+		r := &report.Results[i]
 		if r.ExitCode == 0 {
 			continue
 		}
