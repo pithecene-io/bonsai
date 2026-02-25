@@ -436,3 +436,164 @@ func TestLoadRepoConfig_ConcurrencyZeroOverridesNonZero(t *testing.T) {
 		t.Errorf("Check.Concurrency = %d, want 0 (unlimited overrides prior 4)", *cfg.Check.Concurrency)
 	}
 }
+
+func TestLoadRepoConfig_LegacyAgentsCompat(t *testing.T) {
+	dir := t.TempDir()
+	repoConfig := filepath.Join(dir, ".bonsai.yaml")
+	yaml := `agents:
+  anthropic:
+    api_key: sk-legacy-key
+  models:
+    check:
+      cheap: haiku-legacy
+      moderate: sonnet-legacy
+      heavy: opus-legacy
+    implement: opus-legacy
+    plan: opus-legacy
+    review: codex-legacy
+    patch: sonnet-legacy
+    chat: sonnet-legacy
+`
+	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Providers.Anthropic.APIKey != "sk-legacy-key" {
+		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-legacy-key", cfg.Providers.Anthropic.APIKey)
+	}
+	if cfg.Models.Skills.Cheap != "haiku-legacy" {
+		t.Errorf("Skills.Cheap = %q, want haiku-legacy", cfg.Models.Skills.Cheap)
+	}
+	if cfg.Models.Skills.Moderate != "sonnet-legacy" {
+		t.Errorf("Skills.Moderate = %q, want sonnet-legacy", cfg.Models.Skills.Moderate)
+	}
+	if cfg.Models.Skills.Heavy != "opus-legacy" {
+		t.Errorf("Skills.Heavy = %q, want opus-legacy", cfg.Models.Skills.Heavy)
+	}
+	if cfg.Models.Roles.Implement != "opus-legacy" {
+		t.Errorf("Roles.Implement = %q, want opus-legacy", cfg.Models.Roles.Implement)
+	}
+	if cfg.Models.Roles.Plan != "opus-legacy" {
+		t.Errorf("Roles.Plan = %q, want opus-legacy", cfg.Models.Roles.Plan)
+	}
+	if cfg.Models.Roles.Review != "codex-legacy" {
+		t.Errorf("Roles.Review = %q, want codex-legacy", cfg.Models.Roles.Review)
+	}
+	if cfg.Models.Roles.Patch != "sonnet-legacy" {
+		t.Errorf("Roles.Patch = %q, want sonnet-legacy", cfg.Models.Roles.Patch)
+	}
+	if cfg.Models.Roles.Chat != "sonnet-legacy" {
+		t.Errorf("Roles.Chat = %q, want sonnet-legacy", cfg.Models.Roles.Chat)
+	}
+}
+
+func TestLoadRepoConfig_NewPathWinsOverLegacy(t *testing.T) {
+	dir := t.TempDir()
+	repoConfig := filepath.Join(dir, ".bonsai.yaml")
+	// File sets BOTH old and new paths — new must win.
+	yaml := `providers:
+  anthropic:
+    api_key: sk-new-key
+agents:
+  anthropic:
+    api_key: sk-legacy-key
+models:
+  skills:
+    cheap: haiku-new
+  roles:
+    implement: opus-new
+`
+	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Providers.Anthropic.APIKey != "sk-new-key" {
+		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-new-key (new wins)", cfg.Providers.Anthropic.APIKey)
+	}
+	if cfg.Models.Skills.Cheap != "haiku-new" {
+		t.Errorf("Skills.Cheap = %q, want haiku-new (new wins)", cfg.Models.Skills.Cheap)
+	}
+	if cfg.Models.Roles.Implement != "opus-new" {
+		t.Errorf("Roles.Implement = %q, want opus-new (new wins)", cfg.Models.Roles.Implement)
+	}
+}
+
+func TestLoadEnvOverride_LegacyEnvCompat(t *testing.T) {
+	t.Setenv("BONSAI_ANTHROPIC_API_KEY", "sk-env-legacy")
+	t.Setenv("BONSAI_MODEL_CHECK_CHEAP", "haiku-env-legacy")
+	t.Setenv("BONSAI_MODEL_CHECK_MODERATE", "sonnet-env-legacy")
+	t.Setenv("BONSAI_MODEL_CHECK_HEAVY", "opus-env-legacy")
+	t.Setenv("BONSAI_MODEL_IMPLEMENT", "opus-env-legacy")
+	t.Setenv("BONSAI_MODEL_PLAN", "opus-env-legacy")
+	t.Setenv("BONSAI_MODEL_REVIEW", "codex-env-legacy")
+	t.Setenv("BONSAI_MODEL_PATCH", "sonnet-env-legacy")
+	t.Setenv("BONSAI_MODEL_CHAT", "sonnet-env-legacy")
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Providers.Anthropic.APIKey != "sk-env-legacy" {
+		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-env-legacy", cfg.Providers.Anthropic.APIKey)
+	}
+	if cfg.Models.Skills.Cheap != "haiku-env-legacy" {
+		t.Errorf("Skills.Cheap = %q, want haiku-env-legacy", cfg.Models.Skills.Cheap)
+	}
+	if cfg.Models.Skills.Moderate != "sonnet-env-legacy" {
+		t.Errorf("Skills.Moderate = %q, want sonnet-env-legacy", cfg.Models.Skills.Moderate)
+	}
+	if cfg.Models.Skills.Heavy != "opus-env-legacy" {
+		t.Errorf("Skills.Heavy = %q, want opus-env-legacy", cfg.Models.Skills.Heavy)
+	}
+	if cfg.Models.Roles.Implement != "opus-env-legacy" {
+		t.Errorf("Roles.Implement = %q, want opus-env-legacy", cfg.Models.Roles.Implement)
+	}
+	if cfg.Models.Roles.Plan != "opus-env-legacy" {
+		t.Errorf("Roles.Plan = %q, want opus-env-legacy", cfg.Models.Roles.Plan)
+	}
+	if cfg.Models.Roles.Review != "codex-env-legacy" {
+		t.Errorf("Roles.Review = %q, want codex-env-legacy", cfg.Models.Roles.Review)
+	}
+	if cfg.Models.Roles.Patch != "sonnet-env-legacy" {
+		t.Errorf("Roles.Patch = %q, want sonnet-env-legacy", cfg.Models.Roles.Patch)
+	}
+	if cfg.Models.Roles.Chat != "sonnet-env-legacy" {
+		t.Errorf("Roles.Chat = %q, want sonnet-env-legacy", cfg.Models.Roles.Chat)
+	}
+}
+
+func TestLoadEnvOverride_NewEnvWinsOverLegacy(t *testing.T) {
+	// Set both old and new env vars — new must win.
+	t.Setenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY", "sk-new-env")
+	t.Setenv("BONSAI_ANTHROPIC_API_KEY", "sk-legacy-env")
+	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-new-env")
+	t.Setenv("BONSAI_MODEL_CHECK_CHEAP", "haiku-legacy-env")
+	t.Setenv("BONSAI_MODEL_ROLE_IMPLEMENT", "opus-new-env")
+	t.Setenv("BONSAI_MODEL_IMPLEMENT", "opus-legacy-env")
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Providers.Anthropic.APIKey != "sk-new-env" {
+		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-new-env (new wins)", cfg.Providers.Anthropic.APIKey)
+	}
+	if cfg.Models.Skills.Cheap != "haiku-new-env" {
+		t.Errorf("Skills.Cheap = %q, want haiku-new-env (new wins)", cfg.Models.Skills.Cheap)
+	}
+	if cfg.Models.Roles.Implement != "opus-new-env" {
+		t.Errorf("Roles.Implement = %q, want opus-new-env (new wins)", cfg.Models.Roles.Implement)
+	}
+}

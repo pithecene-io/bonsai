@@ -65,8 +65,70 @@ func mergeFromFile(cfg *Config, path string) error {
 		return err
 	}
 
+	// Backward compat: promote legacy agents.anthropic / agents.models
+	// into the new top-level paths when the new paths are absent.
+	var legacy legacyAgentsOverlay
+	if err := yaml.Unmarshal(data, &legacy); err == nil {
+		promoteLegacyAgents(&overlay, &legacy)
+	}
+
 	mergeConfig(cfg, &overlay)
 	return nil
+}
+
+// legacyAgentsOverlay captures the pre-v0.5 agents.anthropic and
+// agents.models YAML paths so existing .bonsai.yaml files keep working.
+type legacyAgentsOverlay struct {
+	Agents struct {
+		Anthropic AnthropicConfig `yaml:"anthropic"`
+		Models    struct {
+			Check struct {
+				Cheap    string `yaml:"cheap"`
+				Moderate string `yaml:"moderate"`
+				Heavy    string `yaml:"heavy"`
+			} `yaml:"check"`
+			Implement string `yaml:"implement"`
+			Plan      string `yaml:"plan"`
+			Review    string `yaml:"review"`
+			Patch     string `yaml:"patch"`
+			Chat      string `yaml:"chat"`
+		} `yaml:"models"`
+	} `yaml:"agents"`
+}
+
+// promoteLegacyAgents copies legacy agents.* values into the overlay's
+// new top-level paths, but only when the new-path field is still empty
+// (so an overlay that sets both old and new paths lets the new path win).
+func promoteLegacyAgents(overlay *Config, legacy *legacyAgentsOverlay) {
+	la := &legacy.Agents
+	if la.Anthropic.APIKey != "" && overlay.Providers.Anthropic.APIKey == "" {
+		overlay.Providers.Anthropic.APIKey = la.Anthropic.APIKey
+	}
+	lm := &la.Models
+	if lm.Check.Cheap != "" && overlay.Models.Skills.Cheap == "" {
+		overlay.Models.Skills.Cheap = lm.Check.Cheap
+	}
+	if lm.Check.Moderate != "" && overlay.Models.Skills.Moderate == "" {
+		overlay.Models.Skills.Moderate = lm.Check.Moderate
+	}
+	if lm.Check.Heavy != "" && overlay.Models.Skills.Heavy == "" {
+		overlay.Models.Skills.Heavy = lm.Check.Heavy
+	}
+	if lm.Implement != "" && overlay.Models.Roles.Implement == "" {
+		overlay.Models.Roles.Implement = lm.Implement
+	}
+	if lm.Plan != "" && overlay.Models.Roles.Plan == "" {
+		overlay.Models.Roles.Plan = lm.Plan
+	}
+	if lm.Review != "" && overlay.Models.Roles.Review == "" {
+		overlay.Models.Roles.Review = lm.Review
+	}
+	if lm.Patch != "" && overlay.Models.Roles.Patch == "" {
+		overlay.Models.Roles.Patch = lm.Patch
+	}
+	if lm.Chat != "" && overlay.Models.Roles.Chat == "" {
+		overlay.Models.Roles.Chat = lm.Chat
+	}
 }
 
 // mergeConfig merges non-zero values from src into dst.
@@ -226,5 +288,52 @@ func mergeFromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {
 		cfg.Skills.ExtraDirs = strings.Split(v, ":")
+	}
+
+	// Legacy env var compat — old names apply only when new names are absent.
+	if os.Getenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY") == "" {
+		if v := os.Getenv("BONSAI_ANTHROPIC_API_KEY"); v != "" {
+			cfg.Providers.Anthropic.APIKey = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_SKILL_CHEAP") == "" {
+		if v := os.Getenv("BONSAI_MODEL_CHECK_CHEAP"); v != "" {
+			cfg.Models.Skills.Cheap = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_SKILL_MODERATE") == "" {
+		if v := os.Getenv("BONSAI_MODEL_CHECK_MODERATE"); v != "" {
+			cfg.Models.Skills.Moderate = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_SKILL_HEAVY") == "" {
+		if v := os.Getenv("BONSAI_MODEL_CHECK_HEAVY"); v != "" {
+			cfg.Models.Skills.Heavy = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT") == "" {
+		if v := os.Getenv("BONSAI_MODEL_IMPLEMENT"); v != "" {
+			cfg.Models.Roles.Implement = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_ROLE_PLAN") == "" {
+		if v := os.Getenv("BONSAI_MODEL_PLAN"); v != "" {
+			cfg.Models.Roles.Plan = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_ROLE_REVIEW") == "" {
+		if v := os.Getenv("BONSAI_MODEL_REVIEW"); v != "" {
+			cfg.Models.Roles.Review = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_ROLE_PATCH") == "" {
+		if v := os.Getenv("BONSAI_MODEL_PATCH"); v != "" {
+			cfg.Models.Roles.Patch = v
+		}
+	}
+	if os.Getenv("BONSAI_MODEL_ROLE_CHAT") == "" {
+		if v := os.Getenv("BONSAI_MODEL_CHAT"); v != "" {
+			cfg.Models.Roles.Chat = v
+		}
 	}
 }
