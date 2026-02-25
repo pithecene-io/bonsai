@@ -178,7 +178,7 @@ func Default() *Config {
 			MaxIterations: 3,
 		},
 		Check: CheckConfig{
-			Concurrency: 4,
+			Concurrency: 0, // 0 = unlimited (all skills in parallel)
 		},
 		Agents: AgentsConfig{
 			Claude: AgentBinConfig{Bin: "claude"},

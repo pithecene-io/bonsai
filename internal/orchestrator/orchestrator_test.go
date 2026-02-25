@@ -151,6 +151,7 @@ func TestRun_FailFast(t *testing.T) {
 
 	opts := defaultOpts(skills, t.TempDir())
 	opts.FailFast = true
+	opts.Concurrency = 1 // sequential: fail-fast prevents third skill
 
 	report, err := orch.Run(context.Background(), opts, nil)
 	if err != nil {
