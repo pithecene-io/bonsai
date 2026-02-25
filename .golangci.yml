@@ -33,9 +33,6 @@ linters:
     - misspell
 
   settings:
-    contextcheck:
-      check-typed-errors: true
-
     gocyclo:
       min-complexity: 12
 
