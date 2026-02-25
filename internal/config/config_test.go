@@ -157,55 +157,55 @@ func TestLoadRepoConfig_AllSlicesReplace(t *testing.T) {
 	}
 }
 
-func TestModelForCheck(t *testing.T) {
+func TestModelForSkill(t *testing.T) {
 	tests := []struct {
 		name string
-		r    config.ModelRouting
+		m    config.ModelsConfig
 		cost string
 		want string
 	}{
 		{
-			name: "cheap returns check.cheap",
-			r:    config.Default().Agents.Models,
+			name: "cheap returns skills.cheap",
+			m:    config.Default().Models,
 			cost: "cheap",
 			want: "haiku",
 		},
 		{
-			name: "moderate returns check.moderate",
-			r:    config.Default().Agents.Models,
+			name: "moderate returns skills.moderate",
+			m:    config.Default().Models,
 			cost: "moderate",
 			want: "sonnet",
 		},
 		{
-			name: "heavy returns check.heavy",
-			r:    config.Default().Agents.Models,
+			name: "heavy returns skills.heavy",
+			m:    config.Default().Models,
 			cost: "heavy",
-			want: "sonnet",
+			want: "opus",
 		},
 		{
-			name: "unknown cost falls back to default",
-			r:    config.Default().Agents.Models,
+			name: "unknown cost returns empty",
+			m:    config.Default().Models,
 			cost: "exotic",
-			want: "sonnet",
+			want: "",
 		},
 		{
-			name: "empty cost falls back to default",
-			r:    config.Default().Agents.Models,
+			name: "empty cost returns empty",
+			m:    config.Default().Models,
 			cost: "",
-			want: "sonnet",
+			want: "",
 		},
 		{
-			name: "empty check.cheap falls back to default",
-			r:    config.ModelRouting{Default: "fallback"},
+			name: "empty skills.cheap returns empty",
+			m:    config.ModelsConfig{},
 			cost: "cheap",
-			want: "fallback",
+			want: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.r.ModelForCheck(tt.cost)
+			got := tt.m.ModelForSkill(tt.cost)
 			if got != tt.want {
-				t.Errorf("ModelForCheck(%q) = %q, want %q", tt.cost, got, tt.want)
+				t.Errorf("ModelForSkill(%q) = %q, want %q", tt.cost, got, tt.want)
 			}
 		})
 	}
@@ -214,62 +214,62 @@ func TestModelForCheck(t *testing.T) {
 func TestModelForRole(t *testing.T) {
 	tests := []struct {
 		name string
-		r    config.ModelRouting
+		m    config.ModelsConfig
 		role string
 		want string
 	}{
 		{
 			name: "implement",
-			r:    config.ModelRouting{Default: "sonnet", Implement: "opus"},
+			m:    config.ModelsConfig{Roles: config.RoleModels{Implement: "opus"}},
 			role: "implement",
 			want: "opus",
 		},
 		{
 			name: "plan",
-			r:    config.ModelRouting{Default: "sonnet", Plan: "opus"},
+			m:    config.ModelsConfig{Roles: config.RoleModels{Plan: "opus"}},
 			role: "plan",
 			want: "opus",
 		},
 		{
 			name: "review",
-			r:    config.ModelRouting{Default: "sonnet", Review: "haiku"},
+			m:    config.ModelsConfig{Roles: config.RoleModels{Review: "haiku"}},
 			role: "review",
 			want: "haiku",
 		},
 		{
 			name: "patch",
-			r:    config.ModelRouting{Default: "sonnet", Patch: "opus"},
+			m:    config.ModelsConfig{Roles: config.RoleModels{Patch: "opus"}},
 			role: "patch",
 			want: "opus",
 		},
 		{
 			name: "chat",
-			r:    config.ModelRouting{Default: "sonnet", Chat: "haiku"},
+			m:    config.ModelsConfig{Roles: config.RoleModels{Chat: "haiku"}},
 			role: "chat",
 			want: "haiku",
 		},
 		{
-			name: "unknown role falls back to default",
-			r:    config.ModelRouting{Default: "sonnet"},
+			name: "unknown role returns empty",
+			m:    config.ModelsConfig{},
 			role: "unknown",
-			want: "sonnet",
+			want: "",
 		},
 		{
-			name: "empty role string falls back to default",
-			r:    config.ModelRouting{Default: "sonnet"},
+			name: "empty role string returns empty",
+			m:    config.ModelsConfig{},
 			role: "",
-			want: "sonnet",
+			want: "",
 		},
 		{
-			name: "empty role field falls back to default",
-			r:    config.ModelRouting{Default: "sonnet", Implement: ""},
+			name: "empty role field returns empty",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Implement: ""}},
 			role: "implement",
-			want: "sonnet",
+			want: "",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.r.ModelForRole(tt.role)
+			got := tt.m.ModelForRole(tt.role)
 			if got != tt.want {
 				t.Errorf("ModelForRole(%q) = %q, want %q", tt.role, got, tt.want)
 			}
@@ -277,48 +277,44 @@ func TestModelForRole(t *testing.T) {
 	}
 }
 
-func TestDefaultModelRouting(t *testing.T) {
+func TestDefaultModelsConfig(t *testing.T) {
 	cfg := config.Default()
-	m := cfg.Agents.Models
+	m := cfg.Models
 
-	if m.Default != "sonnet" {
-		t.Errorf("Default = %q, want sonnet", m.Default)
+	if m.Skills.Cheap != "haiku" {
+		t.Errorf("Skills.Cheap = %q, want haiku", m.Skills.Cheap)
 	}
-	if m.Check.Cheap != "haiku" {
-		t.Errorf("Check.Cheap = %q, want haiku", m.Check.Cheap)
+	if m.Skills.Moderate != "sonnet" {
+		t.Errorf("Skills.Moderate = %q, want sonnet", m.Skills.Moderate)
 	}
-	if m.Check.Moderate != "sonnet" {
-		t.Errorf("Check.Moderate = %q, want sonnet", m.Check.Moderate)
+	if m.Skills.Heavy != "opus" {
+		t.Errorf("Skills.Heavy = %q, want opus", m.Skills.Heavy)
 	}
-	if m.Check.Heavy != "sonnet" {
-		t.Errorf("Check.Heavy = %q, want sonnet", m.Check.Heavy)
+	if m.Roles.Implement != "opus" {
+		t.Errorf("Roles.Implement = %q, want opus", m.Roles.Implement)
 	}
-	if m.Implement != "opus" {
-		t.Errorf("Implement = %q, want opus", m.Implement)
+	if m.Roles.Plan != "opus" {
+		t.Errorf("Roles.Plan = %q, want opus", m.Roles.Plan)
 	}
-	if m.Plan != "opus" {
-		t.Errorf("Plan = %q, want opus", m.Plan)
+	if m.Roles.Review != "codex" {
+		t.Errorf("Roles.Review = %q, want codex", m.Roles.Review)
 	}
-	if m.Review != "codex" {
-		t.Errorf("Review = %q, want codex", m.Review)
+	if m.Roles.Patch != "sonnet" {
+		t.Errorf("Roles.Patch = %q, want sonnet", m.Roles.Patch)
 	}
-	if m.Patch != "sonnet" {
-		t.Errorf("Patch = %q, want sonnet", m.Patch)
-	}
-	if m.Chat != "sonnet" {
-		t.Errorf("Chat = %q, want sonnet", m.Chat)
+	if m.Roles.Chat != "sonnet" {
+		t.Errorf("Roles.Chat = %q, want sonnet", m.Roles.Chat)
 	}
 }
 
-func TestLoadRepoConfig_ModelRouting(t *testing.T) {
+func TestLoadRepoConfig_ModelsConfig(t *testing.T) {
 	dir := t.TempDir()
 	repoConfig := filepath.Join(dir, ".bonsai.yaml")
-	yaml := `agents:
-  models:
-    default: opus
-    check:
-      cheap: haiku
-      heavy: opus
+	yaml := `models:
+  skills:
+    cheap: haiku
+    heavy: opus
+  roles:
     implement: opus
     plan: opus
 `
@@ -331,68 +327,61 @@ func TestLoadRepoConfig_ModelRouting(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.Agents.Models.Default != "opus" {
-		t.Errorf("Models.Default = %q, want opus", cfg.Agents.Models.Default)
+	if cfg.Models.Skills.Cheap != "haiku" {
+		t.Errorf("Models.Skills.Cheap = %q, want haiku", cfg.Models.Skills.Cheap)
 	}
-	if cfg.Agents.Models.Check.Cheap != "haiku" {
-		t.Errorf("Models.Check.Cheap = %q, want haiku", cfg.Agents.Models.Check.Cheap)
+	if cfg.Models.Skills.Heavy != "opus" {
+		t.Errorf("Models.Skills.Heavy = %q, want opus", cfg.Models.Skills.Heavy)
 	}
-	if cfg.Agents.Models.Check.Heavy != "opus" {
-		t.Errorf("Models.Check.Heavy = %q, want opus", cfg.Agents.Models.Check.Heavy)
+	if cfg.Models.Roles.Implement != "opus" {
+		t.Errorf("Models.Roles.Implement = %q, want opus", cfg.Models.Roles.Implement)
 	}
-	if cfg.Agents.Models.Implement != "opus" {
-		t.Errorf("Models.Implement = %q, want opus", cfg.Agents.Models.Implement)
-	}
-	if cfg.Agents.Models.Plan != "opus" {
-		t.Errorf("Models.Plan = %q, want opus", cfg.Agents.Models.Plan)
+	if cfg.Models.Roles.Plan != "opus" {
+		t.Errorf("Models.Roles.Plan = %q, want opus", cfg.Models.Roles.Plan)
 	}
 	// Unset fields should retain defaults
-	if cfg.Agents.Models.Review != "codex" {
-		t.Errorf("Models.Review = %q, want codex (default)", cfg.Agents.Models.Review)
+	if cfg.Models.Roles.Review != "codex" {
+		t.Errorf("Models.Roles.Review = %q, want codex (default)", cfg.Models.Roles.Review)
 	}
-	if cfg.Agents.Models.Check.Moderate != "sonnet" {
-		t.Errorf("Models.Check.Moderate = %q, want sonnet (default)", cfg.Agents.Models.Check.Moderate)
+	if cfg.Models.Skills.Moderate != "sonnet" {
+		t.Errorf("Models.Skills.Moderate = %q, want sonnet (default)", cfg.Models.Skills.Moderate)
 	}
 }
 
-func TestLoadEnvOverride_ModelRouting(t *testing.T) {
-	t.Setenv("BONSAI_MODEL_DEFAULT", "opus")
-	t.Setenv("BONSAI_MODEL_CHECK_CHEAP", "haiku-3")
-	t.Setenv("BONSAI_MODEL_CHECK_HEAVY", "opus-4")
-	t.Setenv("BONSAI_MODEL_IMPLEMENT", "opus")
-	t.Setenv("BONSAI_MODEL_PLAN", "opus")
-	t.Setenv("BONSAI_MODEL_REVIEW", "haiku")
-	t.Setenv("BONSAI_MODEL_PATCH", "opus")
-	t.Setenv("BONSAI_MODEL_CHAT", "haiku")
+func TestLoadEnvOverride_ModelsConfig(t *testing.T) {
+	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-3")
+	t.Setenv("BONSAI_MODEL_SKILL_HEAVY", "opus-4")
+	t.Setenv("BONSAI_MODEL_ROLE_IMPLEMENT", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_PLAN", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_REVIEW", "haiku")
+	t.Setenv("BONSAI_MODEL_ROLE_PATCH", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_CHAT", "haiku")
 
 	cfg, err := config.Load("")
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.Agents.Models.Default != "opus" {
-		t.Errorf("Default = %q, want opus", cfg.Agents.Models.Default)
+	if cfg.Models.Skills.Cheap != "haiku-3" {
+		t.Errorf("Skills.Cheap = %q, want haiku-3", cfg.Models.Skills.Cheap)
 	}
-	if cfg.Agents.Models.Check.Cheap != "haiku-3" {
-		t.Errorf("Check.Cheap = %q, want haiku-3", cfg.Agents.Models.Check.Cheap)
+	if cfg.Models.Skills.Heavy != "opus-4" {
+		t.Errorf("Skills.Heavy = %q, want opus-4", cfg.Models.Skills.Heavy)
 	}
-	if cfg.Agents.Models.Check.Heavy != "opus-4" {
-		t.Errorf("Check.Heavy = %q, want opus-4", cfg.Agents.Models.Check.Heavy)
+	if cfg.Models.Roles.Implement != "opus" {
+		t.Errorf("Roles.Implement = %q, want opus", cfg.Models.Roles.Implement)
 	}
-	if cfg.Agents.Models.Implement != "opus" {
-		t.Errorf("Implement = %q, want opus", cfg.Agents.Models.Implement)
+	if cfg.Models.Roles.Plan != "opus" {
+		t.Errorf("Roles.Plan = %q, want opus", cfg.Models.Roles.Plan)
 	}
-	if cfg.Agents.Models.Plan != "opus" {
-		t.Errorf("Plan = %q, want opus", cfg.Agents.Models.Plan)
+	if cfg.Models.Roles.Review != "haiku" {
+		t.Errorf("Roles.Review = %q, want haiku", cfg.Models.Roles.Review)
 	}
-	if cfg.Agents.Models.Review != "haiku" {
-		t.Errorf("Review = %q, want haiku", cfg.Agents.Models.Review)
+	if cfg.Models.Roles.Patch != "opus" {
+		t.Errorf("Roles.Patch = %q, want opus", cfg.Models.Roles.Patch)
 	}
-	if cfg.Agents.Models.Patch != "opus" {
-		t.Errorf("Patch = %q, want opus", cfg.Agents.Models.Patch)
-	}
-	if cfg.Agents.Models.Chat != "haiku" {
-		t.Errorf("Chat = %q, want haiku", cfg.Agents.Models.Chat)
+	if cfg.Models.Roles.Chat != "haiku" {
+		t.Errorf("Roles.Chat = %q, want haiku", cfg.Models.Roles.Chat)
 	}
 }
 

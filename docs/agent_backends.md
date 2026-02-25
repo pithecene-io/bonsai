@@ -26,7 +26,7 @@ Messages API directly via the Go SDK, avoiding subprocess overhead.
 Resolution order (first match wins):
 
 1. **Explicit API key** — `WithAPIKey()` option (from config
-   `agents.anthropic.api_key`)
+   `providers.anthropic.api_key`)
 2. **Claude CLI OAuth token** — read from
    `~/.claude/.credentials.json` → `claudeAiOauth.accessToken`
 3. **`ANTHROPIC_API_KEY` environment variable**
@@ -202,32 +202,36 @@ Anthropic client.
 
 Source: `internal/config/config.go`
 
-Model selection is a config-level concern, not a per-agent concern.
-The `ModelRouting` struct maps roles and cost tiers to model names.
+Model selection is a top-level config concern (`models:`), separate
+from both providers and agents. The `ModelsConfig` struct maps skill
+cost tiers and interactive roles to model names.
 
 ### Default routing table
 
 | Context | Model |
 |---------|-------|
-| **Fallback default** | `sonnet` |
-| **Check — cheap** | `haiku` |
-| **Check — moderate** | `sonnet` |
-| **Check — heavy** | `sonnet` |
-| **Implement** | `opus` |
-| **Plan** | `opus` |
-| **Review** | `codex` |
-| **Patch** | `sonnet` |
-| **Chat** | `sonnet` |
+| **Skill — cheap** | `haiku` |
+| **Skill — moderate** | `sonnet` |
+| **Skill — heavy** | `opus` |
+| **Role — implement** | `opus` |
+| **Role — plan** | `opus` |
+| **Role — review** | `codex` |
+| **Role — patch** | `sonnet` |
+| **Role — chat** | `sonnet` |
+
+There is no fallback default. Every slot has a compiled-in default in
+`Default()`. Unknown cost/role returns empty string (agent picks its
+own default).
 
 These defaults can be overridden at any layer of the config merge
 chain: user config, repo config (`.bonsai.yaml`), or env vars.
 
 ### Resolution methods
 
-- `ModelForCheck(cost)` — resolves by cost tier (`cheap`, `moderate`,
-  `heavy`), falls back to `Default`
+- `ModelForSkill(cost)` — resolves by cost tier (`cheap`, `moderate`,
+  `heavy`); unknown cost returns empty
 - `ModelForRole(role)` — resolves by role name (`implement`, `plan`,
-  `review`, `patch`, `chat`), falls back to `Default`
+  `review`, `patch`, `chat`); unknown role returns empty
 
 ## Debugging
 

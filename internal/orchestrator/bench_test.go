@@ -70,8 +70,8 @@ func TestCheckLatency_SingleSkill(t *testing.T) {
 	for _, model := range models {
 		t.Run(model, func(t *testing.T) {
 			var apiOpts []agent.AnthropicOption
-			if cfg.Agents.Anthropic.APIKey != "" {
-				apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+			if cfg.Providers.Anthropic.APIKey != "" {
+				apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 			}
 			router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 			orch := orchestrator.New(router, resolver)
@@ -186,8 +186,8 @@ func TestCheckLatency_ParallelBundle(t *testing.T) {
 		len(skills), costs["cheap"], costs["moderate"], costs["heavy"])
 
 	var bundleOpts []agent.AnthropicOption
-	if cfg.Agents.Anthropic.APIKey != "" {
-		bundleOpts = append(bundleOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	if cfg.Providers.Anthropic.APIKey != "" {
+		bundleOpts = append(bundleOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 	}
 	router := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, bundleOpts...)
 	orch := orchestrator.New(router, resolver)

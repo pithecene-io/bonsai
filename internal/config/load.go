@@ -103,6 +103,11 @@ func mergeConfig(dst, src *Config) {
 		dst.Check.Concurrency = src.Check.Concurrency
 	}
 
+	// Providers
+	if src.Providers.Anthropic.APIKey != "" {
+		dst.Providers.Anthropic.APIKey = src.Providers.Anthropic.APIKey
+	}
+
 	// Agents
 	if src.Agents.Claude.Bin != "" {
 		dst.Agents.Claude.Bin = src.Agents.Claude.Bin
@@ -110,10 +115,9 @@ func mergeConfig(dst, src *Config) {
 	if src.Agents.Codex.Bin != "" {
 		dst.Agents.Codex.Bin = src.Agents.Codex.Bin
 	}
-	if src.Agents.Anthropic.APIKey != "" {
-		dst.Agents.Anthropic.APIKey = src.Agents.Anthropic.APIKey
-	}
-	mergeModelRouting(&dst.Agents.Models, &src.Agents.Models)
+
+	// Models
+	mergeModelsConfig(&dst.Models, &src.Models)
 
 	// Output
 	if src.Output.Dir != "" {
@@ -126,34 +130,34 @@ func mergeConfig(dst, src *Config) {
 	}
 }
 
-// mergeModelRouting merges non-empty model routing fields from src into dst.
-func mergeModelRouting(dst, src *ModelRouting) {
-	if src.Default != "" {
-		dst.Default = src.Default
+// mergeModelsConfig merges non-empty model config fields from src into dst.
+func mergeModelsConfig(dst, src *ModelsConfig) {
+	// Skills
+	if src.Skills.Cheap != "" {
+		dst.Skills.Cheap = src.Skills.Cheap
 	}
-	if src.Check.Cheap != "" {
-		dst.Check.Cheap = src.Check.Cheap
+	if src.Skills.Moderate != "" {
+		dst.Skills.Moderate = src.Skills.Moderate
 	}
-	if src.Check.Moderate != "" {
-		dst.Check.Moderate = src.Check.Moderate
+	if src.Skills.Heavy != "" {
+		dst.Skills.Heavy = src.Skills.Heavy
 	}
-	if src.Check.Heavy != "" {
-		dst.Check.Heavy = src.Check.Heavy
+
+	// Roles
+	if src.Roles.Implement != "" {
+		dst.Roles.Implement = src.Roles.Implement
 	}
-	if src.Implement != "" {
-		dst.Implement = src.Implement
+	if src.Roles.Plan != "" {
+		dst.Roles.Plan = src.Roles.Plan
 	}
-	if src.Plan != "" {
-		dst.Plan = src.Plan
+	if src.Roles.Review != "" {
+		dst.Roles.Review = src.Roles.Review
 	}
-	if src.Review != "" {
-		dst.Review = src.Review
+	if src.Roles.Patch != "" {
+		dst.Roles.Patch = src.Roles.Patch
 	}
-	if src.Patch != "" {
-		dst.Patch = src.Patch
-	}
-	if src.Chat != "" {
-		dst.Chat = src.Chat
+	if src.Roles.Chat != "" {
+		dst.Roles.Chat = src.Roles.Chat
 	}
 }
 
@@ -185,35 +189,32 @@ func mergeFromEnv(cfg *Config) {
 	if v := os.Getenv("BONSAI_CODEX_BIN"); v != "" {
 		cfg.Agents.Codex.Bin = v
 	}
-	if v := os.Getenv("BONSAI_ANTHROPIC_API_KEY"); v != "" {
-		cfg.Agents.Anthropic.APIKey = v
+	if v := os.Getenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY"); v != "" {
+		cfg.Providers.Anthropic.APIKey = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_DEFAULT"); v != "" {
-		cfg.Agents.Models.Default = v
+	if v := os.Getenv("BONSAI_MODEL_SKILL_CHEAP"); v != "" {
+		cfg.Models.Skills.Cheap = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_CHECK_CHEAP"); v != "" {
-		cfg.Agents.Models.Check.Cheap = v
+	if v := os.Getenv("BONSAI_MODEL_SKILL_MODERATE"); v != "" {
+		cfg.Models.Skills.Moderate = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_CHECK_MODERATE"); v != "" {
-		cfg.Agents.Models.Check.Moderate = v
+	if v := os.Getenv("BONSAI_MODEL_SKILL_HEAVY"); v != "" {
+		cfg.Models.Skills.Heavy = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_CHECK_HEAVY"); v != "" {
-		cfg.Agents.Models.Check.Heavy = v
+	if v := os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT"); v != "" {
+		cfg.Models.Roles.Implement = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_IMPLEMENT"); v != "" {
-		cfg.Agents.Models.Implement = v
+	if v := os.Getenv("BONSAI_MODEL_ROLE_PLAN"); v != "" {
+		cfg.Models.Roles.Plan = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_PLAN"); v != "" {
-		cfg.Agents.Models.Plan = v
+	if v := os.Getenv("BONSAI_MODEL_ROLE_REVIEW"); v != "" {
+		cfg.Models.Roles.Review = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_REVIEW"); v != "" {
-		cfg.Agents.Models.Review = v
+	if v := os.Getenv("BONSAI_MODEL_ROLE_PATCH"); v != "" {
+		cfg.Models.Roles.Patch = v
 	}
-	if v := os.Getenv("BONSAI_MODEL_PATCH"); v != "" {
-		cfg.Agents.Models.Patch = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_CHAT"); v != "" {
-		cfg.Agents.Models.Chat = v
+	if v := os.Getenv("BONSAI_MODEL_ROLE_CHAT"); v != "" {
+		cfg.Models.Roles.Chat = v
 	}
 	if v := os.Getenv("BONSAI_OUTPUT_DIR"); v != "" {
 		cfg.Output.Dir = v

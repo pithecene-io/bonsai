@@ -97,8 +97,8 @@ func runSkill(c *cli.Context) error {
 
 	// Create agent router (routes to codex/anthropic/claude based on model)
 	var apiOpts []agent.AnthropicOption
-	if cfg.Agents.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	if cfg.Providers.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 	}
 	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	builder := prompt.NewBuilder(resolver, repoRoot)
@@ -108,9 +108,7 @@ func runSkill(c *cli.Context) error {
 	model := modelOverride
 	if model == "" {
 		if s, ok := reg.LookupSkill(skillName); ok {
-			model = cfg.Agents.Models.ModelForCheck(s.Cost)
-		} else {
-			model = cfg.Agents.Models.Default
+			model = cfg.Models.ModelForSkill(s.Cost)
 		}
 	}
 

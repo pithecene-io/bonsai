@@ -113,8 +113,8 @@ func runCheck(c *cli.Context) error {
 
 	// Create orchestrator with agent router (claude + codex + anthropic direct)
 	var apiOpts []agent.AnthropicOption
-	if cfg.Agents.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	if cfg.Providers.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 	}
 	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	orch := orchestrator.New(agentRouter, resolver)

@@ -61,7 +61,7 @@ func runPlan(c *cli.Context) error {
 
 	// Create agent and start interactive session
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	planModel := cfg.Agents.Models.ModelForRole("plan")
+	planModel := cfg.Models.ModelForRole("plan")
 
 	extraArgs := []string{}
 	if planModel != "" {
