@@ -78,3 +78,10 @@ func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, mo
 
 	return stdout.String(), nil
 }
+
+// Autonomous delegates to NonInteractive since codex exec is already
+// non-interactive with tool use. Output is discarded (codex captures it).
+func (c *Codex) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+	_, err := c.NonInteractive(ctx, systemPrompt, userPrompt, model)
+	return err
+}

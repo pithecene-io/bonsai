@@ -287,7 +287,7 @@ func TestFix_CommandRegistered(t *testing.T) {
 				flagNames[n] = true
 			}
 		}
-		for _, expected := range []string{"bundle", "base", "max-iterations", "model"} {
+		for _, expected := range []string{"bundle", "base", "max-iterations", "no-progress"} {
 			if !flagNames[expected] {
 				t.Errorf("fix command missing --%s flag", expected)
 			}
