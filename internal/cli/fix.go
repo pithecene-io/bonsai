@@ -94,11 +94,43 @@ func runFix(c *urfave.Context) error {
 	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
 
-	source := "bundle:" + bundle + " (cheap-only)"
+	return fixLoop(c.Context, fixOpts{
+		checkAgent:    agentRouter,
+		sessionAgent:  claudeAgent,
+		resolver:      resolver,
+		registry:      reg,
+		config:        cfg,
+		skills:        skills,
+		source:        "bundle:" + bundle + " (cheap-only)",
+		baseRef:       baseRef,
+		repoRoot:      repoRoot,
+		maxIterations: maxIter,
+		modelOverride: modelOverride,
+		extraArgs:     c.Args().Slice(),
+	})
+}
 
+// fixOpts holds dependencies for the fix loop, enabling testability.
+type fixOpts struct {
+	checkAgent    agent.Agent       // non-interactive agent for running checks
+	sessionAgent  agent.Agent       // interactive agent for fix sessions
+	resolver      *assets.Resolver
+	registry      *registry.Registry
+	config        *config.Config
+	skills        []registry.Skill
+	source        string
+	baseRef       string
+	repoRoot      string
+	maxIterations int
+	modelOverride string
+	extraArgs     []string
+}
+
+// fixLoop implements the check-fix-recheck loop with injected dependencies.
+func fixLoop(ctx context.Context, opts fixOpts) error {
 	// ═══ Initial check ═══
 	fmt.Println("═══ bonsai fix: initial check ═══")
-	report, err := runFixCheck(c.Context, agentRouter, resolver, skills, source, baseRef, repoRoot, cfg, reg)
+	report, err := runFixCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
 	if err != nil {
 		return fmt.Errorf("initial check: %w", err)
 	}
@@ -111,11 +143,11 @@ func runFix(c *urfave.Context) error {
 	findings := extractDetailedFindings(report)
 
 	// ═══ Fix loop ═══
-	for iteration := 1; iteration <= maxIter; iteration++ {
-		fmt.Printf("\n═══ Fix session %d/%d ═══\n\n", iteration, maxIter)
+	for iteration := 1; iteration <= opts.maxIterations; iteration++ {
+		fmt.Printf("\n═══ Fix session %d/%d ═══\n\n", iteration, opts.maxIterations)
 
 		// Build prompt with findings
-		builder := prompt.NewBuilder(resolver, repoRoot)
+		builder := prompt.NewBuilder(opts.resolver, opts.repoRoot)
 		systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
 			Mode:         prompt.ModeImplementer,
 			Role:         "implementer",
@@ -126,11 +158,11 @@ func runFix(c *urfave.Context) error {
 		}
 
 		// Resolve model: flag > config > default
-		extraArgs := c.Args().Slice()
-		if modelOverride != "" {
-			extraArgs = append([]string{"--model", modelOverride}, extraArgs...)
-		} else if cfg != nil {
-			implModel := cfg.Agents.Models.ModelForRole("implement")
+		extraArgs := append([]string{}, opts.extraArgs...)
+		if opts.modelOverride != "" {
+			extraArgs = append([]string{"--model", opts.modelOverride}, extraArgs...)
+		} else if opts.config != nil {
+			implModel := opts.config.Agents.Models.ModelForRole("implement")
 			if implModel != "" {
 				extraArgs = append([]string{"--model", implModel}, extraArgs...)
 			}
@@ -138,8 +170,8 @@ func runFix(c *urfave.Context) error {
 		// Interactive session — ctrl-C and normal exit are expected.
 		// Log unexpected errors (binary not found, auth failure) but
 		// continue to re-check so the user sees current state.
-		if err := claudeAgent.Interactive(c.Context, systemPrompt, extraArgs); err != nil {
-			if c.Context.Err() != nil {
+		if err := opts.sessionAgent.Interactive(ctx, systemPrompt, extraArgs); err != nil {
+			if ctx.Err() != nil {
 				// Parent context cancelled — user wants out entirely
 				return nil
 			}
@@ -147,25 +179,25 @@ func runFix(c *urfave.Context) error {
 		}
 
 		// Re-check
-		fmt.Printf("\n═══ Re-check after fix session %d/%d ═══\n", iteration, maxIter)
-		report, err = runFixCheck(c.Context, agentRouter, resolver, skills, source, baseRef, repoRoot, cfg, reg)
+		fmt.Printf("\n═══ Re-check after fix session %d/%d ═══\n", iteration, opts.maxIterations)
+		report, err = runFixCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
 		if err != nil {
 			return fmt.Errorf("re-check: %w", err)
 		}
 
 		if !report.ShouldFail() {
 			fmt.Printf("\n✔ All findings resolved (%d/%d skills passed)\n", report.Passed, report.Total)
-			saveFixArtifacts(repoRoot, cfg, report)
+			saveFixArtifacts(opts.repoRoot, opts.config, report)
 			return nil
 		}
 
 		// Still failing
 		findings = extractDetailedFindings(report)
 
-		if iteration == maxIter {
-			fmt.Fprintf(os.Stderr, "\n✖ Findings remain after %d fix iterations\n", maxIter)
+		if iteration == opts.maxIterations {
+			fmt.Fprintf(os.Stderr, "\n✖ Findings remain after %d fix iterations\n", opts.maxIterations)
 			printDetailedFindings(report)
-			return urfave.Exit("", 1)
+			return fmt.Errorf("findings remain after %d fix iterations", opts.maxIterations)
 		}
 
 		fmt.Printf("\n%d finding(s) remain — re-entering fix session\n", report.BlockingFailed)
