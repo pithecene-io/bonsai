@@ -79,9 +79,21 @@ func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, mo
 	return stdout.String(), nil
 }
 
-// Autonomous delegates to NonInteractive since codex exec is already
-// non-interactive with tool use. Output is discarded (codex captures it).
+// Autonomous runs codex in non-interactive mode but streams stdout/stderr
+// to the terminal instead of capturing output.
 func (c *Codex) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
-	_, err := c.NonInteractive(ctx, systemPrompt, userPrompt, model)
-	return err
+	args := []string{"exec", "--ephemeral", "--sandbox", "read-only"}
+	if model != "" && model != "codex" {
+		args = append(args, "-m", model)
+	}
+	args = append(args, "-")
+
+	combined := systemPrompt + "\n\n" + userPrompt
+
+	cmd := exec.CommandContext(ctx, c.Bin, args...)
+	cmd.Stdin = strings.NewReader(combined)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }

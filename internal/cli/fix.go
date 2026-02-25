@@ -160,6 +160,11 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 		return fmt.Errorf("initial check: %w", err)
 	}
 
+	if report == nil {
+		// TUI interrupted — clean exit
+		return nil
+	}
+
 	if !report.ShouldFail() {
 		fmt.Println("\n✔ No findings — nothing to fix")
 		return nil
@@ -208,6 +213,11 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 		report, err = runFixCheck(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("re-check: %w", err)
+		}
+
+		if report == nil {
+			// TUI interrupted — clean exit
+			return nil
 		}
 
 		if !report.ShouldFail() {
