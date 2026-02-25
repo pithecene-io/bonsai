@@ -82,6 +82,7 @@ type legacyAgentsOverlay struct {
 	Agents struct {
 		Anthropic AnthropicConfig `yaml:"anthropic"`
 		Models    struct {
+			Default   string `yaml:"default"`
 			Check struct {
 				Cheap    string `yaml:"cheap"`
 				Moderate string `yaml:"moderate"`
@@ -128,6 +129,34 @@ func promoteLegacyAgents(overlay *Config, legacy *legacyAgentsOverlay) {
 	}
 	if lm.Chat != "" && overlay.Models.Roles.Chat == "" {
 		overlay.Models.Roles.Chat = lm.Chat
+	}
+
+	// Legacy blanket default — fills any still-empty slot.
+	if d := lm.Default; d != "" {
+		if overlay.Models.Skills.Cheap == "" {
+			overlay.Models.Skills.Cheap = d
+		}
+		if overlay.Models.Skills.Moderate == "" {
+			overlay.Models.Skills.Moderate = d
+		}
+		if overlay.Models.Skills.Heavy == "" {
+			overlay.Models.Skills.Heavy = d
+		}
+		if overlay.Models.Roles.Implement == "" {
+			overlay.Models.Roles.Implement = d
+		}
+		if overlay.Models.Roles.Plan == "" {
+			overlay.Models.Roles.Plan = d
+		}
+		if overlay.Models.Roles.Review == "" {
+			overlay.Models.Roles.Review = d
+		}
+		if overlay.Models.Roles.Patch == "" {
+			overlay.Models.Roles.Patch = d
+		}
+		if overlay.Models.Roles.Chat == "" {
+			overlay.Models.Roles.Chat = d
+		}
 	}
 }
 
@@ -334,6 +363,36 @@ func mergeFromEnv(cfg *Config) {
 	if os.Getenv("BONSAI_MODEL_ROLE_CHAT") == "" {
 		if v := os.Getenv("BONSAI_MODEL_CHAT"); v != "" {
 			cfg.Models.Roles.Chat = v
+		}
+	}
+
+	// Legacy blanket default — fills any slot not already overridden by
+	// a specific env var (new or legacy).
+	if v := os.Getenv("BONSAI_MODEL_DEFAULT"); v != "" {
+		m := &cfg.Models
+		if os.Getenv("BONSAI_MODEL_SKILL_CHEAP") == "" && os.Getenv("BONSAI_MODEL_CHECK_CHEAP") == "" {
+			m.Skills.Cheap = v
+		}
+		if os.Getenv("BONSAI_MODEL_SKILL_MODERATE") == "" && os.Getenv("BONSAI_MODEL_CHECK_MODERATE") == "" {
+			m.Skills.Moderate = v
+		}
+		if os.Getenv("BONSAI_MODEL_SKILL_HEAVY") == "" && os.Getenv("BONSAI_MODEL_CHECK_HEAVY") == "" {
+			m.Skills.Heavy = v
+		}
+		if os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT") == "" && os.Getenv("BONSAI_MODEL_IMPLEMENT") == "" {
+			m.Roles.Implement = v
+		}
+		if os.Getenv("BONSAI_MODEL_ROLE_PLAN") == "" && os.Getenv("BONSAI_MODEL_PLAN") == "" {
+			m.Roles.Plan = v
+		}
+		if os.Getenv("BONSAI_MODEL_ROLE_REVIEW") == "" && os.Getenv("BONSAI_MODEL_REVIEW") == "" {
+			m.Roles.Review = v
+		}
+		if os.Getenv("BONSAI_MODEL_ROLE_PATCH") == "" && os.Getenv("BONSAI_MODEL_PATCH") == "" {
+			m.Roles.Patch = v
+		}
+		if os.Getenv("BONSAI_MODEL_ROLE_CHAT") == "" && os.Getenv("BONSAI_MODEL_CHAT") == "" {
+			m.Roles.Chat = v
 		}
 	}
 }

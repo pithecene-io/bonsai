@@ -573,6 +573,71 @@ func TestLoadEnvOverride_LegacyEnvCompat(t *testing.T) {
 	}
 }
 
+func TestLoadRepoConfig_LegacyDefaultFillsEmptySlots(t *testing.T) {
+	dir := t.TempDir()
+	repoConfig := filepath.Join(dir, ".bonsai.yaml")
+	yaml := `agents:
+  models:
+    default: custom-default
+    check:
+      cheap: haiku-explicit
+`
+	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// Explicit slot wins over default.
+	if cfg.Models.Skills.Cheap != "haiku-explicit" {
+		t.Errorf("Skills.Cheap = %q, want haiku-explicit (explicit wins)", cfg.Models.Skills.Cheap)
+	}
+	// Default fills remaining empty slots.
+	if cfg.Models.Skills.Moderate != "custom-default" {
+		t.Errorf("Skills.Moderate = %q, want custom-default (filled by default)", cfg.Models.Skills.Moderate)
+	}
+	if cfg.Models.Skills.Heavy != "custom-default" {
+		t.Errorf("Skills.Heavy = %q, want custom-default (filled by default)", cfg.Models.Skills.Heavy)
+	}
+	if cfg.Models.Roles.Implement != "custom-default" {
+		t.Errorf("Roles.Implement = %q, want custom-default (filled by default)", cfg.Models.Roles.Implement)
+	}
+	if cfg.Models.Roles.Chat != "custom-default" {
+		t.Errorf("Roles.Chat = %q, want custom-default (filled by default)", cfg.Models.Roles.Chat)
+	}
+}
+
+func TestLoadEnvOverride_LegacyDefaultFillsEmptySlots(t *testing.T) {
+	t.Setenv("BONSAI_MODEL_DEFAULT", "blanket-model")
+	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-specific")
+
+	cfg, err := config.Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// Specific env var wins.
+	if cfg.Models.Skills.Cheap != "haiku-specific" {
+		t.Errorf("Skills.Cheap = %q, want haiku-specific (specific wins)", cfg.Models.Skills.Cheap)
+	}
+	// Default fills remaining slots.
+	if cfg.Models.Skills.Moderate != "blanket-model" {
+		t.Errorf("Skills.Moderate = %q, want blanket-model (filled by default)", cfg.Models.Skills.Moderate)
+	}
+	if cfg.Models.Skills.Heavy != "blanket-model" {
+		t.Errorf("Skills.Heavy = %q, want blanket-model (filled by default)", cfg.Models.Skills.Heavy)
+	}
+	if cfg.Models.Roles.Implement != "blanket-model" {
+		t.Errorf("Roles.Implement = %q, want blanket-model (filled by default)", cfg.Models.Roles.Implement)
+	}
+	if cfg.Models.Roles.Chat != "blanket-model" {
+		t.Errorf("Roles.Chat = %q, want blanket-model (filled by default)", cfg.Models.Roles.Chat)
+	}
+}
+
 func TestLoadEnvOverride_NewEnvWinsOverLegacy(t *testing.T) {
 	// Set both old and new env vars — new must win.
 	t.Setenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY", "sk-new-env")
