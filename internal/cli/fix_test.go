@@ -521,3 +521,73 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 		t.Error("expected 'arch-index-alignment' in one of the autonomous prompts")
 	}
 }
+
+// --- interrupt regression tests (injected runCheck) ---
+
+// TestFixLoop_InitialCheckInterrupt_NilReport verifies that fixLoop
+// returns nil (clean exit) when the initial check returns (nil, nil),
+// which signals a TUI interrupt. Before the nil guard was added this
+// was a nil-pointer dereference on report.ShouldFail().
+func TestFixLoop_InitialCheckInterrupt_NilReport(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "mock"}
+	err := fixLoop(context.Background(), fixOpts{
+		checkAgent:    mock,
+		sessionAgent:  mock,
+		skills:        []registry.Skill{testSkill()},
+		maxIterations: 3,
+		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
+			return nil, nil // simulate TUI interrupt
+		},
+	})
+	if err != nil {
+		t.Fatalf("fixLoop returned error on initial interrupt: %v", err)
+	}
+	if mock.CallCount() != 0 {
+		t.Errorf("expected 0 agent calls on interrupt, got %d", mock.CallCount())
+	}
+}
+
+// TestFixLoop_RecheckInterrupt_NilReport verifies that fixLoop returns
+// nil (clean exit) when the re-check after a fix iteration returns
+// (nil, nil). The initial check reports a failure so the loop enters
+// the fix phase; the re-check then signals interrupt.
+func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
+	var checkCalls atomic.Int32
+	mock := &agent.MockAgent{NameVal: "mock"}
+
+	tmpDir := t.TempDir()
+	err := fixLoop(context.Background(), fixOpts{
+		checkAgent:   mock,
+		sessionAgent: mock,
+		resolver:     assets.NewResolver(tmpDir),
+		skills:       []registry.Skill{testSkill()},
+		maxIterations: 3,
+		repoRoot:      tmpDir,
+		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
+			n := checkCalls.Add(1)
+			if n == 1 {
+				// Initial check: report a blocking failure so the
+				// loop enters the fix phase.
+				return &orchestrator.Report{
+					Total:          1,
+					BlockingFailed: 1,
+					Results: []orchestrator.Result{{
+						Name:            testSkill().Name,
+						ExitCode:        1,
+						Blocking:        1,
+						Mandatory:       true,
+						BlockingDetails: []string{"finding-1"},
+					}},
+				}, nil
+			}
+			// Re-check: simulate TUI interrupt.
+			return nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("fixLoop returned error on re-check interrupt: %v", err)
+	}
+	if checkCalls.Load() != 2 {
+		t.Errorf("expected 2 check calls (initial + re-check), got %d", checkCalls.Load())
+	}
+}

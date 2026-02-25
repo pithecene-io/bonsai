@@ -117,6 +117,10 @@ func runFix(c *urfave.Context) error {
 	})
 }
 
+// checkFunc is the signature for running a governance check pass.
+// Returns a report and error; (nil, nil) signals user interrupt.
+type checkFunc func(ctx context.Context, opts fixOpts) (*orchestrator.Report, error)
+
 // fixOpts holds dependencies for the fix loop, enabling testability.
 type fixOpts struct {
 	checkAgent    agent.Agent // non-interactive agent for running checks
@@ -130,6 +134,10 @@ type fixOpts struct {
 	repoRoot      string
 	maxIterations int
 	useTUI        bool
+
+	// runCheck overrides the default runFixCheck implementation.
+	// Used by tests to inject mock check results.
+	runCheck checkFunc
 }
 
 // skillFindings groups findings for a single failed skill.
@@ -153,9 +161,14 @@ func (sf skillFindings) UserPrompt() string {
 
 // fixLoop implements the check-fix-recheck loop with injected dependencies.
 func fixLoop(ctx context.Context, opts fixOpts) error {
+	doCheck := opts.runCheck
+	if doCheck == nil {
+		doCheck = runFixCheck
+	}
+
 	// ═══ Initial check ═══
 	fmt.Println("═══ bonsai fix: initial check ═══")
-	report, err := runFixCheck(ctx, opts)
+	report, err := doCheck(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("initial check: %w", err)
 	}
@@ -210,7 +223,7 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 
 		// Re-check
 		fmt.Printf("\n═══ Re-check after fix iteration %d/%d ═══\n", iteration, opts.maxIterations)
-		report, err = runFixCheck(ctx, opts)
+		report, err = doCheck(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("re-check: %w", err)
 		}
