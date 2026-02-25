@@ -15,8 +15,10 @@ type Config struct {
 
 // CheckConfig controls the check command.
 type CheckConfig struct {
-	Concurrency int `yaml:"concurrency"`
+	Concurrency *int `yaml:"concurrency"`
 }
+
+func intPtr(n int) *int { return &n }
 
 // DiffConfig controls diff profiling thresholds.
 type DiffConfig struct {
@@ -178,7 +180,7 @@ func Default() *Config {
 			MaxIterations: 3,
 		},
 		Check: CheckConfig{
-			Concurrency: 0, // 0 = unlimited (all skills in parallel)
+			Concurrency: intPtr(0), // 0 = unlimited (all skills in parallel)
 		},
 		Agents: AgentsConfig{
 			Claude: AgentBinConfig{Bin: "claude"},

@@ -102,7 +102,10 @@ func runCheck(c *cli.Context) error {
 	}
 
 	// Resolve concurrency: flag > config > unlimited (0)
-	concurrency := cfg.Check.Concurrency
+	concurrency := 0
+	if cfg.Check.Concurrency != nil {
+		concurrency = *cfg.Check.Concurrency
+	}
 	if c.IsSet("jobs") {
 		concurrency = c.Int("jobs")
 	}
