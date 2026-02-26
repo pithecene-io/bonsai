@@ -220,7 +220,9 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	// Wrap all output to terminal width so bubbletea's renderer never
+	// truncates any line. ANSI-aware: preserves lipgloss styling.
+	return ansi.Wrap(b.String(), m.width, "")
 }
 
 func (m Model) renderSkill(s skillEntry) string {
@@ -265,8 +267,9 @@ func (m Model) renderSkill(s skillEntry) string {
 		timing = styleDim.Render("—")
 	}
 
-	// Layout: "  {icon} {name…} {meta} {timing}"
-	// Fixed columns: indent(2) + icon(1) + space(1) + space(1) + meta + space(1) + timing
+	// Layout: "  {icon} {name} {meta} {timing}"
+	// Pad name to fill available space so meta/timing columns align.
+	// View() applies ansi.Wrap to hard-break any line exceeding width.
 	metaW := lipgloss.Width(meta)
 	timingW := lipgloss.Width(timing)
 	nameCol := m.width - 2 - 1 - 1 - 1 - metaW - 1 - timingW
@@ -275,17 +278,8 @@ func (m Model) renderSkill(s skillEntry) string {
 		nameCol = minNameCol
 	}
 
-	// Pad or truncate the name to exactly nameCol visual width.
 	nameW := lipgloss.Width(name)
-	switch {
-	case nameW > nameCol:
-		name = ansi.Truncate(name, nameCol-1, "…")
-		nameW = lipgloss.Width(name)
-		// Pad any remaining space (truncation may undershoot by one)
-		if pad := nameCol - nameW; pad > 0 {
-			name += strings.Repeat(" ", pad)
-		}
-	case nameW < nameCol:
+	if nameW < nameCol {
 		name += strings.Repeat(" ", nameCol-nameW)
 	}
 

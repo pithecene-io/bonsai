@@ -316,44 +316,14 @@ func TestModel_RenderSkill_LongNameNotTruncatedAt38(t *testing.T) {
 	}
 }
 
-func TestModel_RenderSkill_NarrowTerminalTruncates(t *testing.T) {
-	events := make(chan orchestrator.Event, 10)
-	m := NewModel("bundle:default", events)
-	m.width = 50 // narrow terminal
-
-	longName := "backward-compatibility-violation-detector"
-	m = m.handleEvent(orchestrator.Event{
-		Kind: orchestrator.EventQueued, Index: 0, Total: 1,
-		SkillName: longName, Cost: "expensive",
-	})
-
-	line := m.renderSkill(m.skills[0])
-
-	// In a narrow terminal the name should be truncated with an ellipsis
-	if !strings.Contains(line, "…") {
-		t.Errorf("long name not truncated in narrow terminal:\n  got: %s", line)
-	}
-}
-
-func TestModel_RenderSkill_LineFitsTerminalWidth(t *testing.T) {
+func TestModel_RenderSkill_NeverClipsName(t *testing.T) {
 	longName := "backward-compatibility-violation-detector"
 
-	tests := []struct {
-		width int
-		name  string
-	}{
-		{40, "very-narrow"},
-		{60, "narrow"},
-		{80, "default"},
-		{120, "wide"},
-		{200, "very-wide"},
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("width=%d", tt.width), func(t *testing.T) {
+	for _, width := range []int{40, 50, 60, 80, 120} {
+		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
 			events := make(chan orchestrator.Event, 10)
 			m := NewModel("bundle:default", events)
-			m.width = tt.width
+			m.width = width
 
 			m = m.handleEvent(orchestrator.Event{
 				Kind: orchestrator.EventQueued, Index: 0, Total: 1,
@@ -361,11 +331,48 @@ func TestModel_RenderSkill_LineFitsTerminalWidth(t *testing.T) {
 			})
 
 			line := m.renderSkill(m.skills[0])
-			visualWidth := lipgloss.Width(line)
 
-			if visualWidth > tt.width {
-				t.Errorf("rendered line visual width %d exceeds terminal width %d\n  line: %s",
-					visualWidth, tt.width, line)
+			// The full name must always appear — never clipped, even in narrow terminals.
+			if !strings.Contains(line, longName) {
+				t.Errorf("name clipped at width %d:\n  got:  %s\n  want to contain: %s",
+					width, line, longName)
+			}
+		})
+	}
+}
+
+func TestModel_View_NoLineExceedsWidth(t *testing.T) {
+	longName := "backward-compatibility-violation-detector"
+	longDetail := "/very/long/absolute/path/to/some/deeply/nested/directory/structure/that/exceeds/any/reasonable/terminal/width/file.go:123: missing required field"
+
+	for _, width := range []int{40, 60, 80, 120} {
+		t.Run(fmt.Sprintf("width=%d", width), func(t *testing.T) {
+			events := make(chan orchestrator.Event, 10)
+			m := NewModel("bundle:default", events)
+			m.width = width
+
+			m = m.handleEvent(orchestrator.Event{
+				Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+				SkillName: longName, Cost: "expensive", Mandatory: true,
+			})
+			m = m.handleEvent(orchestrator.Event{
+				Kind: orchestrator.EventDone, Index: 0,
+				SkillName: longName,
+				Elapsed:   100 * time.Millisecond,
+				Result: &orchestrator.Result{
+					Name: longName, Status: "fail", ExitCode: 1, Mandatory: true,
+					BlockingDetails: []string{longDetail},
+					WarningDetails:  []string{"short warning"},
+				},
+			})
+
+			view := m.View()
+			for i, line := range strings.Split(view, "\n") {
+				w := lipgloss.Width(line)
+				if w > width {
+					t.Errorf("line %d visual width %d > terminal width %d:\n  %s",
+						i+1, w, width, line)
+				}
 			}
 		})
 	}
