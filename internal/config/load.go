@@ -82,8 +82,8 @@ type legacyAgentsOverlay struct {
 	Agents struct {
 		Anthropic AnthropicConfig `yaml:"anthropic"`
 		Models    struct {
-			Default   string `yaml:"default"`
-			Check struct {
+			Default string `yaml:"default"`
+			Check   struct {
 				Cheap    string `yaml:"cheap"`
 				Moderate string `yaml:"moderate"`
 				Heavy    string `yaml:"heavy"`
@@ -105,57 +105,37 @@ func promoteLegacyAgents(overlay *Config, legacy *legacyAgentsOverlay) {
 	if la.Anthropic.APIKey != "" && overlay.Providers.Anthropic.APIKey == "" {
 		overlay.Providers.Anthropic.APIKey = la.Anthropic.APIKey
 	}
+
 	lm := &la.Models
-	if lm.Check.Cheap != "" && overlay.Models.Skills.Cheap == "" {
-		overlay.Models.Skills.Cheap = lm.Check.Cheap
+
+	// Table of legacy -> new field mappings.
+	type mapping struct {
+		src string
+		dst *string
 	}
-	if lm.Check.Moderate != "" && overlay.Models.Skills.Moderate == "" {
-		overlay.Models.Skills.Moderate = lm.Check.Moderate
+	mappings := []mapping{
+		{lm.Check.Cheap, &overlay.Models.Skills.Cheap},
+		{lm.Check.Moderate, &overlay.Models.Skills.Moderate},
+		{lm.Check.Heavy, &overlay.Models.Skills.Heavy},
+		{lm.Implement, &overlay.Models.Roles.Implement},
+		{lm.Plan, &overlay.Models.Roles.Plan},
+		{lm.Review, &overlay.Models.Roles.Review},
+		{lm.Patch, &overlay.Models.Roles.Patch},
+		{lm.Chat, &overlay.Models.Roles.Chat},
 	}
-	if lm.Check.Heavy != "" && overlay.Models.Skills.Heavy == "" {
-		overlay.Models.Skills.Heavy = lm.Check.Heavy
-	}
-	if lm.Implement != "" && overlay.Models.Roles.Implement == "" {
-		overlay.Models.Roles.Implement = lm.Implement
-	}
-	if lm.Plan != "" && overlay.Models.Roles.Plan == "" {
-		overlay.Models.Roles.Plan = lm.Plan
-	}
-	if lm.Review != "" && overlay.Models.Roles.Review == "" {
-		overlay.Models.Roles.Review = lm.Review
-	}
-	if lm.Patch != "" && overlay.Models.Roles.Patch == "" {
-		overlay.Models.Roles.Patch = lm.Patch
-	}
-	if lm.Chat != "" && overlay.Models.Roles.Chat == "" {
-		overlay.Models.Roles.Chat = lm.Chat
+
+	for _, m := range mappings {
+		if m.src != "" && *m.dst == "" {
+			*m.dst = m.src
+		}
 	}
 
 	// Legacy blanket default — fills any still-empty slot.
 	if d := lm.Default; d != "" {
-		if overlay.Models.Skills.Cheap == "" {
-			overlay.Models.Skills.Cheap = d
-		}
-		if overlay.Models.Skills.Moderate == "" {
-			overlay.Models.Skills.Moderate = d
-		}
-		if overlay.Models.Skills.Heavy == "" {
-			overlay.Models.Skills.Heavy = d
-		}
-		if overlay.Models.Roles.Implement == "" {
-			overlay.Models.Roles.Implement = d
-		}
-		if overlay.Models.Roles.Plan == "" {
-			overlay.Models.Roles.Plan = d
-		}
-		if overlay.Models.Roles.Review == "" {
-			overlay.Models.Roles.Review = d
-		}
-		if overlay.Models.Roles.Patch == "" {
-			overlay.Models.Roles.Patch = d
-		}
-		if overlay.Models.Roles.Chat == "" {
-			overlay.Models.Roles.Chat = d
+		for _, m := range mappings {
+			if *m.dst == "" {
+				*m.dst = d
+			}
 		}
 	}
 }
