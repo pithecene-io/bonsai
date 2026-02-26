@@ -46,9 +46,9 @@ func runReview(c *cli.Context) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	// Route agent based on agents.models.review config.
+	// Route agent based on models.roles.review config.
 	// Default is "codex"; any other value routes to claude with that model.
-	reviewModel := cfg.Agents.Models.ModelForRole("review")
+	reviewModel := cfg.Models.ModelForRole("review")
 	if reviewModel == "codex" {
 		codexAgent := agent.NewCodex(cfg.Agents.Codex.Bin)
 		return codexAgent.Interactive(c.Context, systemPrompt, nil)

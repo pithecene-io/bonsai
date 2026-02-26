@@ -299,7 +299,7 @@ func (o *Orchestrator) runSingleSkill(
 	if opts.ModelOverride != "" {
 		model = agent.Model(opts.ModelOverride)
 	} else if opts.Config != nil {
-		model = agent.Model(opts.Config.Agents.Models.ModelForCheck(s.Cost))
+		model = agent.Model(opts.Config.Models.ModelForSkill(s.Cost))
 	}
 
 	output, err := runner.Run(ctx, def, skill.RunOpts{

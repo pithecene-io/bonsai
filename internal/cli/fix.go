@@ -88,8 +88,8 @@ func runFix(c *urfave.Context) error {
 
 	// Create agents
 	var apiOpts []agent.AnthropicOption
-	if cfg.Agents.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	if cfg.Providers.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 	}
 	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
@@ -199,14 +199,14 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 }
 
 // fixSessionArgs resolves extra CLI args for the interactive fix session.
-// Precedence: --model flag > config agents.models > none.
+// Precedence: --model flag > config models.roles > none.
 func fixSessionArgs(opts fixOpts) []string {
 	args := append([]string{}, opts.extraArgs...)
 	if opts.modelOverride != "" {
 		return append([]string{"--model", opts.modelOverride}, args...)
 	}
 	if opts.config != nil {
-		if m := opts.config.Agents.Models.ModelForRole("implement"); m != "" {
+		if m := opts.config.Models.ModelForRole("implement"); m != "" {
 			return append([]string{"--model", m}, args...)
 		}
 	}

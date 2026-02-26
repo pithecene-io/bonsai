@@ -124,7 +124,7 @@ func (l *Loop) Run(ctx context.Context) error {
 		// Resolve model for implement role
 		extraArgs := l.opts.ExtraArgs
 		if l.opts.Config != nil {
-			implModel := l.opts.Config.Agents.Models.ModelForRole("implement")
+			implModel := l.opts.Config.Models.ModelForRole("implement")
 			if implModel != "" {
 				extraArgs = append([]string{"--model", implModel}, extraArgs...)
 			}
