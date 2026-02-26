@@ -170,6 +170,12 @@ func (a *Anthropic) Interactive(_ context.Context, _ string, _ []string) error {
 	return errors.New("anthropic direct API does not support interactive sessions")
 }
 
+// Autonomous returns an error — the direct API backend does not
+// support tool-enabled autonomous mode.
+func (a *Anthropic) Autonomous(_ context.Context, _, _, _ string) error {
+	return fmt.Errorf("anthropic: autonomous mode requires tool use (not supported)")
+}
+
 // NonInteractive calls the Anthropic Messages API directly.
 func (a *Anthropic) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
 	resolvedModel := resolveModel(model)

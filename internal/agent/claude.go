@@ -93,6 +93,45 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	return stdout.String(), nil
 }
 
+// Autonomous runs claude in print mode with tools enabled.
+// Unlike NonInteractive, tools are not disabled — the model can
+// autonomously edit files and run commands. Output streams directly
+// to stdout/stderr rather than being captured.
+func (c *Claude) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+	var args []string
+
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+
+	args = append(args,
+		"-p",
+		"--system-prompt", systemPrompt,
+		"--no-session-persistence",
+		"--output-format", "text",
+	)
+	// Tools remain enabled — no --tools "" flag.
+
+	cmd := exec.CommandContext(ctx, c.Bin, args...)
+	cmd.Stdin = strings.NewReader(userPrompt)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = filterEnv(os.Environ(), "CLAUDECODE")
+
+	if os.Getenv("BONSAI_DEBUG") != "" {
+		debugArgs := make([]string, len(args))
+		copy(debugArgs, args)
+		for i, a := range debugArgs {
+			if a == "--system-prompt" && i+1 < len(debugArgs) {
+				debugArgs[i+1] = fmt.Sprintf("[%d chars]", len(debugArgs[i+1]))
+			}
+		}
+		fmt.Fprintf(os.Stderr, "[bonsai:debug] claude autonomous %s\n", strings.Join(debugArgs, " "))
+	}
+
+	return cmd.Run()
+}
+
 // filterEnv returns a copy of environ with the named variable removed.
 func filterEnv(environ []string, name string) []string {
 	prefix := name + "="

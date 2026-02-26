@@ -174,6 +174,11 @@ func mergeConfig(dst, src *Config) {
 		dst.Check.Concurrency = src.Check.Concurrency
 	}
 
+	// Fix
+	if src.Fix.MaxIterations > 0 {
+		dst.Fix.MaxIterations = src.Fix.MaxIterations
+	}
+
 	// Providers
 	if src.Providers.Anthropic.APIKey != "" {
 		dst.Providers.Anthropic.APIKey = src.Providers.Anthropic.APIKey
@@ -252,6 +257,11 @@ func mergeFromEnv(cfg *Config) {
 	if v := os.Getenv("BONSAI_GATE_MAX_ITERATIONS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Gate.MaxIterations = n
+		}
+	}
+	if v := os.Getenv("BONSAI_FIX_MAX_ITERATIONS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Fix.MaxIterations = n
 		}
 	}
 	if v := os.Getenv("BONSAI_CLAUDE_BIN"); v != "" {

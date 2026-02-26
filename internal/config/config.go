@@ -8,6 +8,7 @@ type Config struct {
 	Routing   RoutingConfig   `yaml:"routing"`
 	Gate      GateConfig      `yaml:"gate"`
 	Check     CheckConfig     `yaml:"check"`
+	Fix       FixConfig       `yaml:"fix"`
 	Providers ProvidersConfig `yaml:"providers"`
 	Agents    AgentsConfig    `yaml:"agents"`
 	Models    ModelsConfig    `yaml:"models"`
@@ -38,6 +39,11 @@ type RoutingConfig struct {
 
 // GateConfig controls the gating loop.
 type GateConfig struct {
+	MaxIterations int `yaml:"max_iterations"`
+}
+
+// FixConfig controls the fix command.
+type FixConfig struct {
 	MaxIterations int `yaml:"max_iterations"`
 }
 
@@ -177,6 +183,9 @@ func Default() *Config {
 		},
 		Check: CheckConfig{
 			Concurrency: intPtr(0), // 0 = unlimited (all skills in parallel)
+		},
+		Fix: FixConfig{
+			MaxIterations: 3,
 		},
 		Agents: AgentsConfig{
 			Claude: AgentBinConfig{Bin: "claude"},

@@ -18,6 +18,13 @@ type InteractiveCall struct {
 	ExtraArgs    []string
 }
 
+// AutonomousCall records a call to Autonomous.
+type AutonomousCall struct {
+	SystemPrompt string
+	UserPrompt   string
+	Model        string
+}
+
 // MockAgent is a test double implementing Agent.
 // It records calls and returns configurable responses.
 // All methods are safe for concurrent use.
@@ -29,11 +36,17 @@ type MockAgent struct {
 	NonInteractiveCalls    []NonInteractiveCall
 	InteractiveErr         error
 	InteractiveCalls       []InteractiveCall
+	AutonomousErr          error
+	AutonomousCalls        []AutonomousCall
 
 	// NonInteractiveFunc, when set, is called instead of returning
 	// the static NonInteractiveResponse/NonInteractiveErr. Useful for
 	// per-call mock responses in parallel tests.
 	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt, model string) (string, error)
+
+	// AutonomousFunc, when set, is called instead of returning the
+	// static AutonomousErr. Useful for per-call mock behavior.
+	AutonomousFunc func(ctx context.Context, systemPrompt, userPrompt, model string) error
 }
 
 // Name returns the configured name.
@@ -67,6 +80,24 @@ func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt
 		return fn(ctx, systemPrompt, userPrompt, model)
 	}
 	return resp, err
+}
+
+// Autonomous records the call and returns the configured error.
+func (m *MockAgent) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+	m.mu.Lock()
+	m.AutonomousCalls = append(m.AutonomousCalls, AutonomousCall{
+		SystemPrompt: systemPrompt,
+		UserPrompt:   userPrompt,
+		Model:        model,
+	})
+	fn := m.AutonomousFunc
+	err := m.AutonomousErr
+	m.mu.Unlock()
+
+	if fn != nil {
+		return fn(ctx, systemPrompt, userPrompt, model)
+	}
+	return err
 }
 
 // CallCount returns the number of NonInteractive calls recorded.

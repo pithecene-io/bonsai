@@ -65,6 +65,11 @@ type Agent interface {
 	// model is optional; when non-empty it overrides the agent's default model.
 	NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error)
 
+	// Autonomous runs a non-interactive session with tools enabled.
+	// The model receives the prompt, autonomously makes changes (file
+	// edits, commands), and exits. Output streams to stdout/stderr.
+	Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error
+
 	// Name returns the agent name (e.g., "claude", "codex").
 	Name() string
 }
