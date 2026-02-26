@@ -2,12 +2,14 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/pithecene-io/bonsai/internal/xio"
 
@@ -275,6 +277,97 @@ func TestRunTUI_UserQuit_ReturnsErrInterrupted(t *testing.T) {
 	// Verify the sentinel error
 	if !errors.Is(err, ErrInterrupted) {
 		t.Fatalf("err = %v, want ErrInterrupted", err)
+	}
+}
+
+func TestModel_Update_WindowSizeMsg_SetsWidth(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+	m := NewModel("bundle:default", events)
+
+	if m.width != 80 {
+		t.Fatalf("default width = %d, want 80", m.width)
+	}
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	um := updated.(Model)
+
+	if um.width != 120 {
+		t.Errorf("width after WindowSizeMsg = %d, want 120", um.width)
+	}
+}
+
+func TestModel_RenderSkill_LongNameNotTruncatedAt38(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+	m := NewModel("bundle:default", events)
+	m.width = 120 // wide terminal
+
+	longName := "backward-compatibility-violation-detector"
+	m = m.handleEvent(orchestrator.Event{
+		Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+		SkillName: longName, Cost: "expensive",
+	})
+
+	line := m.renderSkill(m.skills[0])
+
+	// The full name (41 chars) fits in a 120-wide terminal;
+	// it must not be truncated at the old 38-char hard-coded limit.
+	if !strings.Contains(line, longName) {
+		t.Errorf("long name truncated in wide terminal:\n  got:  %s\n  want to contain: %s", line, longName)
+	}
+}
+
+func TestModel_RenderSkill_NarrowTerminalTruncates(t *testing.T) {
+	events := make(chan orchestrator.Event, 10)
+	m := NewModel("bundle:default", events)
+	m.width = 50 // narrow terminal
+
+	longName := "backward-compatibility-violation-detector"
+	m = m.handleEvent(orchestrator.Event{
+		Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+		SkillName: longName, Cost: "expensive",
+	})
+
+	line := m.renderSkill(m.skills[0])
+
+	// In a narrow terminal the name should be truncated with an ellipsis
+	if !strings.Contains(line, "…") {
+		t.Errorf("long name not truncated in narrow terminal:\n  got: %s", line)
+	}
+}
+
+func TestModel_RenderSkill_LineFitsTerminalWidth(t *testing.T) {
+	longName := "backward-compatibility-violation-detector"
+
+	tests := []struct {
+		width int
+		name  string
+	}{
+		{40, "very-narrow"},
+		{60, "narrow"},
+		{80, "default"},
+		{120, "wide"},
+		{200, "very-wide"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("width=%d", tt.width), func(t *testing.T) {
+			events := make(chan orchestrator.Event, 10)
+			m := NewModel("bundle:default", events)
+			m.width = tt.width
+
+			m = m.handleEvent(orchestrator.Event{
+				Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+				SkillName: longName, Cost: "expensive",
+			})
+
+			line := m.renderSkill(m.skills[0])
+			visualWidth := lipgloss.Width(line)
+
+			if visualWidth > tt.width {
+				t.Errorf("rendered line visual width %d exceeds terminal width %d\n  line: %s",
+					visualWidth, tt.width, line)
+			}
+		})
 	}
 }
 

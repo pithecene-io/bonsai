@@ -6,6 +6,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
@@ -47,6 +49,9 @@ type Model struct {
 	err         error
 	events      <-chan orchestrator.Event
 
+	// Layout
+	width int // terminal width; updated by tea.WindowSizeMsg
+
 	// Spinner state
 	spinnerFrames []string
 	spinnerIdx    int
@@ -60,6 +65,7 @@ func NewModel(source string, events <-chan orchestrator.Event) Model {
 		source:        source,
 		startTime:     time.Now(),
 		events:        events,
+		width:         80,
 		spinnerFrames: defaultSpinnerFrames,
 	}
 }
@@ -81,6 +87,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.interrupted = true
 			return m, tea.Quit
 		}
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		return m, nil
 
 	case TickMsg:
 		if m.done {
@@ -255,7 +265,31 @@ func (m Model) renderSkill(s skillEntry) string {
 		timing = styleDim.Render("—")
 	}
 
-	return fmt.Sprintf("  %s %-38s %s %6s", icon, name, meta, timing)
+	// Layout: "  {icon} {name…} {meta} {timing}"
+	// Fixed columns: indent(2) + icon(1) + space(1) + space(1) + meta + space(1) + timing
+	metaW := lipgloss.Width(meta)
+	timingW := lipgloss.Width(timing)
+	nameCol := m.width - 2 - 1 - 1 - 1 - metaW - 1 - timingW
+	const minNameCol = 20
+	if nameCol < minNameCol {
+		nameCol = minNameCol
+	}
+
+	// Pad or truncate the name to exactly nameCol visual width.
+	nameW := lipgloss.Width(name)
+	switch {
+	case nameW > nameCol:
+		name = ansi.Truncate(name, nameCol-1, "…")
+		nameW = lipgloss.Width(name)
+		// Pad any remaining space (truncation may undershoot by one)
+		if pad := nameCol - nameW; pad > 0 {
+			name += strings.Repeat(" ", pad)
+		}
+	case nameW < nameCol:
+		name += strings.Repeat(" ", nameCol-nameW)
+	}
+
+	return fmt.Sprintf("  %s %s %s %s", icon, name, meta, timing)
 }
 
 func (m Model) renderDetails(b *strings.Builder, severity string, details []string) {
