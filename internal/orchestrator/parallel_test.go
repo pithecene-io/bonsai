@@ -286,7 +286,7 @@ func TestRun_FindingDetails(t *testing.T) {
 }
 
 func TestRun_ModelRouting(t *testing.T) {
-	// Verify that the model from config.ModelRouting reaches the agent.
+	// Verify that the model from config.ModelsConfig reaches the agent.
 	mock := &agent.MockAgent{
 		NameVal:                "test",
 		NonInteractiveResponse: passJSON(),
@@ -304,8 +304,8 @@ func TestRun_ModelRouting(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Agents.Models.Check.Cheap = "haiku"
-	cfg.Agents.Models.Check.Heavy = "opus"
+	cfg.Models.Skills.Cheap = "haiku"
+	cfg.Models.Skills.Heavy = "opus"
 
 	opts := orchestrator.RunOpts{
 		Skills:              []registry.Skill{cheapSkill, heavySkill},
@@ -352,8 +352,8 @@ func TestRun_ModelOverride(t *testing.T) {
 
 	cfg := config.Default()
 	// Config says cheap=haiku, heavy=sonnet, but override should win
-	cfg.Agents.Models.Check.Cheap = "haiku"
-	cfg.Agents.Models.Check.Heavy = "sonnet"
+	cfg.Models.Skills.Cheap = "haiku"
+	cfg.Models.Skills.Heavy = "sonnet"
 
 	opts := orchestrator.RunOpts{
 		Skills:              []registry.Skill{cheapSkill, heavySkill},
@@ -382,8 +382,8 @@ func TestRun_ModelOverride(t *testing.T) {
 	}
 }
 
-func TestRun_ModelRouting_DefaultFallback(t *testing.T) {
-	// Verify that an empty cost field falls back to ModelRouting.Default.
+func TestRun_ModelRouting_EmptyCost(t *testing.T) {
+	// Verify that an empty cost field returns empty model (agent picks default).
 	mock := &agent.MockAgent{
 		NameVal:                "test",
 		NonInteractiveResponse: passJSON(),
@@ -391,14 +391,13 @@ func TestRun_ModelRouting_DefaultFallback(t *testing.T) {
 
 	orch := newTestOrch(t, mock)
 
-	// Skill with empty cost
+	// Skill with empty cost — no matching tier
 	noCostSkill := registry.Skill{
 		Name: "repo-convention-enforcer", Version: "v1", Cost: "",
 		RequiresDiff: boolPtr(false),
 	}
 
 	cfg := config.Default()
-	cfg.Agents.Models.Default = "custom-model"
 
 	opts := orchestrator.RunOpts{
 		Skills:              []registry.Skill{noCostSkill},
@@ -417,8 +416,8 @@ func TestRun_ModelRouting_DefaultFallback(t *testing.T) {
 	if mock.CallCount() != 1 {
 		t.Fatalf("calls = %d, want 1", mock.CallCount())
 	}
-	if got := mock.NonInteractiveCalls[0].Model; got != "custom-model" {
-		t.Errorf("call[0].Model = %q, want custom-model (default fallback)", got)
+	if got := mock.NonInteractiveCalls[0].Model; got != "" {
+		t.Errorf("call[0].Model = %q, want empty (unknown cost → agent default)", got)
 	}
 }
 

@@ -4,14 +4,16 @@ package config
 
 // Config is the top-level bonsai configuration.
 type Config struct {
-	Diff    DiffConfig    `yaml:"diff"`
-	Routing RoutingConfig `yaml:"routing"`
-	Gate    GateConfig    `yaml:"gate"`
-	Check   CheckConfig   `yaml:"check"`
-	Fix     FixConfig     `yaml:"fix"`
-	Agents  AgentsConfig  `yaml:"agents"`
-	Output  OutputConfig  `yaml:"output"`
-	Skills  SkillsConfig  `yaml:"skills"`
+	Diff      DiffConfig      `yaml:"diff"`
+	Routing   RoutingConfig   `yaml:"routing"`
+	Gate      GateConfig      `yaml:"gate"`
+	Check     CheckConfig     `yaml:"check"`
+	Fix       FixConfig       `yaml:"fix"`
+	Providers ProvidersConfig `yaml:"providers"`
+	Agents    AgentsConfig    `yaml:"agents"`
+	Models    ModelsConfig    `yaml:"models"`
+	Output    OutputConfig    `yaml:"output"`
+	Skills    SkillsConfig    `yaml:"skills"`
 }
 
 // CheckConfig controls the check command.
@@ -45,14 +47,9 @@ type FixConfig struct {
 	MaxIterations int `yaml:"max_iterations"`
 }
 
-// AgentsConfig holds agent binary paths and model routing.
-// Model routing is a bonsai-level concern (not per-agent), so Models
-// lives here rather than inside each AgentBinConfig.
-type AgentsConfig struct {
-	Claude    AgentBinConfig  `yaml:"claude"`
-	Codex     AgentBinConfig  `yaml:"codex"`
+// ProvidersConfig holds upstream API credentials.
+type ProvidersConfig struct {
 	Anthropic AnthropicConfig `yaml:"anthropic"`
-	Models    ModelRouting    `yaml:"models"`
 }
 
 // AnthropicConfig holds direct Anthropic API settings.
@@ -61,84 +58,83 @@ type AnthropicConfig struct {
 	APIKey string `yaml:"api_key"`
 }
 
+// AgentsConfig holds agent binary paths.
+type AgentsConfig struct {
+	Claude AgentBinConfig `yaml:"claude"`
+	Codex  AgentBinConfig `yaml:"codex"`
+}
+
 // AgentBinConfig holds the path to an agent binary.
 type AgentBinConfig struct {
 	Bin string `yaml:"bin"`
 }
 
-// ModelRouting controls model selection per role and cost tier.
+// ModelsConfig controls model selection per skill cost tier and role.
 //
-// YAML path: agents.models
+// YAML path: models
 //
-//	agents:
-//	  models:
-//	    default: sonnet         # fallback for unspecified roles/costs
-//	    check:
-//	      cheap: codex          # fast governance checks
-//	      moderate: sonnet      # medium-complexity checks
-//	      heavy: sonnet         # expensive checks
-//	    implement: opus         # feature work
-//	    plan: opus              # planning sessions
-//	    review: codex            # code review (uses codex agent)
-//	    patch: sonnet           # patch surgery
-//	    chat: sonnet            # interactive chat
-type ModelRouting struct {
-	Default   string     `yaml:"default"`
-	Check     CostModels `yaml:"check"`
-	Implement string     `yaml:"implement"`
-	Plan      string     `yaml:"plan"`
-	Review    string     `yaml:"review"`
-	Patch     string     `yaml:"patch"`
-	Chat      string     `yaml:"chat"`
+//	models:
+//	  skills:
+//	    cheap: haiku           # fast governance checks
+//	    moderate: sonnet       # medium-complexity checks
+//	    heavy: opus            # expensive checks
+//	  roles:
+//	    implement: opus        # feature work
+//	    plan: opus             # planning sessions
+//	    review: codex          # code review (uses codex agent)
+//	    patch: sonnet          # patch surgery
+//	    chat: sonnet           # interactive chat
+type ModelsConfig struct {
+	Skills SkillModels `yaml:"skills"`
+	Roles  RoleModels  `yaml:"roles"`
 }
 
-// CostModels maps cost tiers to model names within a role.
-type CostModels struct {
+// SkillModels maps cost tiers to model names for skill invocations.
+type SkillModels struct {
 	Cheap    string `yaml:"cheap"`
 	Moderate string `yaml:"moderate"`
 	Heavy    string `yaml:"heavy"`
 }
 
-// ModelForCheck returns the model for a check skill given its cost tier.
-// Falls back to CostModels defaults, then ModelRouting.Default.
-func (r ModelRouting) ModelForCheck(cost string) string {
+// RoleModels maps interactive roles to model names.
+type RoleModels struct {
+	Implement string `yaml:"implement"`
+	Plan      string `yaml:"plan"`
+	Review    string `yaml:"review"`
+	Patch     string `yaml:"patch"`
+	Chat      string `yaml:"chat"`
+}
+
+// ModelForSkill returns the model for a skill given its cost tier.
+// Returns empty string for unknown cost (agent picks its own default).
+func (m ModelsConfig) ModelForSkill(cost string) string {
 	switch cost {
 	case "cheap":
-		if r.Check.Cheap != "" {
-			return r.Check.Cheap
-		}
+		return m.Skills.Cheap
 	case "moderate":
-		if r.Check.Moderate != "" {
-			return r.Check.Moderate
-		}
+		return m.Skills.Moderate
 	case "heavy":
-		if r.Check.Heavy != "" {
-			return r.Check.Heavy
-		}
+		return m.Skills.Heavy
 	}
-	return r.Default
+	return ""
 }
 
 // ModelForRole returns the model for a given interactive role.
-// Falls back to ModelRouting.Default.
-func (r ModelRouting) ModelForRole(role string) string {
-	var m string
+// Returns empty string for unknown role (agent picks its own default).
+func (m ModelsConfig) ModelForRole(role string) string {
 	switch role {
 	case "implement":
-		m = r.Implement
+		return m.Roles.Implement
 	case "plan":
-		m = r.Plan
+		return m.Roles.Plan
 	case "review":
-		m = r.Review
+		return m.Roles.Review
 	case "patch":
-		m = r.Patch
+		return m.Roles.Patch
 	case "chat":
-		m = r.Chat
+		return m.Roles.Chat
 	}
-	if m != "" {
-		return m
-	}
-	return r.Default
+	return ""
 }
 
 // OutputConfig controls output directory.
@@ -194,13 +190,14 @@ func Default() *Config {
 		Agents: AgentsConfig{
 			Claude: AgentBinConfig{Bin: "claude"},
 			Codex:  AgentBinConfig{Bin: "codex"},
-			Models: ModelRouting{
-				Default: "sonnet",
-				Check: CostModels{
-					Cheap:    "haiku",
-					Moderate: "sonnet",
-					Heavy:    "sonnet",
-				},
+		},
+		Models: ModelsConfig{
+			Skills: SkillModels{
+				Cheap:    "haiku",
+				Moderate: "sonnet",
+				Heavy:    "sonnet",
+			},
+			Roles: RoleModels{
 				Implement: "opus",
 				Plan:      "opus",
 				Review:    "codex",

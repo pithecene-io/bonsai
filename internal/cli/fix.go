@@ -94,8 +94,8 @@ func runFix(c *urfave.Context) error {
 
 	// Create agents
 	var apiOpts []agent.AnthropicOption
-	if cfg.Agents.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Agents.Anthropic.APIKey))
+	if cfg.Providers.Anthropic.APIKey != "" {
+		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
 	}
 	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
 
@@ -210,7 +210,7 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 			// Model from cost tier config — same routing as check
 			model := ""
 			if opts.config != nil {
-				model = opts.config.Agents.Models.ModelForCheck(sf.Cost)
+				model = opts.config.Models.ModelForSkill(sf.Cost)
 			}
 
 			if sessErr := opts.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), model); sessErr != nil {

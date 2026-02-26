@@ -71,7 +71,7 @@ func runChat(c *cli.Context) error {
 	}
 
 	// Resolve model for chat role
-	chatModel := cfg.Agents.Models.ModelForRole("chat")
+	chatModel := cfg.Models.ModelForRole("chat")
 
 	// Start interactive session
 	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
