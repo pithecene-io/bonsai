@@ -536,7 +536,7 @@ func TestFixLoop_InitialCheckInterrupt_NilReport(t *testing.T) {
 		skills:        []registry.Skill{testSkill()},
 		maxIterations: 3,
 		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
-			return nil, nil // simulate TUI interrupt
+			return nil, nil //nolint:nilnil // testing the nil-report guard
 		},
 	})
 	if err != nil {
@@ -557,10 +557,10 @@ func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	err := fixLoop(context.Background(), fixOpts{
-		checkAgent:   mock,
-		sessionAgent: mock,
-		resolver:     assets.NewResolver(tmpDir),
-		skills:       []registry.Skill{testSkill()},
+		checkAgent:    mock,
+		sessionAgent:  mock,
+		resolver:      assets.NewResolver(tmpDir),
+		skills:        []registry.Skill{testSkill()},
 		maxIterations: 3,
 		repoRoot:      tmpDir,
 		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
@@ -581,7 +581,7 @@ func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
 				}, nil
 			}
 			// Re-check: simulate TUI interrupt.
-			return nil, nil
+			return nil, nil //nolint:nilnil // testing the nil-report guard
 		},
 	})
 	if err != nil {
