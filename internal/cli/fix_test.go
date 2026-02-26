@@ -196,7 +196,7 @@ func TestFixLoop_InitialCheckPasses(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(context.Background(), opts, runFixCheck)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(context.Background(), opts, runFixCheck)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 	opts := testFixOpts(t, checkMock, sessionMock)
 	opts.maxIterations = 2
 
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(context.Background(), opts, runFixCheck)
 	if err == nil {
 		t.Fatal("expected error after max iterations exhausted")
 	}
@@ -288,7 +288,7 @@ func TestFixLoop_ContextCancellation(t *testing.T) {
 	sessionMock := &cancellingMockAgent{cancel: cancel}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(ctx, opts)
+	err := fixLoop(ctx, opts, runFixCheck)
 	// Should return nil (clean exit on cancellation)
 	if err != nil {
 		t.Errorf("expected nil on context cancellation, got: %v", err)
@@ -335,7 +335,7 @@ func TestFixLoop_FindingsPassedToSession(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(context.Background(), opts, runFixCheck)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -350,5 +350,63 @@ func TestFixLoop_FindingsPassedToSession(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "Previous governance findings") {
 		t.Error("session prompt missing findings header")
+	}
+}
+
+func TestFixLoop_NilReportNilErr_InitialCheck(t *testing.T) {
+	// Regression: if the check function returns (nil, nil) — e.g. due to
+	// an interrupt racing with result construction — fixLoop must not panic.
+	sessionMock := &agent.MockAgent{NameVal: "session"}
+	opts := testFixOpts(t, nil, sessionMock)
+
+	nilCheck := func(context.Context, agent.Agent, *assets.Resolver,
+		[]registry.Skill, string, string, string,
+		*config.Config, *registry.Registry,
+	) (*orchestrator.Report, error) {
+		return nil, nil //nolint:nilnil // testing the nil-report guard
+	}
+
+	err := fixLoop(context.Background(), opts, nilCheck)
+	if err != nil {
+		t.Fatalf("expected nil error for (nil, nil) check return, got: %v", err)
+	}
+
+	// Session agent must not have been called.
+	if len(sessionMock.InteractiveCalls) != 0 {
+		t.Errorf("interactive calls = %d, want 0", len(sessionMock.InteractiveCalls))
+	}
+}
+
+func TestFixLoop_NilReportNilErr_Recheck(t *testing.T) {
+	// Regression: (nil, nil) during re-check after a fix session must
+	// also be handled safely — no panic, clean exit.
+	var callCount atomic.Int32
+	sessionMock := &agent.MockAgent{NameVal: "session"}
+	opts := testFixOpts(t, nil, sessionMock)
+
+	recheckNil := func(context.Context, agent.Agent, *assets.Resolver,
+		[]registry.Skill, string, string, string,
+		*config.Config, *registry.Registry,
+	) (*orchestrator.Report, error) {
+		n := callCount.Add(1)
+		if n == 1 {
+			// Initial check: findings exist.
+			return &orchestrator.Report{
+				Total: 1, Failed: 1, BlockingFailed: 1,
+				Results: []orchestrator.Result{
+					{
+						Name: "s", ExitCode: 1, Mandatory: true,
+						BlockingDetails: []string{"issue"},
+					},
+				},
+			}, nil
+		}
+		// Re-check: interrupt → (nil, nil)
+		return nil, nil //nolint:nilnil // testing the nil-report guard
+	}
+
+	err := fixLoop(context.Background(), opts, recheckNil)
+	if err != nil {
+		t.Fatalf("expected nil error for (nil, nil) re-check return, got: %v", err)
 	}
 }

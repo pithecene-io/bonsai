@@ -107,7 +107,7 @@ func runFix(c *urfave.Context) error {
 		maxIterations: maxIter,
 		modelOverride: modelOverride,
 		extraArgs:     c.Args().Slice(),
-	})
+	}, runFixCheck)
 }
 
 // fixOpts holds dependencies for the fix loop, enabling testability.
@@ -126,13 +126,25 @@ type fixOpts struct {
 	extraArgs     []string
 }
 
+// checkFunc is the signature for running a governance check pass.
+type checkFunc func(
+	ctx context.Context, a agent.Agent, resolver *assets.Resolver,
+	skills []registry.Skill, source, baseRef, repoRoot string,
+	cfg *config.Config, reg *registry.Registry,
+) (*orchestrator.Report, error)
+
 // fixLoop implements the check-fix-recheck loop with injected dependencies.
-func fixLoop(ctx context.Context, opts fixOpts) error {
+// doCheck is the function used to run each check pass; production callers
+// pass runFixCheck, tests may substitute a stub.
+func fixLoop(ctx context.Context, opts fixOpts, doCheck checkFunc) error {
 	// ═══ Initial check ═══
 	fmt.Println("═══ bonsai fix: initial check ═══")
-	report, err := runFixCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
+	report, err := doCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
 	if err != nil {
 		return fmt.Errorf("initial check: %w", err)
+	}
+	if report == nil {
+		return nil // interrupted before results — treat as clean exit
 	}
 
 	if !report.ShouldFail() {
@@ -172,9 +184,12 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 
 		// Re-check
 		fmt.Printf("\n═══ Re-check after fix session %d/%d ═══\n", iteration, opts.maxIterations)
-		report, err = runFixCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
+		report, err = doCheck(ctx, opts.checkAgent, opts.resolver, opts.skills, opts.source, opts.baseRef, opts.repoRoot, opts.config, opts.registry)
 		if err != nil {
 			return fmt.Errorf("re-check: %w", err)
+		}
+		if report == nil {
+			return nil // interrupted before results — treat as clean exit
 		}
 
 		if !report.ShouldFail() {
