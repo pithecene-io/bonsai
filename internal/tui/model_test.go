@@ -2,12 +2,14 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/pithecene-io/bonsai/internal/xio"
 
@@ -330,6 +332,42 @@ func TestModel_RenderSkill_NarrowTerminalTruncates(t *testing.T) {
 	// In a narrow terminal the name should be truncated with an ellipsis
 	if !strings.Contains(line, "…") {
 		t.Errorf("long name not truncated in narrow terminal:\n  got: %s", line)
+	}
+}
+
+func TestModel_RenderSkill_LineFitsTerminalWidth(t *testing.T) {
+	longName := "backward-compatibility-violation-detector"
+
+	tests := []struct {
+		width int
+		name  string
+	}{
+		{40, "very-narrow"},
+		{60, "narrow"},
+		{80, "default"},
+		{120, "wide"},
+		{200, "very-wide"},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("width=%d", tt.width), func(t *testing.T) {
+			events := make(chan orchestrator.Event, 10)
+			m := NewModel("bundle:default", events)
+			m.width = tt.width
+
+			m = m.handleEvent(orchestrator.Event{
+				Kind: orchestrator.EventQueued, Index: 0, Total: 1,
+				SkillName: longName, Cost: "expensive",
+			})
+
+			line := m.renderSkill(m.skills[0])
+			visualWidth := lipgloss.Width(line)
+
+			if visualWidth > tt.width {
+				t.Errorf("rendered line visual width %d exceeds terminal width %d\n  line: %s",
+					visualWidth, tt.width, line)
+			}
+		})
 	}
 }
 
