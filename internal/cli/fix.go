@@ -15,7 +15,6 @@ import (
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/prompt"
 	"github.com/pithecene-io/bonsai/internal/registry"
@@ -42,13 +41,7 @@ func runFix(c *urfave.Context) error {
 	baseRef := c.String("base")
 	noProgress := c.Bool("no-progress")
 
-	// Detect repo
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
+	repoRoot := detectRepoRoot()
 
 	// Load config
 	cfg, err := config.Load(repoRoot)
@@ -166,89 +159,120 @@ func fixLoop(ctx context.Context, opts fixOpts) error {
 		doCheck = runFixCheck
 	}
 
-	// ═══ Initial check ═══
 	fmt.Println("═══ bonsai fix: initial check ═══")
 	report, err := doCheck(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("initial check: %w", err)
 	}
-
 	if report == nil {
-		// TUI interrupted — clean exit
-		return nil
+		return nil // TUI interrupted
 	}
-
 	if !report.ShouldFail() {
 		fmt.Println("\n✔ No findings — nothing to fix")
 		return nil
 	}
 
-	// ═══ Fix loop ═══
 	for iteration := 1; iteration <= opts.maxIterations; iteration++ {
-		failedSkills := extractPerSkillFindings(report, opts.skills)
-		if len(failedSkills) == 0 {
-			fmt.Println("\n✔ No findings — nothing to fix")
-			return nil
-		}
-
-		fmt.Printf("\n═══ Fix iteration %d/%d — %d skill(s) to fix ═══\n", iteration, opts.maxIterations, len(failedSkills))
-
-		// Build system prompt once per iteration (same for all skills)
-		builder := prompt.NewBuilder(opts.resolver, opts.repoRoot)
-		systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
-			Mode: prompt.ModeImplementer,
-			Role: "implementer",
-		})
+		report, err = fixIteration(ctx, opts, doCheck, report, iteration)
 		if err != nil {
-			return fmt.Errorf("build prompt: %w", err)
+			return err
 		}
-
-		// Per-skill autonomous fix
-		for i, sf := range failedSkills {
-			fmt.Printf("\n═══ Fixing: %s (%d/%d) ═══\n\n", sf.Name, i+1, len(failedSkills))
-
-			// Model from cost tier config — same routing as check
-			model := ""
-			if opts.config != nil {
-				model = opts.config.Models.ModelForSkill(sf.Cost)
-			}
-
-			if sessErr := opts.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), model); sessErr != nil {
-				if ctx.Err() != nil {
-					return nil //nolint:nilerr // cancellation is intentional clean exit
-				}
-				fmt.Fprintf(os.Stderr, "warning: fix session for %s exited with error: %v\n", sf.Name, sessErr)
-			}
-		}
-
-		// Re-check
-		fmt.Printf("\n═══ Re-check after fix iteration %d/%d ═══\n", iteration, opts.maxIterations)
-		report, err = doCheck(ctx, opts)
-		if err != nil {
-			return fmt.Errorf("re-check: %w", err)
-		}
-
 		if report == nil {
-			// TUI interrupted — clean exit
-			return nil
+			return nil // resolved or interrupted
 		}
-
-		if !report.ShouldFail() {
-			fmt.Printf("\n✔ All findings resolved (%d/%d skills passed)\n", report.Passed, report.Total)
-			saveFixArtifacts(opts.repoRoot, opts.config, report)
-			return nil
-		}
-
-		if iteration == opts.maxIterations {
-			fmt.Fprintf(os.Stderr, "\n✖ Findings remain after %d fix iterations\n", opts.maxIterations)
-			printDetailedFindings(report)
-			return fmt.Errorf("findings remain after %d fix iterations", opts.maxIterations)
-		}
-
-		fmt.Printf("\n%d finding(s) remain — continuing to next iteration\n", report.BlockingFailed)
 	}
 
 	return fmt.Errorf("fix loop exited unexpectedly")
+}
+
+// fixIteration runs one fix-then-recheck cycle. Returns nil report on
+// success or TUI interrupt. Returns non-nil report with findings on failure.
+func fixIteration(
+	ctx context.Context,
+	opts fixOpts,
+	doCheck checkFunc,
+	report *orchestrator.Report,
+	iteration int,
+) (*orchestrator.Report, error) {
+	failedSkills := extractPerSkillFindings(report, opts.skills)
+	if len(failedSkills) == 0 {
+		fmt.Println("\n✔ No findings — nothing to fix")
+		return nil, nil //nolint:nilnil // nil report signals "resolved" to caller
+	}
+
+	fmt.Printf("\n═══ Fix iteration %d/%d — %d skill(s) to fix ═══\n", iteration, opts.maxIterations, len(failedSkills))
+
+	if err := runFixSessions(ctx, opts, failedSkills); err != nil {
+		return nil, err
+	}
+
+	report, err := recheckAfterFix(ctx, opts, doCheck, iteration)
+	if err != nil {
+		return nil, err
+	}
+	if report == nil {
+		return nil, nil //nolint:nilnil // nil report signals TUI interrupt to caller
+	}
+
+	if !report.ShouldFail() {
+		fmt.Printf("\n✔ All findings resolved (%d/%d skills passed)\n", report.Passed, report.Total)
+		saveFixArtifacts(opts.repoRoot, opts.config, report)
+		return nil, nil //nolint:nilnil // nil report signals "resolved" to caller
+	}
+
+	if iteration == opts.maxIterations {
+		fmt.Fprintf(os.Stderr, "\n✖ Findings remain after %d fix iterations\n", opts.maxIterations)
+		printDetailedFindings(report)
+		return nil, fmt.Errorf("findings remain after %d fix iterations", opts.maxIterations)
+	}
+
+	fmt.Printf("\n%d finding(s) remain — continuing to next iteration\n", report.BlockingFailed)
+	return report, nil
+}
+
+// runFixSessions builds a system prompt and invokes autonomous fix sessions
+// for each failed skill.
+func runFixSessions(ctx context.Context, opts fixOpts, failedSkills []skillFindings) error {
+	builder := prompt.NewBuilder(opts.resolver, opts.repoRoot)
+	systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
+		Mode: prompt.ModeImplementer,
+		Role: "implementer",
+	})
+	if err != nil {
+		return fmt.Errorf("build prompt: %w", err)
+	}
+
+	for i, sf := range failedSkills {
+		fmt.Printf("\n═══ Fixing: %s (%d/%d) ═══\n\n", sf.Name, i+1, len(failedSkills))
+
+		model := ""
+		if opts.config != nil {
+			model = opts.config.Models.ModelForSkill(sf.Cost)
+		}
+
+		if sessErr := opts.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), model); sessErr != nil {
+			if ctx.Err() != nil {
+				return nil //nolint:nilerr // cancellation is intentional clean exit
+			}
+			fmt.Fprintf(os.Stderr, "warning: fix session for %s exited with error: %v\n", sf.Name, sessErr)
+		}
+	}
+	return nil
+}
+
+// recheckAfterFix runs a governance check after a fix iteration.
+func recheckAfterFix(
+	ctx context.Context,
+	opts fixOpts,
+	doCheck checkFunc,
+	iteration int,
+) (*orchestrator.Report, error) {
+	fmt.Printf("\n═══ Re-check after fix iteration %d/%d ═══\n", iteration, opts.maxIterations)
+	report, err := doCheck(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("re-check: %w", err)
+	}
+	return report, nil
 }
 
 // filterCheapSkills returns only skills with cost == "cheap".

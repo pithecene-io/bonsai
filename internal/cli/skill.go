@@ -12,7 +12,6 @@ import (
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/prompt"
 	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/pithecene-io/bonsai/internal/repo"
@@ -40,50 +39,26 @@ func runSkill(c *cli.Context) error {
 		return fmt.Errorf("usage: bonsai skill <skill-name> [--version vX] [--scope path1,path2] [--base <ref>]")
 	}
 
-	skillVersion := c.String("version")
-	scope := c.String("scope")
-	baseRef := c.String("base")
-	modelOverride := c.String("model")
-
-	// Detect repo
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
-
-	// Load config
+	repoRoot := detectRepoRoot()
 	cfg, err := config.Load(repoRoot)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Create resolver
 	resolver := assets.NewResolver(repoRoot)
 	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
 
-	// Load registry to resolve version if not overridden
 	reg, err := registry.Load(resolver)
 	if err != nil {
 		return fmt.Errorf("load registry: %w", err)
 	}
 
-	if skillVersion == "" {
-		s, ok := reg.LookupSkill(skillName)
-		if !ok {
-			return fmt.Errorf("skill %q not in registry; use --version to specify", skillName)
-		}
-		skillVersion = s.Version
-	}
-
-	// Load skill definition
-	def, err := skill.Load(resolver, skillName, skillVersion)
+	def, err := loadSkillDef(resolver, reg, skillName, c.String("version"))
 	if err != nil {
-		return fmt.Errorf("load skill: %w", err)
+		return err
 	}
 
-	// Build repo tree
+	scope := c.String("scope")
 	repoTree, err := repo.TreeWithScope(repoRoot, scope)
 	if err != nil {
 		return fmt.Errorf("repo tree: %w", err)
@@ -92,27 +67,13 @@ func runSkill(c *cli.Context) error {
 		return fmt.Errorf("scope produced empty repo tree")
 	}
 
+	baseRef := c.String("base")
 	// Diff payload is best-effort; runs without diff context on error.
 	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
-	// Create agent router (routes to codex/anthropic/claude based on model)
-	var apiOpts []agent.AnthropicOption
-	if cfg.Providers.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
-	}
-	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
-	builder := prompt.NewBuilder(resolver, repoRoot)
-	runner := skill.NewRunner(agentRouter, builder)
+	runner := skill.NewRunner(newAgentRouter(cfg), prompt.NewBuilder(resolver, repoRoot))
+	model := resolveSkillModel(c.String("model"), reg, cfg, skillName)
 
-	// Resolve model: explicit flag > config routing by cost tier
-	model := modelOverride
-	if model == "" {
-		if s, ok := reg.LookupSkill(skillName); ok {
-			model = cfg.Models.ModelForSkill(s.Cost)
-		}
-	}
-
-	// Run skill
 	output, err := runner.Run(context.Background(), def, skill.RunOpts{
 		RepoTree:    strings.Join(repoTree, "\n"),
 		DiffPayload: diffPayload,
@@ -123,17 +84,42 @@ func runSkill(c *cli.Context) error {
 		return err
 	}
 
-	// Print output as formatted JSON
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(output); err != nil {
 		return err
 	}
 
-	// Exit code: fail if status=fail AND blocking is non-empty
 	if output.ShouldFail() {
 		os.Exit(1)
 	}
-
 	return nil
+}
+
+// loadSkillDef resolves the skill version from the registry (if not overridden)
+// and loads the skill definition.
+func loadSkillDef(resolver *assets.Resolver, reg *registry.Registry, name, version string) (*skill.Definition, error) {
+	if version == "" {
+		s, ok := reg.LookupSkill(name)
+		if !ok {
+			return nil, fmt.Errorf("skill %q not in registry; use --version to specify", name)
+		}
+		version = s.Version
+	}
+	def, err := skill.Load(resolver, name, version)
+	if err != nil {
+		return nil, fmt.Errorf("load skill: %w", err)
+	}
+	return def, nil
+}
+
+// resolveSkillModel returns the model for a skill: explicit flag > config routing.
+func resolveSkillModel(override string, reg *registry.Registry, cfg *config.Config, name string) string {
+	if override != "" {
+		return override
+	}
+	if s, ok := reg.LookupSkill(name); ok {
+		return cfg.Models.ModelForSkill(s.Cost)
+	}
+	return ""
 }

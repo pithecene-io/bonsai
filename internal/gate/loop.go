@@ -110,91 +110,113 @@ func (l *Loop) Run(ctx context.Context) error {
 	for iteration := 1; iteration <= maxIter; iteration++ {
 		fmt.Printf("\n═══ Implementation session %d/%d ═══\n\n", iteration, maxIter)
 
-		// 1. SESSION: Build prompt and invoke claude interactively
-		builder := prompt.NewBuilder(l.opts.Resolver, l.opts.RepoRoot)
-		systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
-			Mode:         prompt.ModeImplementer,
-			Role:         "implementer",
-			ExtraContext: findingsContext,
-		})
+		if err := l.runSession(ctx, findingsContext); err != nil {
+			return err
+		}
+
+		findings, err := l.gateIteration(ctx, iteration, maxIter)
 		if err != nil {
-			return fmt.Errorf("build prompt: %w", err)
+			return err
 		}
-
-		// Resolve model for implement role
-		extraArgs := l.opts.ExtraArgs
-		if l.opts.Config != nil {
-			implModel := l.opts.Config.Models.ModelForRole("implement")
-			if implModel != "" {
-				extraArgs = append([]string{"--model", implModel}, extraArgs...)
-			}
+		if findings == "" {
+			return nil // passed or skipped
 		}
-
-		// Invoke claude interactively.
-		// Match shell: `claude ... || true` — ignore exit from ctrl-C or session end.
-		_ = l.opts.Agent.Interactive(ctx, systemPrompt, extraArgs)
-
-		// 2. CAPTURE DIFF: Check for changes
-		if l.mergeBase == "" {
-			fmt.Println("\nNo merge base — skipping governance gate")
-			return nil
-		}
-
-		hasChanges := l.hasChanges()
-		if !hasChanges {
-			fmt.Println("\nNo changes detected — skipping governance gate")
-			return nil
-		}
-
-		// 3. PROFILE: Compute diff profile
-		profile, err := diff.ComputeProfile(l.opts.RepoRoot, l.mergeBase, l.opts.Config)
-		if err != nil {
-			return fmt.Errorf("compute diff profile: %w", err)
-		}
-
-		// 4. MODE: Determine governance mode
-		planIntent := ""
-		if l.planInfo != nil {
-			planIntent = l.planInfo.Intent
-		}
-		mode := diff.DetermineMode(profile, l.opts.Config, planIntent)
-		fmt.Printf("\nGovernance mode: %s (files:%d lines:%d dirs:%d)\n",
-			mode, profile.FilesChanged, profile.DiffLines, len(profile.TopLevelDirs))
-
-		// 5. GATE: Run governance check
-		report, err := l.runGate(ctx, mode)
-		if err != nil {
-			return fmt.Errorf("governance gate: %w", err)
-		}
-
-		// 6. PASS: If gate passed, save artifacts and return
-		if !report.ShouldFail() {
-			fmt.Printf("\n\u2714 Governance gate passed (%d/%d skills passed)\n",
-				report.Passed, report.Total)
-			l.saveArtifacts(report)
-			return nil
-		}
-
-		// 7. FAIL: If max iterations reached, dump findings and fail
-		if iteration == maxIter {
-			fmt.Fprintf(os.Stderr, "\n\u2716 Governance gate failed after %d iterations\n", maxIter)
-			l.printFailedFindings(report)
-			return fmt.Errorf("governance gate failed after %d iterations", maxIter)
-		}
-
-		// 8. Ask user if they want to re-enter
-		l.printFailedFindings(report)
-		fmt.Printf("\nGovernance gate failed — %d blocking finding(s)\n", report.BlockingFailed)
-
-		if !l.promptReenter() {
-			return fmt.Errorf("user declined to re-enter")
-		}
-
-		// 9. RE-INJECT: Extract findings for next iteration's prompt
-		findingsContext = l.extractFindings(report)
+		findingsContext = findings
 	}
 
 	return fmt.Errorf("governance gate failed")
+}
+
+// gateIteration runs one capture-profile-gate cycle. Returns empty string
+// on pass/skip, or findings context for re-injection on failure.
+func (l *Loop) gateIteration(ctx context.Context, iteration, maxIter int) (string, error) {
+	report, mode, err := l.captureAndGate(ctx)
+	if err != nil {
+		return "", err
+	}
+	if report == nil {
+		return "", nil // no merge base or no changes
+	}
+
+	fmt.Printf("\nGovernance mode: %s\n", mode)
+
+	if !report.ShouldFail() {
+		fmt.Printf("\n✔ Governance gate passed (%d/%d skills passed)\n",
+			report.Passed, report.Total)
+		l.saveArtifacts(report)
+		return "", nil
+	}
+
+	if iteration == maxIter {
+		fmt.Fprintf(os.Stderr, "\n✖ Governance gate failed after %d iterations\n", maxIter)
+		l.printFailedFindings(report)
+		return "", fmt.Errorf("governance gate failed after %d iterations", maxIter)
+	}
+
+	l.printFailedFindings(report)
+	fmt.Printf("\nGovernance gate failed — %d blocking finding(s)\n", report.BlockingFailed)
+
+	if !l.promptReenter() {
+		return "", fmt.Errorf("user declined to re-enter")
+	}
+
+	return l.extractFindings(report), nil
+}
+
+// runSession builds the system prompt and invokes claude interactively.
+func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
+	builder := prompt.NewBuilder(l.opts.Resolver, l.opts.RepoRoot)
+	systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
+		Mode:         prompt.ModeImplementer,
+		Role:         "implementer",
+		ExtraContext: findingsContext,
+	})
+	if err != nil {
+		return fmt.Errorf("build prompt: %w", err)
+	}
+
+	extraArgs := l.opts.ExtraArgs
+	if l.opts.Config != nil {
+		if implModel := l.opts.Config.Models.ModelForRole("implement"); implModel != "" {
+			extraArgs = append([]string{"--model", implModel}, extraArgs...)
+		}
+	}
+
+	// Match shell: `claude ... || true` — ignore exit from ctrl-C or session end.
+	_ = l.opts.Agent.Interactive(ctx, systemPrompt, extraArgs)
+	return nil
+}
+
+// captureAndGate checks for changes, profiles them, and runs the governance gate.
+// Returns (nil, "", nil) when gating should be skipped (no merge base or no changes).
+func (l *Loop) captureAndGate(ctx context.Context) (*orchestrator.Report, string, error) {
+	if l.mergeBase == "" {
+		fmt.Println("\nNo merge base — skipping governance gate")
+		return nil, "", nil
+	}
+
+	if !l.hasChanges() {
+		fmt.Println("\nNo changes detected — skipping governance gate")
+		return nil, "", nil
+	}
+
+	profile, err := diff.ComputeProfile(l.opts.RepoRoot, l.mergeBase, l.opts.Config)
+	if err != nil {
+		return nil, "", fmt.Errorf("compute diff profile: %w", err)
+	}
+
+	planIntent := ""
+	if l.planInfo != nil {
+		planIntent = l.planInfo.Intent
+	}
+	mode := diff.DetermineMode(profile, l.opts.Config, planIntent)
+
+	report, err := l.runGate(ctx, mode)
+	if err != nil {
+		return nil, "", fmt.Errorf("governance gate: %w", err)
+	}
+
+	return report, mode, nil
 }
 
 // consumePlan looks for plan.json in the output directory and consumes it.
@@ -310,7 +332,8 @@ func (l *Loop) saveArtifacts(report *orchestrator.Report) {
 
 // printFailedFindings prints a summary of failed skill findings to stderr.
 func (l *Loop) printFailedFindings(report *orchestrator.Report) {
-	for _, r := range report.Results {
+	for i := range report.Results {
+		r := &report.Results[i]
 		if r.ExitCode != 0 {
 			fmt.Fprintf(os.Stderr, "  SKILL: %s | blocking:%d major:%d warning:%d\n",
 				r.Name, r.Blocking, r.Major, r.Warning)
@@ -324,7 +347,8 @@ func (l *Loop) printFailedFindings(report *orchestrator.Report) {
 //	"SKILL: <name> | blocking: <n> | major: <n> | warning: <n>"
 func (l *Loop) extractFindings(report *orchestrator.Report) string {
 	var lines []string
-	for _, r := range report.Results {
+	for i := range report.Results {
+		r := &report.Results[i]
 		if r.ExitCode != 0 {
 			lines = append(lines, fmt.Sprintf("SKILL: %s | blocking: %d | major: %d | warning: %d",
 				r.Name, r.Blocking, r.Major, r.Warning))

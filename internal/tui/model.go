@@ -119,76 +119,101 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) handleEvent(ev orchestrator.Event) Model {
 	switch ev.Kind {
 	case orchestrator.EventQueued:
-		// Grow the skills slice if needed
-		for len(m.skills) <= ev.Index {
-			m.skills = append(m.skills, skillEntry{})
-		}
-		m.skills[ev.Index] = skillEntry{
-			name:      ev.SkillName,
-			cost:      ev.Cost,
-			mandatory: ev.Mandatory,
-			state:     statePending,
-		}
-		m.total = ev.Total
-
+		m = m.handleQueued(ev)
 	case orchestrator.EventSkipped:
-		for len(m.skills) <= ev.Index {
-			m.skills = append(m.skills, skillEntry{})
-		}
-		m.skills[ev.Index] = skillEntry{
-			name:      ev.SkillName,
-			cost:      ev.Cost,
-			mandatory: ev.Mandatory,
-			state:     stateSkipped,
-			reason:    ev.Reason,
-		}
-		m.total = ev.Total
-		m.completed++
-
+		m = m.handleSkipped(ev)
 	case orchestrator.EventStart:
-		if ev.Index < len(m.skills) {
-			m.skills[ev.Index].state = stateRunning
-			m.skills[ev.Index].startTime = time.Now()
-		}
-
+		m = m.handleStart(ev)
 	case orchestrator.EventDone:
-		if ev.Index < len(m.skills) {
-			entry := &m.skills[ev.Index]
-			entry.elapsed = ev.Elapsed
-			entry.result = ev.Result
-			switch {
-			case ev.Result != nil && ev.Result.ExitCode == 0:
-				entry.state = statePassed
-			case ev.Result != nil && ev.Result.Mandatory:
-				entry.state = stateFailed
-			default:
-				entry.state = stateWarning
-			}
-			m.completed++
-		}
-
+		m = m.handleDone(ev)
 	case orchestrator.EventError:
-		if ev.Index < len(m.skills) {
-			m.skills[ev.Index].state = stateFailed
-			m.skills[ev.Index].reason = fmt.Sprintf("error: %v", ev.Err)
-			m.completed++
-		}
-
+		m = m.handleError(ev)
 	case orchestrator.EventFailFast:
-		// Mark remaining pending skills as skipped
-		for i := range m.skills {
-			if m.skills[i].state == statePending {
-				m.skills[i].state = stateSkipped
-				m.skills[i].reason = "cancelled (fail-fast)"
-				m.completed++
-			}
-		}
-
+		m = m.handleFailFast()
 	case orchestrator.EventComplete:
 		m.done = true
 		m.report = ev.Report
 	}
+	return m
+}
 
+func (m Model) growSkills(idx int) Model {
+	for len(m.skills) <= idx {
+		m.skills = append(m.skills, skillEntry{})
+	}
+	return m
+}
+
+func (m Model) handleQueued(ev orchestrator.Event) Model {
+	m = m.growSkills(ev.Index)
+	m.skills[ev.Index] = skillEntry{
+		name:      ev.SkillName,
+		cost:      ev.Cost,
+		mandatory: ev.Mandatory,
+		state:     statePending,
+	}
+	m.total = ev.Total
+	return m
+}
+
+func (m Model) handleSkipped(ev orchestrator.Event) Model {
+	m = m.growSkills(ev.Index)
+	m.skills[ev.Index] = skillEntry{
+		name:      ev.SkillName,
+		cost:      ev.Cost,
+		mandatory: ev.Mandatory,
+		state:     stateSkipped,
+		reason:    ev.Reason,
+	}
+	m.total = ev.Total
+	m.completed++
+	return m
+}
+
+func (m Model) handleStart(ev orchestrator.Event) Model {
+	if ev.Index < len(m.skills) {
+		m.skills[ev.Index].state = stateRunning
+		m.skills[ev.Index].startTime = time.Now()
+	}
+	return m
+}
+
+func (m Model) handleDone(ev orchestrator.Event) Model {
+	if ev.Index >= len(m.skills) {
+		return m
+	}
+	entry := &m.skills[ev.Index]
+	entry.elapsed = ev.Elapsed
+	entry.result = ev.Result
+	switch {
+	case ev.Result != nil && ev.Result.ExitCode == 0:
+		entry.state = statePassed
+	case ev.Result != nil && ev.Result.Mandatory:
+		entry.state = stateFailed
+	default:
+		entry.state = stateWarning
+	}
+	m.completed++
+	return m
+}
+
+func (m Model) handleError(ev orchestrator.Event) Model {
+	if ev.Index < len(m.skills) {
+		m.skills[ev.Index].state = stateFailed
+		m.skills[ev.Index].reason = fmt.Sprintf("error: %v", ev.Err)
+		m.completed++
+	}
+	return m
+}
+
+func (m Model) handleFailFast() Model {
+	for i := range m.skills {
+		if m.skills[i].state == statePending {
+			m.skills[i].state = stateSkipped
+			m.skills[i].reason = "cancelled (fail-fast)"
+			m.completed++
+		}
+	}
 	return m
 }
 

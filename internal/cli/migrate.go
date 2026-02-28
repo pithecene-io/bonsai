@@ -101,24 +101,35 @@ func runMigrate(c *cli.Context) error {
 func phaseAScan(target string) (topDirs, languages, existingDocs []string) {
 	fmt.Println("▶ Phase A: Scanning repository...")
 
-	// Detect top-level directories
+	topDirs = scanTopDirs(target)
+	printListOrDefault("  Directories", topDirs, "No subdirectories found")
+
+	languages = detectLanguages(target)
+	printListOrDefault("  Languages", languages, "(none detected)")
+
+	existingDocs = detectExistingDocs(target)
+	printListOrDefault("  Existing docs", existingDocs, "(none)")
+
+	fmt.Println()
+	return topDirs, languages, existingDocs
+}
+
+func scanTopDirs(target string) []string {
 	entries, err := os.ReadDir(target)
-	if err == nil {
-		for _, e := range entries {
-			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
-				topDirs = append(topDirs, e.Name())
-			}
+	if err != nil {
+		return nil
+	}
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			dirs = append(dirs, e.Name())
 		}
-		sort.Strings(topDirs)
 	}
+	sort.Strings(dirs)
+	return dirs
+}
 
-	if len(topDirs) > 0 {
-		fmt.Printf("  Directories: %s\n", strings.Join(topDirs, " "))
-	} else {
-		fmt.Println("  No subdirectories found")
-	}
-
-	// Detect languages/ecosystems
+func detectLanguages(target string) []string {
 	langDetectors := map[string]string{
 		"go.mod":         "go",
 		"package.json":   "node",
@@ -127,89 +138,96 @@ func phaseAScan(target string) (topDirs, languages, existingDocs []string) {
 		"pom.xml":        "java",
 		"Gemfile":        "ruby",
 	}
+	var langs []string
 	for file, lang := range langDetectors {
 		if fileExists(filepath.Join(target, file)) {
-			languages = append(languages, lang)
+			langs = append(langs, lang)
 		}
 	}
-	sort.Strings(languages)
+	sort.Strings(langs)
+	return langs
+}
 
-	if len(languages) > 0 {
-		fmt.Printf("  Languages: %s\n", strings.Join(languages, " "))
-	} else {
-		fmt.Println("  Languages: (none detected)")
-	}
-
-	// Detect existing docs
-	docCandidates := []string{"README.md", "CLAUDE.md", "AGENTS.md", "docs/ARCH_INDEX.md", "ARCH_INDEX.md"}
-	for _, doc := range docCandidates {
+func detectExistingDocs(target string) []string {
+	candidates := []string{"README.md", "CLAUDE.md", "AGENTS.md", "docs/ARCH_INDEX.md", "ARCH_INDEX.md"}
+	var docs []string
+	for _, doc := range candidates {
 		if fileExists(filepath.Join(target, doc)) {
-			existingDocs = append(existingDocs, doc)
+			docs = append(docs, doc)
 		}
 	}
+	return docs
+}
 
-	if len(existingDocs) > 0 {
-		fmt.Printf("  Existing docs: %s\n", strings.Join(existingDocs, " "))
+func printListOrDefault(label string, items []string, fallback string) {
+	if len(items) > 0 {
+		fmt.Printf("%s: %s\n", label, strings.Join(items, " "))
 	} else {
-		fmt.Println("  Existing docs: (none)")
+		fmt.Printf("%s: %s\n", label, fallback)
 	}
-
-	fmt.Println()
-	return topDirs, languages, existingDocs
 }
 
 // phaseBArchIndex handles ARCH_INDEX.md creation/review.
 func phaseBArchIndex(c *cli.Context, target string, cfg *config.Config) {
 	fmt.Println("▶ Phase B: ARCH_INDEX.md")
 
-	// Check candidates
-	candidates := []string{
-		filepath.Join(target, "docs", "ARCH_INDEX.md"),
-		filepath.Join(target, "ARCH_INDEX.md"),
-	}
-
-	var archFile string
-	for _, candidate := range candidates {
-		if fileExists(candidate) {
-			archFile = candidate
-			break
-		}
-	}
-
+	archFile := findArchIndex(target)
 	if archFile == "" {
-		fmt.Println("  No ARCH_INDEX.md found")
-		fmt.Println()
-
-		if confirmPrompt("  Create ARCH_INDEX.md interactively with Claude? [Y/n] ", true) {
-			claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-			archPrompt := fmt.Sprintf("You are an architect assistant. Examine the repository at %s and create a docs/ARCH_INDEX.md file. The file should be a fast lookup table for agents, summarizing what exists and where.", target)
-
-			if err := os.MkdirAll(filepath.Join(target, "docs"), 0o755); err == nil {
-				fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
-				fmt.Println()
-				_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
-			}
-
-			if !fileExists(filepath.Join(target, "docs", "ARCH_INDEX.md")) {
-				// Claude didn't create it — scaffold a minimal one
-				scaffoldMinimalArchIndex(target)
-			}
-		} else {
-			fmt.Println("  Skipping ARCH_INDEX.md creation")
-			fmt.Println("  WARNING: repository will lack agent orientation without this file")
-		}
+		phaseBCreate(c, target, cfg)
 	} else {
-		fmt.Printf("  Found: %s\n", archFile)
-		fmt.Println()
-
-		if confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
-			claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-			archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", archFile, target)
-			_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
-		}
+		phaseBReview(c, target, archFile, cfg)
 	}
 
 	fmt.Println()
+}
+
+func findArchIndex(target string) string {
+	for _, candidate := range []string{
+		filepath.Join(target, "docs", "ARCH_INDEX.md"),
+		filepath.Join(target, "ARCH_INDEX.md"),
+	} {
+		if fileExists(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func phaseBCreate(c *cli.Context, target string, cfg *config.Config) {
+	fmt.Println("  No ARCH_INDEX.md found")
+	fmt.Println()
+
+	if !confirmPrompt("  Create ARCH_INDEX.md interactively with Claude? [Y/n] ", true) {
+		fmt.Println("  Skipping ARCH_INDEX.md creation")
+		fmt.Println("  WARNING: repository will lack agent orientation without this file")
+		return
+	}
+
+	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
+	archPrompt := fmt.Sprintf("You are an architect assistant. Examine the repository at %s and create a docs/ARCH_INDEX.md file. The file should be a fast lookup table for agents, summarizing what exists and where.", target)
+
+	if err := os.MkdirAll(filepath.Join(target, "docs"), 0o755); err == nil {
+		fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
+		fmt.Println()
+		_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
+	}
+
+	if !fileExists(filepath.Join(target, "docs", "ARCH_INDEX.md")) {
+		scaffoldMinimalArchIndex(target)
+	}
+}
+
+func phaseBReview(c *cli.Context, target, archFile string, cfg *config.Config) {
+	fmt.Printf("  Found: %s\n", archFile)
+	fmt.Println()
+
+	if !confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
+		return
+	}
+
+	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
+	archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", archFile, target)
+	_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
 }
 
 // scaffoldMinimalArchIndex creates a minimal ARCH_INDEX.md.
@@ -248,95 +266,111 @@ func phaseCClaudeMD(target string, resolver *assets.Resolver) {
 
 	claudeDst := filepath.Join(target, "CLAUDE.md")
 	if fileExists(claudeDst) {
-		fmt.Println("  CLAUDE.md already exists")
-		fmt.Println()
-
-		if confirmPrompt("  Review CLAUDE.md? [y/N] ", false) {
-			data, err := os.ReadFile(claudeDst)
-			if err == nil {
-				lines := strings.Split(string(data), "\n")
-				fmt.Println("  --- Current CLAUDE.md (first 20 lines) ---")
-				for i, line := range lines {
-					if i >= 20 {
-						break
-					}
-					fmt.Printf("  %s\n", line)
-				}
-				fmt.Println("  ---")
-			}
-		}
+		phaseCReview(claudeDst)
 	} else {
-		// Try to copy from embedded template
-		templateData, err := resolver.ReadEmbedded("templates/migration/CLAUDE.md")
-		if err == nil {
-			if err := os.WriteFile(claudeDst, templateData, 0o644); err == nil {
-				fmt.Println("  Created CLAUDE.md from template")
-				fmt.Println("  Review and customize for this repository")
-			}
-		} else {
-			fmt.Fprintln(os.Stderr, "  Migration CLAUDE.md template not found")
-			fmt.Fprintln(os.Stderr, "  Create CLAUDE.md manually")
-		}
+		phaseCScaffold(claudeDst, resolver)
 	}
 
 	fmt.Println()
+}
+
+func phaseCReview(path string) {
+	fmt.Println("  CLAUDE.md already exists")
+	fmt.Println()
+
+	if !confirmPrompt("  Review CLAUDE.md? [y/N] ", false) {
+		return
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	lines := strings.Split(string(data), "\n")
+	fmt.Println("  --- Current CLAUDE.md (first 20 lines) ---")
+	for i, line := range lines {
+		if i >= 20 {
+			break
+		}
+		fmt.Printf("  %s\n", line)
+	}
+	fmt.Println("  ---")
+}
+
+func phaseCScaffold(claudeDst string, resolver *assets.Resolver) {
+	templateData, err := resolver.ReadEmbedded("templates/migration/CLAUDE.md")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "  Migration CLAUDE.md template not found")
+		fmt.Fprintln(os.Stderr, "  Create CLAUDE.md manually")
+		return
+	}
+	if err := os.WriteFile(claudeDst, templateData, 0o644); err == nil {
+		fmt.Println("  Created CLAUDE.md from template")
+		fmt.Println("  Review and customize for this repository")
+	}
 }
 
 // phaseDScaffolds creates directory scaffolds and default artifacts.
 func phaseDScaffolds(target string, resolver *assets.Resolver) {
 	fmt.Println("▶ Phase D: Directory scaffolds")
 
-	// Create ai/ directories
+	ensureAIDirs(target)
+	scaffoldSkill(target, resolver)
+	ensureGitignoreAIOut(target)
+
+	fmt.Println()
+}
+
+func ensureAIDirs(target string) {
 	dirs := []string{"ai/skills", "ai/baselines", "ai/out"}
 	for _, dir := range dirs {
 		fullPath := filepath.Join(target, dir)
 		if isDirectory(fullPath) {
 			fmt.Printf("  %s/ exists\n", dir)
-		} else {
-			if err := os.MkdirAll(fullPath, 0o755); err == nil {
-				fmt.Printf("  Created %s/\n", dir)
-			}
+		} else if err := os.MkdirAll(fullPath, 0o755); err == nil {
+			fmt.Printf("  Created %s/\n", dir)
 		}
 	}
+}
 
-	// Create repo-local skill scaffold
+func scaffoldSkill(target string, resolver *assets.Resolver) {
 	skillDst := filepath.Join(target, "ai", "skills", "repo-convention-enforcer", "v1")
 	if isDirectory(skillDst) {
 		fmt.Println("  Skill scaffold already exists")
-	} else {
-		if err := os.MkdirAll(skillDst, 0o755); err == nil {
-			skillFiles := []string{"SKILL.md", "input.schema.json", "output.schema.json"}
-			for _, f := range skillFiles {
-				data, err := resolver.ReadEmbedded(filepath.Join("templates", "migration", "skill", f))
-				if err == nil {
-					_ = os.WriteFile(filepath.Join(skillDst, f), data, 0o644)
-				}
-			}
-			fmt.Printf("  Created skill scaffold: %s/\n", skillDst)
+		return
+	}
+	if err := os.MkdirAll(skillDst, 0o755); err != nil {
+		return
+	}
+	for _, f := range []string{"SKILL.md", "input.schema.json", "output.schema.json"} {
+		data, err := resolver.ReadEmbedded(filepath.Join("templates", "migration", "skill", f))
+		if err == nil {
+			_ = os.WriteFile(filepath.Join(skillDst, f), data, 0o644)
 		}
 	}
+	fmt.Printf("  Created skill scaffold: %s/\n", skillDst)
+}
 
-	// Update .gitignore with ai/out/
+func ensureGitignoreAIOut(target string) {
 	gitignorePath := filepath.Join(target, ".gitignore")
-	if fileExists(gitignorePath) {
-		data, _ := os.ReadFile(gitignorePath) // fileExists confirmed; error is unreachable
-		if !strings.Contains(string(data), "ai/out/") {
-			f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
-			if err == nil {
-				_, _ = f.WriteString("\n# AI governance runtime artifacts\nai/out/\n")
-				_ = f.Close()
-				fmt.Println("  Added ai/out/ to .gitignore")
-			}
-		} else {
-			fmt.Println("  ai/out/ already in .gitignore")
-		}
-	} else {
+	if !fileExists(gitignorePath) {
 		if err := os.WriteFile(gitignorePath, []byte("ai/out/\n"), 0o644); err == nil {
 			fmt.Println("  Created .gitignore with ai/out/")
 		}
+		return
 	}
-
-	fmt.Println()
+	data, _ := os.ReadFile(gitignorePath) // fileExists confirmed; error is unreachable
+	if strings.Contains(string(data), "ai/out/") {
+		fmt.Println("  ai/out/ already in .gitignore")
+		return
+	}
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err == nil {
+		_, _ = f.WriteString("\n# AI governance runtime artifacts\nai/out/\n")
+		_ = f.Close()
+		fmt.Println("  Added ai/out/ to .gitignore")
+	}
 }
 
 // phaseEBaselines generates optional baseline snapshots.

@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
-
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 func hooksCommand() *cli.Command {
@@ -54,13 +52,7 @@ fi
 `
 
 func runHooksInstall(_ *cli.Context) error {
-	// Detect repo root
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
+	repoRoot := detectRepoRoot()
 
 	hooksDir := filepath.Join(repoRoot, ".git", "hooks")
 	if !isDirectory(hooksDir) {
@@ -69,27 +61,9 @@ func runHooksInstall(_ *cli.Context) error {
 
 	hookFile := filepath.Join(hooksDir, "pre-push")
 
-	// Check if hook already exists
-	if fileExists(hookFile) {
-		data, _ := os.ReadFile(hookFile) // fileExists already confirmed; error is unreachable
-		content := string(data)
-
-		fmt.Fprintf(os.Stderr, "warning: %s already exists\n", hookFile)
-
-		// Show first 5 lines
-		lines := strings.Split(content, "\n")
-		fmt.Fprintln(os.Stderr, "Existing content:")
-		for i, line := range lines {
-			if i >= 5 {
-				break
-			}
-			fmt.Fprintf(os.Stderr, "  %s\n", line)
-		}
-
-		if !confirmPrompt("Overwrite? [y/N] ", false) {
-			fmt.Println("Aborted.")
-			return nil
-		}
+	if fileExists(hookFile) && !confirmHookOverwrite(hookFile) {
+		fmt.Println("Aborted.")
+		return nil
 	}
 
 	if err := os.WriteFile(hookFile, []byte(hookContent), 0o755); err != nil {
@@ -100,14 +74,24 @@ func runHooksInstall(_ *cli.Context) error {
 	return nil
 }
 
-func runHooksRemove(_ *cli.Context) error {
-	// Detect repo root
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
+func confirmHookOverwrite(hookFile string) bool {
+	data, _ := os.ReadFile(hookFile) // fileExists already confirmed; error is unreachable
+	fmt.Fprintf(os.Stderr, "warning: %s already exists\n", hookFile)
+
+	lines := strings.Split(string(data), "\n")
+	fmt.Fprintln(os.Stderr, "Existing content:")
+	for i, line := range lines {
+		if i >= 5 {
+			break
 		}
+		fmt.Fprintf(os.Stderr, "  %s\n", line)
 	}
+
+	return confirmPrompt("Overwrite? [y/N] ", false)
+}
+
+func runHooksRemove(_ *cli.Context) error {
+	repoRoot := detectRepoRoot()
 
 	hookFile := filepath.Join(repoRoot, ".git", "hooks", "pre-push")
 

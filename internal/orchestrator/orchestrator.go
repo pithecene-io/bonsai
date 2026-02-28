@@ -79,46 +79,57 @@ func emit(events chan<- Event, ev Event) {
 	}
 }
 
+// indexedSkill pairs a registry skill with its original position index.
+type indexedSkill struct {
+	index int
+	skill registry.Skill
+}
+
 // Run executes the skill set and returns an aggregate report.
 // events may be nil; when non-nil, lifecycle events are sent for each skill.
 // The caller must not close the events channel; Run does not close it either.
 func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Event) (*Report, error) {
-	timestamp := time.Now().Format("20060102-150405")
-
-	report := &Report{
-		Source:    opts.Source,
-		Timestamp: timestamp,
-	}
-
 	builder := prompt.NewBuilder(o.resolver, opts.RepoRoot)
 	runner := skill.NewRunner(o.agent, builder)
 
-	// Build repo tree
 	repoTree, err := repo.TreeWithScope(opts.RepoRoot, opts.Scope)
 	if err != nil {
 		return nil, fmt.Errorf("repo tree: %w", err)
 	}
 	repoTreeStr := joinLines(repoTree)
 
-	// Build diff payload
 	var diffPayload string
 	if opts.BaseRef != "" {
 		diffPayload = buildDiffPayload(opts.RepoRoot, opts.BaseRef)
 	}
 
 	total := len(opts.Skills)
-
-	// Pre-filter: separate skippable from runnable
-	type indexedSkill struct {
-		index int
-		skill registry.Skill
-	}
-	var runnable []indexedSkill
 	results := make([]Result, total)
+	runnable := o.partitionSkills(opts, events, results, total)
+	o.dispatchWorkers(ctx, opts, events, results, runnable, runner, repoTreeStr, diffPayload, total)
+	report := aggregateReport(opts, results)
 
-	for i, s := range opts.Skills {
-		requiresDiff := s.EffectiveRequiresDiff(opts.DefaultRequiresDiff)
-		if requiresDiff && opts.BaseRef == "" {
+	emit(events, Event{
+		Kind:   EventComplete,
+		Total:  total,
+		Report: report,
+	})
+
+	return report, nil
+}
+
+// partitionSkills separates skippable skills from runnable ones,
+// emitting skip/queue events and populating pre-filled results.
+func (o *Orchestrator) partitionSkills(
+	opts RunOpts,
+	events chan<- Event,
+	results []Result,
+	total int,
+) []indexedSkill {
+	var runnable []indexedSkill
+	for i := range opts.Skills {
+		s := &opts.Skills[i]
+		if s.EffectiveRequiresDiff(opts.DefaultRequiresDiff) && opts.BaseRef == "" {
 			results[i] = Result{
 				Name:          s.Name,
 				Status:        "skipped",
@@ -126,56 +137,76 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 				Mandatory:     s.Mandatory,
 			}
 			emit(events, Event{
-				Kind:      EventSkipped,
-				Index:     i,
-				Total:     total,
-				SkillName: s.Name,
-				Cost:      s.Cost,
-				Mandatory: s.Mandatory,
-				Reason:    "requires --base for diff context",
+				Kind: EventSkipped, Index: i, Total: total,
+				SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
+				Reason: "requires --base for diff context",
 			})
 		} else {
-			runnable = append(runnable, indexedSkill{index: i, skill: s})
+			runnable = append(runnable, indexedSkill{index: i, skill: *s})
 			emit(events, Event{
-				Kind:      EventQueued,
-				Index:     i,
-				Total:     total,
-				SkillName: s.Name,
-				Cost:      s.Cost,
-				Mandatory: s.Mandatory,
+				Kind: EventQueued, Index: i, Total: total,
+				SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
 			})
 		}
 	}
+	return runnable
+}
 
-	concurrency := opts.Concurrency
-	if concurrency <= 0 {
-		concurrency = len(runnable) // unlimited: all skills at once
-	}
-	if concurrency == 0 {
-		concurrency = 1 // edge case: no runnable skills
-	}
+// workerState holds shared mutable state for worker goroutines.
+type workerState struct {
+	mu        sync.Mutex
+	triggered bool
+	once      sync.Once
+	cancel    context.CancelFunc
+}
 
-	// Context with cancellation for fail-fast
+func (ws *workerState) isStopped() bool {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	return ws.triggered
+}
+
+func (ws *workerState) triggerFailFast(events chan<- Event, idx, total int, s registry.Skill) {
+	ws.once.Do(func() {
+		ws.mu.Lock()
+		ws.triggered = true
+		ws.mu.Unlock()
+		emit(events, Event{
+			Kind: EventFailFast, Index: idx, Total: total,
+			SkillName: s.Name, Mandatory: s.Mandatory,
+			Reason: "mandatory failure with --fail-fast",
+		})
+		ws.cancel()
+	})
+}
+
+// dispatchWorkers launches concurrent skill workers with semaphore and fail-fast.
+func (o *Orchestrator) dispatchWorkers(
+	ctx context.Context,
+	opts RunOpts,
+	events chan<- Event,
+	results []Result,
+	runnable []indexedSkill,
+	runner *skill.Runner,
+	repoTreeStr, diffPayload string,
+	total int,
+) {
+	concurrency := effectiveConcurrency(opts.Concurrency, len(runnable))
+
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	ws := &workerState{cancel: cancel}
 	sem := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
-	var failFastOnce sync.Once
-	failFastTriggered := false
-	var ffMu sync.Mutex
 
-	for _, is := range runnable {
-		// Check for fail-fast before launching
-		ffMu.Lock()
-		stopped := failFastTriggered
-		ffMu.Unlock()
-		if stopped {
+	for idx := range runnable {
+		if ws.isStopped() {
 			break
 		}
 
-		// Acquire semaphore in the dispatch goroutine to guarantee
-		// ordered startup — skills acquire the sem in list order.
+		is := runnable[idx]
+
 		select {
 		case sem <- struct{}{}:
 		case <-runCtx.Done():
@@ -183,66 +214,75 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 		}
 
 		wg.Add(1)
-		go func(idx int, s registry.Skill) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			// Check context before running
-			if runCtx.Err() != nil {
-				return
-			}
-
-			emit(events, Event{
-				Kind:      EventStart,
-				Index:     idx,
-				Total:     total,
-				SkillName: s.Name,
-				Cost:      s.Cost,
-				Mandatory: s.Mandatory,
-			})
-
-			result := o.runSingleSkill(runCtx, s, runner, repoTreeStr, diffPayload, opts)
-			results[idx] = result
-
-			elapsed := time.Duration(result.Elapsed * float64(time.Millisecond))
-			emit(events, Event{
-				Kind:      EventDone,
-				Index:     idx,
-				Total:     total,
-				SkillName: s.Name,
-				Cost:      s.Cost,
-				Mandatory: s.Mandatory,
-				Result:    &results[idx],
-				Elapsed:   elapsed,
-			})
-
-			// Fail-fast: cancel context on mandatory failure
-			if opts.FailFast && result.ExitCode != 0 && s.Mandatory {
-				failFastOnce.Do(func() {
-					ffMu.Lock()
-					failFastTriggered = true
-					ffMu.Unlock()
-					emit(events, Event{
-						Kind:      EventFailFast,
-						Index:     idx,
-						Total:     total,
-						SkillName: s.Name,
-						Mandatory: s.Mandatory,
-						Reason:    "mandatory failure with --fail-fast",
-					})
-					cancel()
-				})
-			}
-		}(is.index, is.skill)
+		go o.runWorker(runCtx, is, runner, repoTreeStr, diffPayload, opts,
+			events, results, total, sem, &wg, ws)
 	}
 
 	wg.Wait()
+}
 
-	// Aggregate results in original order
+func effectiveConcurrency(requested, runnableCount int) int {
+	if requested <= 0 {
+		requested = runnableCount
+	}
+	if requested == 0 {
+		return 1
+	}
+	return requested
+}
+
+func (o *Orchestrator) runWorker(
+	ctx context.Context,
+	is indexedSkill,
+	runner *skill.Runner,
+	repoTreeStr, diffPayload string,
+	opts RunOpts,
+	events chan<- Event,
+	results []Result,
+	total int,
+	sem chan struct{},
+	wg *sync.WaitGroup,
+	ws *workerState,
+) {
+	defer wg.Done()
+	defer func() { <-sem }()
+
+	if ctx.Err() != nil {
+		return
+	}
+
+	idx, s := is.index, is.skill
+
+	emit(events, Event{
+		Kind: EventStart, Index: idx, Total: total,
+		SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
+	})
+
+	result := o.runSingleSkill(ctx, s, runner, repoTreeStr, diffPayload, opts)
+	results[idx] = result
+
+	emit(events, Event{
+		Kind: EventDone, Index: idx, Total: total,
+		SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
+		Result:  &results[idx],
+		Elapsed: time.Duration(result.Elapsed * float64(time.Millisecond)),
+	})
+
+	if opts.FailFast && result.ExitCode != 0 && s.Mandatory {
+		ws.triggerFailFast(events, idx, total, s)
+	}
+}
+
+// aggregateReport tallies results into a Report in original skill order.
+func aggregateReport(opts RunOpts, results []Result) *Report {
+	report := &Report{
+		Source:    opts.Source,
+		Timestamp: time.Now().Format("20060102-150405"),
+	}
 	for i := range opts.Skills {
 		r := results[i]
 		if r.Name == "" {
-			continue // was not scheduled or cancelled before starting
+			continue
 		}
 		report.Total++
 		switch {
@@ -258,14 +298,7 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 		}
 		report.Results = append(report.Results, r)
 	}
-
-	emit(events, Event{
-		Kind:   EventComplete,
-		Total:  total,
-		Report: report,
-	})
-
-	return report, nil
+	return report
 }
 
 // runSingleSkill executes one skill and returns its Result.
