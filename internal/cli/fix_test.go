@@ -263,7 +263,7 @@ func TestFixLoop_InitialCheckPasses(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				// Initial check: fail
@@ -292,7 +292,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -328,7 +328,7 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 	opts := testFixOpts(t, checkMock, sessionMock)
 	opts.maxIterations = 2
 
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(t.Context(), opts)
 	if err == nil {
 		t.Fatal("expected error after max iterations exhausted")
 	}
@@ -345,7 +345,7 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 
 func TestFixLoop_ContextCancellation(t *testing.T) {
 	// Initial check fails, then context is cancelled during autonomous session.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	checkMock := &agent.MockAgent{
 		NameVal:                "check",
@@ -380,11 +380,11 @@ func (m *cancellingMockAgent) Interactive(_ context.Context, _ string, _ []strin
 	return nil
 }
 
-func (m *cancellingMockAgent) NonInteractive(_ context.Context, _, _, _ string) (string, error) {
+func (m *cancellingMockAgent) NonInteractive(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 	return "", nil
 }
 
-func (m *cancellingMockAgent) Autonomous(_ context.Context, _, _, _ string) error {
+func (m *cancellingMockAgent) Autonomous(_ context.Context, _, _ string, _ agent.Model) error {
 	m.calls++
 	m.cancel()
 	return context.Canceled
@@ -395,7 +395,7 @@ func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				return skillJSON("fail", []string{"missing CLAUDE.md §4 entry"}), nil
@@ -406,7 +406,7 @@ func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
 	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -473,7 +473,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 	var checkCallCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := checkCallCount.Add(1)
 			// First check run (2 skills): both fail
 			if n <= 2 {
@@ -499,7 +499,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 		maxIterations: 3,
 	}
 
-	err := fixLoop(context.Background(), opts)
+	err := fixLoop(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -530,7 +530,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 // was a nil-pointer dereference on report.ShouldFail().
 func TestFixLoop_InitialCheckInterrupt_NilReport(t *testing.T) {
 	mock := &agent.MockAgent{NameVal: "mock"}
-	err := fixLoop(context.Background(), fixOpts{
+	err := fixLoop(t.Context(), fixOpts{
 		checkAgent:    mock,
 		sessionAgent:  mock,
 		skills:        []registry.Skill{testSkill()},
@@ -556,7 +556,7 @@ func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
 	mock := &agent.MockAgent{NameVal: "mock"}
 
 	tmpDir := t.TempDir()
-	err := fixLoop(context.Background(), fixOpts{
+	err := fixLoop(t.Context(), fixOpts{
 		checkAgent:    mock,
 		sessionAgent:  mock,
 		resolver:      assets.NewResolver(tmpDir),

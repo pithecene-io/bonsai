@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,27 +38,18 @@ func runSkill(c *cli.Context) error {
 		return fmt.Errorf("usage: bonsai skill <skill-name> [--version vX] [--scope path1,path2] [--base <ref>]")
 	}
 
-	repoRoot := detectRepoRoot()
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrap()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	reg, err := registry.Load(resolver)
-	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
-
-	def, err := loadSkillDef(resolver, reg, skillName, c.String("version"))
+	def, err := loadSkillDef(env.Resolver, env.Registry, skillName, c.String("version"))
 	if err != nil {
 		return err
 	}
 
 	scope := c.String("scope")
-	repoTree, err := repo.TreeWithScope(repoRoot, scope)
+	repoTree, err := repo.TreeWithScope(env.RepoRoot, scope)
 	if err != nil {
 		return fmt.Errorf("repo tree: %w", err)
 	}
@@ -69,12 +59,12 @@ func runSkill(c *cli.Context) error {
 
 	baseRef := c.String("base")
 	// Diff payload is best-effort; runs without diff context on error.
-	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
+	diffPayload, _ := skill.BuildDiffPayload(env.RepoRoot, baseRef)
 
-	runner := skill.NewRunner(newAgentRouter(cfg), prompt.NewBuilder(resolver, repoRoot))
-	model := resolveSkillModel(c.String("model"), reg, cfg, skillName)
+	runner := skill.NewRunner(newAgentRouter(env.Config), prompt.NewBuilder(env.Resolver, env.RepoRoot))
+	model := resolveSkillModel(c.String("model"), env.Registry, env.Config, skillName)
 
-	output, err := runner.Run(context.Background(), def, skill.RunOpts{
+	output, err := runner.Run(c.Context, def, skill.RunOpts{
 		RepoTree:    strings.Join(repoTree, "\n"),
 		DiffPayload: diffPayload,
 		BaseRef:     baseRef,
@@ -119,7 +109,7 @@ func resolveSkillModel(override string, reg *registry.Registry, cfg *config.Conf
 		return override
 	}
 	if s, ok := reg.LookupSkill(name); ok {
-		return cfg.Models.ModelForSkill(s.Cost)
+		return cfg.Models.ModelForSkill(string(s.Cost))
 	}
 	return ""
 }

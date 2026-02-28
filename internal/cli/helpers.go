@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/registry"
@@ -19,6 +22,37 @@ func detectRepoRoot() string {
 	return "."
 }
 
+// cmdEnv holds the resolved runtime environment shared by all commands.
+// Immutable after construction.
+type cmdEnv struct {
+	RepoRoot string
+	Config   *config.Config
+	Resolver *assets.Resolver
+	Registry *registry.Registry
+}
+
+// bootstrap resolves the standard command environment:
+// repo root → config → resolver → registry.
+func bootstrap() (cmdEnv, error) {
+	repoRoot := detectRepoRoot()
+	cfg, err := config.Load(repoRoot)
+	if err != nil {
+		return cmdEnv{}, fmt.Errorf("load config: %w", err)
+	}
+	resolver := assets.NewResolver(repoRoot)
+	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
+	reg, err := registry.Load(resolver)
+	if err != nil {
+		return cmdEnv{}, fmt.Errorf("load registry: %w", err)
+	}
+	return cmdEnv{
+		RepoRoot: repoRoot,
+		Config:   cfg,
+		Resolver: resolver,
+		Registry: reg,
+	}, nil
+}
+
 // newAgentRouter creates an agent router from config.
 func newAgentRouter(cfg *config.Config) *agent.Router {
 	var apiOpts []agent.AnthropicOption
@@ -31,7 +65,7 @@ func newAgentRouter(cfg *config.Config) *agent.Router {
 // resolveSkillSet resolves skills from either mode or bundle.
 func resolveSkillSet(reg *registry.Registry, mode, bundle string) ([]registry.Skill, string, error) {
 	if mode != "" {
-		skills, err := reg.SkillsForMode(mode)
+		skills, err := reg.SkillsForMode(registry.GovMode(mode))
 		return skills, "mode:" + mode, err
 	}
 	skills, err := reg.SkillsForBundle(bundle)

@@ -51,13 +51,11 @@ func (r *Router) Interactive(ctx context.Context, systemPrompt string, extraArgs
 // NonInteractive dispatches based on the model string.
 // When the Anthropic direct API is selected but fails (auth error,
 // outage, network), it falls back to Claude CLI automatically.
-func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
-	m := Model(model)
-
+func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	switch {
-	case m.IsCodex():
+	case model.IsCodex():
 		return r.Codex.NonInteractive(ctx, systemPrompt, userPrompt, model)
-	case m.IsClaude() && r.Anthropic != nil:
+	case model.IsClaude() && r.Anthropic != nil:
 		out, err := r.Anthropic.NonInteractive(ctx, systemPrompt, userPrompt, model)
 		if err == nil {
 			return out, nil
@@ -91,9 +89,8 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 // Codex supports autonomous tool-use; for claude-family models the
 // Claude CLI is used (the Anthropic direct API does not support
 // autonomous mode).
-func (r *Router) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
-	m := Model(model)
-	if m.IsCodex() {
+func (r *Router) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
+	if model.IsCodex() {
 		return r.Codex.Autonomous(ctx, systemPrompt, userPrompt, model)
 	}
 	return r.Claude.Autonomous(ctx, systemPrompt, userPrompt, model)

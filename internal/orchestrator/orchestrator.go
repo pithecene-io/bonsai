@@ -85,6 +85,16 @@ type indexedSkill struct {
 	skill registry.Skill
 }
 
+// workerCtx holds immutable inputs for a single skill worker.
+type workerCtx struct {
+	is          indexedSkill
+	runner      *skill.Runner
+	repoTree    string
+	diffPayload string
+	opts        RunOpts
+	total       int
+}
+
 // Run executes the skill set and returns an aggregate report.
 // events may be nil; when non-nil, lifecycle events are sent for each skill.
 // The caller must not close the events channel; Run does not close it either.
@@ -205,7 +215,14 @@ func (o *Orchestrator) dispatchWorkers(
 			break
 		}
 
-		is := runnable[idx]
+		wc := workerCtx{
+			is:          runnable[idx],
+			runner:      runner,
+			repoTree:    repoTreeStr,
+			diffPayload: diffPayload,
+			opts:        opts,
+			total:       total,
+		}
 
 		select {
 		case sem <- struct{}{}:
@@ -214,8 +231,7 @@ func (o *Orchestrator) dispatchWorkers(
 		}
 
 		wg.Add(1)
-		go o.runWorker(runCtx, is, runner, repoTreeStr, diffPayload, opts,
-			events, results, total, sem, &wg, ws)
+		go o.runWorker(runCtx, wc, events, results, sem, &wg, ws)
 	}
 
 	wg.Wait()
@@ -233,13 +249,9 @@ func effectiveConcurrency(requested, runnableCount int) int {
 
 func (o *Orchestrator) runWorker(
 	ctx context.Context,
-	is indexedSkill,
-	runner *skill.Runner,
-	repoTreeStr, diffPayload string,
-	opts RunOpts,
+	wc workerCtx,
 	events chan<- Event,
 	results []Result,
-	total int,
 	sem chan struct{},
 	wg *sync.WaitGroup,
 	ws *workerState,
@@ -251,25 +263,25 @@ func (o *Orchestrator) runWorker(
 		return
 	}
 
-	idx, s := is.index, is.skill
+	idx, s := wc.is.index, wc.is.skill
 
 	emit(events, Event{
-		Kind: EventStart, Index: idx, Total: total,
+		Kind: EventStart, Index: idx, Total: wc.total,
 		SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
 	})
 
-	result := o.runSingleSkill(ctx, s, runner, repoTreeStr, diffPayload, opts)
+	result := o.runSingleSkill(ctx, s, wc.runner, wc.repoTree, wc.diffPayload, wc.opts)
 	results[idx] = result
 
 	emit(events, Event{
-		Kind: EventDone, Index: idx, Total: total,
+		Kind: EventDone, Index: idx, Total: wc.total,
 		SkillName: s.Name, Cost: s.Cost, Mandatory: s.Mandatory,
 		Result:  &results[idx],
 		Elapsed: time.Duration(result.Elapsed * float64(time.Millisecond)),
 	})
 
-	if opts.FailFast && result.ExitCode != 0 && s.Mandatory {
-		ws.triggerFailFast(events, idx, total, s)
+	if wc.opts.FailFast && result.ExitCode != 0 && s.Mandatory {
+		ws.triggerFailFast(events, idx, wc.total, s)
 	}
 }
 
@@ -332,7 +344,7 @@ func (o *Orchestrator) runSingleSkill(
 	if opts.ModelOverride != "" {
 		model = agent.Model(opts.ModelOverride)
 	} else if opts.Config != nil {
-		model = agent.Model(opts.Config.Models.ModelForSkill(s.Cost))
+		model = agent.Model(opts.Config.Models.ModelForSkill(string(s.Cost)))
 	}
 
 	output, err := runner.Run(ctx, def, skill.RunOpts{

@@ -6,8 +6,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/pithecene-io/bonsai/internal/assets"
-	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/registry"
 )
 
@@ -25,19 +23,11 @@ func listCommand() *cli.Command {
 }
 
 func runList(c *cli.Context) error {
-	repoRoot := detectRepoRoot()
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrap()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	reg, err := registry.Load(resolver)
-	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
+	reg := env.Registry
 
 	showSkills := c.Bool("skills")
 	showBundles := c.Bool("bundles")

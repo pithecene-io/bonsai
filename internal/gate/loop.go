@@ -97,6 +97,11 @@ func (l *Loop) Preflight() error {
 	return nil
 }
 
+// iterState holds immutable state passed between gating iterations.
+type iterState struct {
+	findings string // empty on first iteration or when resolved
+}
+
 // Run executes the gating loop. Returns nil on success (governance passed),
 // or an error on failure (max iterations exceeded or user declined).
 func (l *Loop) Run(ctx context.Context) error {
@@ -105,37 +110,37 @@ func (l *Loop) Run(ctx context.Context) error {
 		maxIter = 3
 	}
 
-	var findingsContext string
+	state := iterState{}
 
 	for iteration := 1; iteration <= maxIter; iteration++ {
 		fmt.Printf("\n═══ Implementation session %d/%d ═══\n\n", iteration, maxIter)
 
-		if err := l.runSession(ctx, findingsContext); err != nil {
+		if err := l.runSession(ctx, state.findings); err != nil {
 			return err
 		}
 
-		findings, err := l.gateIteration(ctx, iteration, maxIter)
+		next, err := l.runGateIteration(ctx, iteration, maxIter)
 		if err != nil {
 			return err
 		}
-		if findings == "" {
+		if next == nil {
 			return nil // passed or skipped
 		}
-		findingsContext = findings
+		state = *next
 	}
 
 	return fmt.Errorf("governance gate failed")
 }
 
-// gateIteration runs one capture-profile-gate cycle. Returns empty string
-// on pass/skip, or findings context for re-injection on failure.
-func (l *Loop) gateIteration(ctx context.Context, iteration, maxIter int) (string, error) {
+// runGateIteration runs one capture-profile-gate cycle. Returns nil on
+// pass/skip, or a non-nil iterState for re-injection on failure.
+func (l *Loop) runGateIteration(ctx context.Context, iteration, maxIter int) (*iterState, error) {
 	report, mode, err := l.captureAndGate(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if report == nil {
-		return "", nil // no merge base or no changes
+		return nil, nil //nolint:nilnil // nil signals "no merge base or no changes" to caller
 	}
 
 	fmt.Printf("\nGovernance mode: %s\n", mode)
@@ -144,23 +149,23 @@ func (l *Loop) gateIteration(ctx context.Context, iteration, maxIter int) (strin
 		fmt.Printf("\n✔ Governance gate passed (%d/%d skills passed)\n",
 			report.Passed, report.Total)
 		l.saveArtifacts(report)
-		return "", nil
+		return nil, nil //nolint:nilnil // nil signals "gate passed" to caller
 	}
 
 	if iteration == maxIter {
 		fmt.Fprintf(os.Stderr, "\n✖ Governance gate failed after %d iterations\n", maxIter)
 		l.printFailedFindings(report)
-		return "", fmt.Errorf("governance gate failed after %d iterations", maxIter)
+		return nil, fmt.Errorf("governance gate failed after %d iterations", maxIter)
 	}
 
 	l.printFailedFindings(report)
 	fmt.Printf("\nGovernance gate failed — %d blocking finding(s)\n", report.BlockingFailed)
 
 	if !l.promptReenter() {
-		return "", fmt.Errorf("user declined to re-enter")
+		return nil, fmt.Errorf("user declined to re-enter")
 	}
 
-	return l.extractFindings(report), nil
+	return &iterState{findings: l.extractFindings(report)}, nil
 }
 
 // runSession builds the system prompt and invokes claude interactively.
@@ -271,7 +276,7 @@ func (l *Loop) runGate(ctx context.Context, mode string) (*orchestrator.Report, 
 		return nil, fmt.Errorf("load registry: %w", err)
 	}
 
-	skills, err := reg.SkillsForMode(mode)
+	skills, err := reg.SkillsForMode(registry.GovMode(mode))
 	if err != nil {
 		return nil, err
 	}

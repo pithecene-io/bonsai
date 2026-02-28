@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/term"
 
-	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/registry"
@@ -62,8 +61,10 @@ func parseCheckArgs(c *cli.Context) (checkArgs, error) {
 	if a.mode != "" && c.IsSet("bundle") {
 		return a, fmt.Errorf("--mode and --bundle are mutually exclusive")
 	}
-	if a.mode != "" && !registry.IsValidMode(a.mode) {
-		return a, fmt.Errorf("invalid mode %q (valid: %v)", a.mode, registry.ValidModes())
+	if a.mode != "" {
+		if _, err := registry.ParseGovMode(a.mode); err != nil {
+			return a, err
+		}
 	}
 	return a, nil
 }
@@ -74,37 +75,28 @@ func runCheck(c *cli.Context) error {
 		return err
 	}
 
-	repoRoot := detectRepoRoot()
-	cfg, err := config.Load(repoRoot)
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	reg, err := registry.Load(resolver)
-	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
-
-	skills, source, err := resolveSkillSet(reg, args.mode, args.bundle)
+	env, err := bootstrap()
 	if err != nil {
 		return err
 	}
 
-	concurrency := resolveConcurrency(cfg, c)
+	skills, source, err := resolveSkillSet(env.Registry, args.mode, args.bundle)
+	if err != nil {
+		return err
+	}
 
-	orch := orchestrator.New(newAgentRouter(cfg), resolver)
+	concurrency := resolveConcurrency(env.Config, c)
+
+	orch := orchestrator.New(newAgentRouter(env.Config), env.Resolver)
 	opts := orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              source,
 		BaseRef:             args.baseRef,
 		Scope:               args.scope,
 		FailFast:            args.failFast,
-		RepoRoot:            repoRoot,
-		Config:              cfg,
-		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
+		RepoRoot:            env.RepoRoot,
+		Config:              env.Config,
+		DefaultRequiresDiff: env.Registry.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         concurrency,
 		ModelOverride:       args.modelOverride,
 	}
@@ -124,7 +116,7 @@ func runCheck(c *cli.Context) error {
 		return nil // TUI interrupted
 	}
 
-	reportPath, err := writeCheckReport(repoRoot, cfg, report)
+	reportPath, err := writeCheckReport(env.RepoRoot, env.Config, report)
 	if err != nil {
 		return err
 	}

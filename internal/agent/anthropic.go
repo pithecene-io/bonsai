@@ -172,14 +172,14 @@ func (a *Anthropic) Interactive(_ context.Context, _ string, _ []string) error {
 
 // Autonomous returns an error — the direct API backend does not
 // support tool-enabled autonomous mode.
-func (a *Anthropic) Autonomous(_ context.Context, _, _, _ string) error {
+func (a *Anthropic) Autonomous(_ context.Context, _, _ string, _ Model) error {
 	return fmt.Errorf("anthropic: autonomous mode requires tool use (not supported)")
 }
 
 // NonInteractive calls the Anthropic Messages API directly.
-func (a *Anthropic) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
-	resolvedModel := resolveModel(model)
-	profile := profileFor(Model(model).Tier())
+func (a *Anthropic) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+	resolvedModel := resolveModel(string(model))
+	profile := profileFor(model.Tier())
 
 	if os.Getenv("BONSAI_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr, "[bonsai:debug] anthropic model=%s resolved=%s maxTokens=%d oauth=%v\n",

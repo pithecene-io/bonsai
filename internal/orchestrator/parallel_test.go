@@ -33,7 +33,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	delay := 50 * time.Millisecond
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			time.Sleep(delay)
 			return passJSON(), nil
 		},
@@ -50,7 +50,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	opts.Concurrency = 3
 
 	start := time.Now()
-	report, err := orch.Run(context.Background(), opts, nil)
+	report, err := orch.Run(t.Context(), opts, nil)
 	wall := time.Since(start)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -73,7 +73,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	// skill 2 should never run.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _, _ string) (string, error) {
+		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			// All skills get the same fail response; mandatory matters for fail-fast
 			return failJSON(), nil
 		},
@@ -90,7 +90,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	opts.FailFast = true
 	opts.Concurrency = 1
 
-	report, err := orch.Run(context.Background(), opts, nil)
+	report, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestRun_EventChannel(t *testing.T) {
 	opts.Concurrency = 1
 
 	events := make(chan orchestrator.Event, 100)
-	report, err := orch.Run(context.Background(), opts, events)
+	report, err := orch.Run(t.Context(), opts, events)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestRun_NilEventChannel(t *testing.T) {
 	skills := []registry.Skill{passSkill("repo-convention-enforcer", false)}
 
 	// Should not panic with nil events
-	report, err := orch.Run(context.Background(), defaultOpts(skills, t.TempDir()), nil)
+	report, err := orch.Run(t.Context(), defaultOpts(skills, t.TempDir()), nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestRun_ConcurrencyOne(t *testing.T) {
 		Concurrency:         1,
 	}
 
-	report, err := orch.Run(context.Background(), opts, nil)
+	report, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestRun_FindingDetails(t *testing.T) {
 	orch := newTestOrch(t, mock)
 	skills := []registry.Skill{passSkill("repo-convention-enforcer", false)}
 
-	report, err := orch.Run(context.Background(), defaultOpts(skills, t.TempDir()), nil)
+	report, err := orch.Run(t.Context(), defaultOpts(skills, t.TempDir()), nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestRun_ModelRouting(t *testing.T) {
 		Concurrency:         1,
 	}
 
-	_, err := orch.Run(context.Background(), opts, nil)
+	_, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestRun_ModelOverride(t *testing.T) {
 		ModelOverride:       "opus",
 	}
 
-	_, err := orch.Run(context.Background(), opts, nil)
+	_, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -408,7 +408,7 @@ func TestRun_ModelRouting_EmptyCost(t *testing.T) {
 		Concurrency:         1,
 	}
 
-	_, err := orch.Run(context.Background(), opts, nil)
+	_, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -440,7 +440,7 @@ func TestRun_ModelRouting_NilConfig(t *testing.T) {
 		Concurrency:         1,
 	}
 
-	_, err := orch.Run(context.Background(), opts, nil)
+	_, err := orch.Run(t.Context(), opts, nil)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

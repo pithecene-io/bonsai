@@ -9,7 +9,7 @@ import (
 type NonInteractiveCall struct {
 	SystemPrompt string
 	UserPrompt   string
-	Model        string
+	Model        Model
 }
 
 // InteractiveCall records a call to Interactive.
@@ -22,7 +22,7 @@ type InteractiveCall struct {
 type AutonomousCall struct {
 	SystemPrompt string
 	UserPrompt   string
-	Model        string
+	Model        Model
 }
 
 // MockAgent is a test double implementing Agent.
@@ -42,11 +42,11 @@ type MockAgent struct {
 	// NonInteractiveFunc, when set, is called instead of returning
 	// the static NonInteractiveResponse/NonInteractiveErr. Useful for
 	// per-call mock responses in parallel tests.
-	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt, model string) (string, error)
+	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
 
 	// AutonomousFunc, when set, is called instead of returning the
 	// static AutonomousErr. Useful for per-call mock behavior.
-	AutonomousFunc func(ctx context.Context, systemPrompt, userPrompt, model string) error
+	AutonomousFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) error
 }
 
 // Name returns the configured name.
@@ -64,7 +64,7 @@ func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArg
 }
 
 // NonInteractive records the call and returns the configured response/error.
-func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
+func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	m.mu.Lock()
 	m.NonInteractiveCalls = append(m.NonInteractiveCalls, NonInteractiveCall{
 		SystemPrompt: systemPrompt,
@@ -83,7 +83,7 @@ func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt
 }
 
 // Autonomous records the call and returns the configured error.
-func (m *MockAgent) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+func (m *MockAgent) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	m.mu.Lock()
 	m.AutonomousCalls = append(m.AutonomousCalls, AutonomousCall{
 		SystemPrompt: systemPrompt,

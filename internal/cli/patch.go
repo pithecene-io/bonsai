@@ -35,17 +35,14 @@ func runPatch(c *cli.Context) error {
 		return fmt.Errorf("usage: bonsai patch \"<task description>\"")
 	}
 
-	repoRoot := detectRepoRoot()
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrap()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-	builder := prompt.NewBuilder(resolver, repoRoot)
+	builder := prompt.NewBuilder(env.Resolver, env.RepoRoot)
 
-	architectPlan, err := patchPhaseArchitect(c, builder, cfg, repoRoot, task)
+	architectPlan, err := patchPhaseArchitect(c, builder, env.Config, env.RepoRoot, task)
 	if err != nil {
 		return err
 	}
@@ -53,11 +50,11 @@ func runPatch(c *cli.Context) error {
 		return nil // user aborted
 	}
 
-	if err := patchPhaseEmit(c, builder, cfg, architectPlan, task); err != nil {
+	if err := patchPhaseEmit(c, builder, env.Config, architectPlan, task); err != nil {
 		return err
 	}
 
-	return patchPhaseValidate(c, resolver, cfg, repoRoot)
+	return patchPhaseValidate(c, env.Resolver, env.Config, env.RepoRoot)
 }
 
 func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, cfg *config.Config, repoRoot, task string) (string, error) {
@@ -74,7 +71,7 @@ func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, cfg *config.Co
 
 	userPrompt := fmt.Sprintf("Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n%s", task)
 	architectPlan, err := agent.NewClaude(cfg.Agents.Claude.Bin).NonInteractive(
-		c.Context, architectPrompt, userPrompt, cfg.Models.ModelForRole("patch"))
+		c.Context, architectPrompt, userPrompt, agent.Model(cfg.Models.ModelForRole("patch")))
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}

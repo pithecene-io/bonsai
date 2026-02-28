@@ -9,7 +9,6 @@ import (
 	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gate"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 )
 
 func implementCommand() *cli.Command {
@@ -22,13 +21,7 @@ func implementCommand() *cli.Command {
 }
 
 func runImplement(c *cli.Context) error {
-	// Detect repo
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
+	repoRoot := detectRepoRoot()
 
 	// Load config
 	cfg, err := config.Load(repoRoot)

@@ -514,6 +514,21 @@ registry:
     run_when:
       modes: [HEAVY, AUDIT]
 
+  # =========================
+  # VIII. CODE STYLE & COMPOSITION
+  # =========================
+  - name: code-style-enforcer
+    version: v1
+    path: skills/code-style-enforcer/v1
+    domain: hygiene
+    cost: moderate
+    mode: heuristic
+    mandatory: false
+    requires_diff: true
+    trigger: always
+    run_when:
+      modes: [PATCH, NORMAL, STRUCTURAL, API, HEAVY, AUDIT]
+
 # =========================
 # BUNDLES (DISCIPLINED + EXHAUSTIVE)
 # =========================
@@ -550,6 +565,7 @@ bundles:
     - unsafe-config-pattern-detector
     - hardcoded-secret-pattern-detector
     - environment-variable-leak-detector
+    - code-style-enforcer
 
   # When changing module structure / directories / boundaries
   structural-change:
@@ -632,6 +648,7 @@ bundles:
     - unlogged-error-detector
     - inconsistent-error-propagation-detector
     - panic-or-exit-misuse-detector
+    - code-style-enforcer
 
   # Full-spectrum audit (all skills; slow; run when you want absolute coverage)
   audit-full:
@@ -678,3 +695,4 @@ bundles:
     - unlogged-error-detector
     - inconsistent-error-propagation-detector
     - panic-or-exit-misuse-detector
+    - code-style-enforcer

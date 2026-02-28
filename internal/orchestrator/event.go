@@ -1,6 +1,10 @@
 package orchestrator
 
-import "time"
+import (
+	"time"
+
+	"github.com/pithecene-io/bonsai/internal/registry"
+)
 
 // EventKind describes the type of orchestrator event.
 type EventKind int
@@ -28,7 +32,7 @@ type Event struct {
 	Index     int           // position in skill list (0-based)
 	Total     int           // total number of skills
 	SkillName string        // skill name
-	Cost      string        // skill cost tier
+	Cost      registry.Cost // skill cost tier
 	Mandatory bool          // whether the skill is mandatory
 	Result    *Result       // for EventDone/EventError
 	Report    *Report       // for EventComplete only

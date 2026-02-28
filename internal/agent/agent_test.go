@@ -115,7 +115,7 @@ func TestMockAgent_RecordsModel(t *testing.T) {
 		NonInteractiveResponse: "ok",
 	}
 
-	_, _ = mock.NonInteractive(context.Background(), "sys", "user", "haiku")
+	_, _ = mock.NonInteractive(t.Context(), "sys", "user", agent.Model("haiku"))
 
 	if mock.CallCount() != 1 {
 		t.Fatalf("CallCount = %d, want 1", mock.CallCount())
@@ -129,12 +129,12 @@ func TestMockAgent_FuncOverridesResponse(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "test",
 		NonInteractiveResponse: "should not appear",
-		NonInteractiveFunc: func(_ context.Context, _, _, model string) (string, error) {
-			return "model=" + model, nil
+		NonInteractiveFunc: func(_ context.Context, _, _ string, model agent.Model) (string, error) {
+			return "model=" + string(model), nil
 		},
 	}
 
-	got, err := mock.NonInteractive(context.Background(), "sys", "user", "opus")
+	got, err := mock.NonInteractive(t.Context(), "sys", "user", agent.Model("opus"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -161,7 +161,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	out, err := c.NonInteractive(context.Background(), "test-system", "test-user", "haiku")
+	out, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("haiku"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -207,7 +207,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.NonInteractive(context.Background(), "test-system", "test-user", "sonnet")
+	_, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("sonnet"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -291,7 +291,7 @@ cat
 	}
 
 	r := agent.NewRouter(fakeBin, "nonexistent-codex")
-	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "haiku")
+	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -325,7 +325,7 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "codex")
+	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("codex"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -356,7 +356,7 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.NonInteractive(context.Background(), "sys", "user-input", "codex-mini")
+	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("codex-mini"))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}
@@ -422,7 +422,7 @@ cat
 		},
 	}
 
-	out, err := r.NonInteractive(t.Context(), "sys", "user-input", "haiku")
+	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err != nil {
 		t.Fatalf("NonInteractive should succeed via Claude CLI fallback: %v", err)
 	}
@@ -464,7 +464,7 @@ cat
 		t.Fatalf("write: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // cancel before calling NonInteractive
 
 	r := &agent.Router{
@@ -476,7 +476,7 @@ cat
 		},
 	}
 
-	_, err := r.NonInteractive(ctx, "sys", "user-input", "haiku")
+	_, err := r.NonInteractive(ctx, "sys", "user-input", agent.Model("haiku"))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -521,7 +521,7 @@ exit 1
 		},
 	}
 
-	_, err := r.NonInteractive(t.Context(), "sys", "user-input", "haiku")
+	_, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err == nil {
 		t.Fatal("expected error when both backends fail, got nil")
 	}
@@ -549,7 +549,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.NonInteractive(context.Background(), "test-system", "test-user", "")
+	_, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model(""))
 	if err != nil {
 		t.Fatalf("NonInteractive: %v", err)
 	}

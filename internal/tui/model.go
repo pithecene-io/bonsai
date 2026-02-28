@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
+	"github.com/pithecene-io/bonsai/internal/registry"
 )
 
 // skillState tracks the display state of a single skill.
@@ -27,7 +28,7 @@ const (
 // skillEntry holds the display data for one skill.
 type skillEntry struct {
 	name      string
-	cost      string
+	cost      registry.Cost
 	mandatory bool
 	state     skillState
 	reason    string // skip/error reason

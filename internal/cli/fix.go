@@ -41,16 +41,13 @@ func runFix(c *urfave.Context) error {
 	baseRef := c.String("base")
 	noProgress := c.Bool("no-progress")
 
-	repoRoot := detectRepoRoot()
-
-	// Load config
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrap()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
 	// Resolve max-iterations: flag > config > default
-	maxIter := cfg.Fix.MaxIterations
+	maxIter := env.Config.Fix.MaxIterations
 	if c.IsSet("max-iterations") {
 		maxIter = c.Int("max-iterations")
 	}
@@ -58,18 +55,8 @@ func runFix(c *urfave.Context) error {
 		maxIter = 3
 	}
 
-	// Create resolver
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	// Load registry
-	reg, err := registry.Load(resolver)
-	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
-
 	// Resolve skill set — bundle-based, then filter to cheap-only
-	allSkills, err := reg.SkillsForBundle(bundle)
+	allSkills, err := env.Registry.SkillsForBundle(bundle)
 	if err != nil {
 		return err
 	}
@@ -82,15 +69,10 @@ func runFix(c *urfave.Context) error {
 
 	// Detect merge base for diff context
 	if baseRef == "" {
-		baseRef = repo.DetectMergeBase(repoRoot, cfg.Routing.MergeBaseCandidates)
+		baseRef = repo.DetectMergeBase(env.RepoRoot, env.Config.Routing.MergeBaseCandidates)
 	}
 
-	// Create agents
-	var apiOpts []agent.AnthropicOption
-	if cfg.Providers.Anthropic.APIKey != "" {
-		apiOpts = append(apiOpts, agent.WithAPIKey(cfg.Providers.Anthropic.APIKey))
-	}
-	agentRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin, apiOpts...)
+	agentRouter := newAgentRouter(env.Config)
 
 	// TTY detection: use TUI if stdout is a terminal and --no-progress is not set
 	useTUI := term.IsTerminal(int(os.Stdout.Fd())) && !noProgress
@@ -98,13 +80,13 @@ func runFix(c *urfave.Context) error {
 	return fixLoop(c.Context, fixOpts{
 		checkAgent:    agentRouter,
 		sessionAgent:  agentRouter,
-		resolver:      resolver,
-		registry:      reg,
-		config:        cfg,
+		resolver:      env.Resolver,
+		registry:      env.Registry,
+		config:        env.Config,
 		skills:        skills,
 		source:        "bundle:" + bundle + " (cheap-only)",
 		baseRef:       baseRef,
-		repoRoot:      repoRoot,
+		repoRoot:      env.RepoRoot,
 		maxIterations: maxIter,
 		useTUI:        useTUI,
 	})
@@ -136,7 +118,7 @@ type fixOpts struct {
 // skillFindings groups findings for a single failed skill.
 type skillFindings struct {
 	Name  string
-	Cost  string
+	Cost  registry.Cost
 	Lines []string // detail lines for user prompt
 }
 
@@ -247,10 +229,10 @@ func runFixSessions(ctx context.Context, opts fixOpts, failedSkills []skillFindi
 
 		model := ""
 		if opts.config != nil {
-			model = opts.config.Models.ModelForSkill(sf.Cost)
+			model = opts.config.Models.ModelForSkill(string(sf.Cost))
 		}
 
-		if sessErr := opts.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), model); sessErr != nil {
+		if sessErr := opts.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), agent.Model(model)); sessErr != nil {
 			if ctx.Err() != nil {
 				return nil //nolint:nilerr // cancellation is intentional clean exit
 			}
@@ -275,11 +257,11 @@ func recheckAfterFix(
 	return report, nil
 }
 
-// filterCheapSkills returns only skills with cost == "cheap".
+// filterCheapSkills returns only skills with cost == CostCheap.
 func filterCheapSkills(skills []registry.Skill) []registry.Skill {
 	var cheap []registry.Skill
 	for i := range skills {
-		if skills[i].Cost == "cheap" {
+		if skills[i].Cost == registry.CostCheap {
 			cheap = append(cheap, skills[i])
 		}
 	}
@@ -375,7 +357,7 @@ func extractDetailedFindings(report *orchestrator.Report) string {
 // information not stored in orchestrator.Result.
 func extractPerSkillFindings(report *orchestrator.Report, skills []registry.Skill) []skillFindings {
 	// Build name→cost lookup
-	costByName := make(map[string]string, len(skills))
+	costByName := make(map[string]registry.Cost, len(skills))
 	for i := range skills {
 		costByName[skills[i].Name] = skills[i].Cost
 	}

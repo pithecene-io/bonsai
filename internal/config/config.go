@@ -108,33 +108,23 @@ type RoleModels struct {
 // ModelForSkill returns the model for a skill given its cost tier.
 // Returns empty string for unknown cost (agent picks its own default).
 func (m ModelsConfig) ModelForSkill(cost string) string {
-	switch cost {
-	case "cheap":
-		return m.Skills.Cheap
-	case "moderate":
-		return m.Skills.Moderate
-	case "heavy":
-		return m.Skills.Heavy
-	}
-	return ""
+	return map[string]string{
+		"cheap":    m.Skills.Cheap,
+		"moderate": m.Skills.Moderate,
+		"heavy":    m.Skills.Heavy,
+	}[cost]
 }
 
 // ModelForRole returns the model for a given interactive role.
 // Returns empty string for unknown role (agent picks its own default).
 func (m ModelsConfig) ModelForRole(role string) string {
-	switch role {
-	case "implement":
-		return m.Roles.Implement
-	case "plan":
-		return m.Roles.Plan
-	case "review":
-		return m.Roles.Review
-	case "patch":
-		return m.Roles.Patch
-	case "chat":
-		return m.Roles.Chat
-	}
-	return ""
+	return map[string]string{
+		"implement": m.Roles.Implement,
+		"plan":      m.Roles.Plan,
+		"review":    m.Roles.Review,
+		"patch":     m.Roles.Patch,
+		"chat":      m.Roles.Chat,
+	}[role]
 }
 
 // OutputConfig controls output directory.
