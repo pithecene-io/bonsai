@@ -92,7 +92,7 @@ func runSkill(c *cli.Context) error {
 		return fmt.Errorf("scope produced empty repo tree")
 	}
 
-	// Build diff payload
+	// Diff payload is best-effort; runs without diff context on error.
 	diffPayload, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 
 	// Create agent router (routes to codex/anthropic/claude based on model)

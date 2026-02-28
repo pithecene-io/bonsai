@@ -4,7 +4,6 @@ package prompt
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -326,6 +325,3 @@ func modeDefaultRole(m Mode) string {
 		return "architect"
 	}
 }
-
-// Ensure the fs import is used via loadContextLayers' error handling
-var _ fs.DirEntry = nil

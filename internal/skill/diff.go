@@ -22,7 +22,7 @@ func BuildDiffPayload(repoRoot, baseRef string) (string, error) {
 		diffPayload = ""
 	}
 
-	// Append synthetic diffs for untracked files
+	// Untracked query may fail; skip synthetic diffs on error.
 	untracked, _ := gitutil.UntrackedFiles(repoRoot)
 	if len(untracked) > 0 {
 		diffPayload += BuildSyntheticUntrackedDiff(repoRoot, untracked)

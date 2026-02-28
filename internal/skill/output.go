@@ -16,7 +16,7 @@ type Output struct {
 	Warning  []string               `json:"warning"`
 	Info     []string               `json:"info"`
 	Notes    []string               `json:"notes,omitempty"`
-	Details  map[string]interface{} `json:"details,omitempty"`
+	Details  map[string]any `json:"details,omitempty"`
 }
 
 // ParseOutput parses and validates a JSON response against the unified

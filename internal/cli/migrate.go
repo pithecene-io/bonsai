@@ -319,7 +319,7 @@ func phaseDScaffolds(target string, resolver *assets.Resolver) {
 	// Update .gitignore with ai/out/
 	gitignorePath := filepath.Join(target, ".gitignore")
 	if fileExists(gitignorePath) {
-		data, _ := os.ReadFile(gitignorePath)
+		data, _ := os.ReadFile(gitignorePath) // fileExists confirmed; error is unreachable
 		if !strings.Contains(string(data), "ai/out/") {
 			f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
 			if err == nil {

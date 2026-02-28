@@ -230,13 +230,13 @@ func (l *Loop) consumePlan() {
 func (l *Loop) hasChanges() bool {
 	repoRoot := l.opts.RepoRoot
 
-	// Check tracked changes
+	// Git commands may fail (e.g. corrupted index); treat as "no changes"
+	// rather than blocking the loop.
 	names, _ := gitutil.DiffNameOnly(repoRoot, l.mergeBase)
 	if len(names) > 0 {
 		return true
 	}
 
-	// Check untracked
 	untracked, _ := gitutil.UntrackedFiles(repoRoot)
 	return len(untracked) > 0
 }

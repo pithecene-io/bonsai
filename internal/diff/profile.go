@@ -32,16 +32,11 @@ type Profile struct {
 func ComputeProfile(repoRoot, base string, cfg *config.Config) (*Profile, error) {
 	p := &Profile{}
 
-	// Get diff output
+	// Git commands may fail (e.g. no commits yet, detached HEAD);
+	// fall back to empty results so profiling degrades gracefully.
 	diffOutput, _ := gitutil.Diff(repoRoot, base)
-
-	// Get name-status
 	nameStatus, _ := gitutil.DiffNameStatus(repoRoot, base)
-
-	// Get diff names
 	diffNames, _ := gitutil.DiffNameOnly(repoRoot, base)
-
-	// Include untracked files (git diff never shows these)
 	untracked, _ := gitutil.UntrackedFiles(repoRoot)
 	if len(untracked) > 0 {
 		// Merge untracked into diffNames (dedup)

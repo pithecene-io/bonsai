@@ -370,7 +370,8 @@ func joinLines(lines []string) string {
 }
 
 func buildDiffPayload(repoRoot, baseRef string) string {
-	// This reuses the same logic as the skill command
+	// Diff payload is best-effort; an error returns empty string,
+	// which causes skills to run without diff context.
 	diff, _ := skill.BuildDiffPayload(repoRoot, baseRef)
 	return diff
 }

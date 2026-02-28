@@ -71,7 +71,7 @@ func runHooksInstall(_ *cli.Context) error {
 
 	// Check if hook already exists
 	if fileExists(hookFile) {
-		data, _ := os.ReadFile(hookFile)
+		data, _ := os.ReadFile(hookFile) // fileExists already confirmed; error is unreachable
 		content := string(data)
 
 		fmt.Fprintf(os.Stderr, "warning: %s already exists\n", hookFile)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -135,6 +134,3 @@ func (r *Registry) BundleNames() []string {
 	}
 	return names
 }
-
-// Ensure unused import is referenced
-var _ = filepath.Join
