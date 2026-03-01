@@ -402,21 +402,18 @@ func (m *migration) validate(c *urfave.Context) {
 
 	checkRouter := agent.NewRouter(m.config.Agents.Claude.Bin, m.config.Agents.Codex.Bin)
 	orch := orchestrator.New(checkRouter, m.resolver)
-	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)
 	defer cancel()
 
-	report, err := orch.Run(valCtx, orchestrator.RunOpts{
+	report, err := orch.RunWithLogger(valCtx, orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              "bundle:default",
 		RepoRoot:            m.target,
 		Config:              m.config,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         1,
-	}, sink)
-	close(sink)
-	<-sinkDone
+	}, nil)
 	if err != nil {
 		if valCtx.Err() == context.DeadlineExceeded {
 			fmt.Fprintln(os.Stderr, "  ⚠ Validation timed out (2m) — skipping (advisory only)")

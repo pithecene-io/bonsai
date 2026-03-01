@@ -156,9 +156,7 @@ func (ps *patchSession) validate(ctx context.Context) error {
 	}
 
 	orch := orchestrator.New(newAgentRouter(ps.env.Config), ps.env.Resolver)
-	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
-
-	report, err := orch.Run(ctx, orchestrator.RunOpts{
+	report, err := orch.RunWithLogger(ctx, orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              "bundle:patch",
 		BaseRef:             patchBase,
@@ -167,16 +165,14 @@ func (ps *patchSession) validate(ctx context.Context) error {
 		Config:              ps.env.Config,
 		DefaultRequiresDiff: ps.env.Registry.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         1,
-	}, sink)
-	close(sink)
-	<-sinkDone
+	}, nil)
 	if err != nil {
 		return err
 	}
 
 	if report.ShouldFail() {
 		fmt.Fprintln(os.Stderr, "\n✖ Patch validation failed. Review violations above.")
-		os.Exit(1)
+		return cli.Exit("", 1)
 	}
 
 	fmt.Println()
