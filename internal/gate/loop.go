@@ -135,15 +135,16 @@ func (l *Loop) Run(ctx context.Context) error {
 // runGateIteration runs one capture-profile-gate cycle. Returns nil on
 // pass/skip, or a non-nil iterState for re-injection on failure.
 func (l *Loop) runGateIteration(ctx context.Context, iteration, maxIter int) (*iterState, error) {
-	report, mode, err := l.captureAndGate(ctx)
+	outcome, err := l.captureAndGate(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if report == nil {
+	if outcome == nil {
 		return nil, nil //nolint:nilnil // nil signals "no merge base or no changes" to caller
 	}
 
-	fmt.Printf("\nGovernance mode: %s\n", mode)
+	report := outcome.report
+	fmt.Printf("\nGovernance mode: %s\n", outcome.mode)
 
 	if !report.ShouldFail() {
 		fmt.Printf("\n✔ Governance gate passed (%d/%d skills passed)\n",
@@ -192,22 +193,29 @@ func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 	return nil
 }
 
+// gateOutcome holds the result of a capture-and-gate cycle.
+// A nil value signals that gating was skipped (no merge base or no changes).
+type gateOutcome struct {
+	report *orchestrator.Report
+	mode   string
+}
+
 // captureAndGate checks for changes, profiles them, and runs the governance gate.
-// Returns (nil, "", nil) when gating should be skipped (no merge base or no changes).
-func (l *Loop) captureAndGate(ctx context.Context) (*orchestrator.Report, string, error) {
+// Returns nil when gating should be skipped (no merge base or no changes).
+func (l *Loop) captureAndGate(ctx context.Context) (*gateOutcome, error) {
 	if l.mergeBase == "" {
 		fmt.Println("\nNo merge base — skipping governance gate")
-		return nil, "", nil
+		return nil, nil //nolint:nilnil // nil outcome signals "skip gating" to caller
 	}
 
 	if !l.hasChanges() {
 		fmt.Println("\nNo changes detected — skipping governance gate")
-		return nil, "", nil
+		return nil, nil //nolint:nilnil // nil outcome signals "skip gating" to caller
 	}
 
 	profile, err := diff.ComputeProfile(l.opts.RepoRoot, l.mergeBase, l.opts.Config)
 	if err != nil {
-		return nil, "", fmt.Errorf("compute diff profile: %w", err)
+		return nil, fmt.Errorf("compute diff profile: %w", err)
 	}
 
 	planIntent := ""
@@ -218,10 +226,10 @@ func (l *Loop) captureAndGate(ctx context.Context) (*orchestrator.Report, string
 
 	report, err := l.runGate(ctx, mode)
 	if err != nil {
-		return nil, "", fmt.Errorf("governance gate: %w", err)
+		return nil, fmt.Errorf("governance gate: %w", err)
 	}
 
-	return report, mode, nil
+	return &gateOutcome{report: report, mode: mode}, nil
 }
 
 // consumePlan looks for plan.json in the output directory and consumes it.

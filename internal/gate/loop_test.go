@@ -1,7 +1,9 @@
 package gate
 
 import (
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -68,14 +70,13 @@ func TestReportPrintFindings(_ *testing.T) {
 	report.PrintFindings(os.Stderr)
 }
 
-func TestPrintFailedFindings_NoneFailedNoPanic(_ *testing.T) {
-	l := &Loop{}
+func TestReportPrintFindings_NoneFailedNoPanic(_ *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 0},
 		},
 	}
-	l.printFailedFindings(report)
+	report.PrintFindings(os.Stderr)
 }
 
 func TestConsumePlan_Valid(t *testing.T) {

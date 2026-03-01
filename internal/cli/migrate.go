@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	urfave "github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/assets"
@@ -18,8 +18,8 @@ import (
 	"github.com/pithecene-io/bonsai/internal/registry"
 )
 
-func migrateCommand() *cli.Command {
-	return &cli.Command{
+func migrateCommand() *urfave.Command {
+	return &urfave.Command{
 		Name:      "migrate",
 		Usage:     "Scaffold AI governance into a repository (6-phase migration)",
 		ArgsUsage: "[path]",
@@ -27,13 +27,28 @@ func migrateCommand() *cli.Command {
 	}
 }
 
-func runMigrate(c *cli.Context) error {
+// migration encapsulates the state and operations for scaffolding
+// AI governance into a target repository.
+type migration struct {
+	target   string
+	config   *config.Config
+	resolver *assets.Resolver
+	scan     scanResult
+}
+
+// scanResult holds the outcomes of the repository scan phase.
+type scanResult struct {
+	topDirs   []string
+	languages []string
+	docs      []string
+}
+
+func runMigrate(c *urfave.Context) error {
 	target := c.Args().First()
 	if target == "" {
 		target = "."
 	}
 
-	// Validate target is a directory
 	info, err := os.Stat(target)
 	if err != nil {
 		return fmt.Errorf("directory not found: %s", target)
@@ -42,7 +57,6 @@ func runMigrate(c *cli.Context) error {
 		return fmt.Errorf("not a directory: %s", target)
 	}
 
-	// Normalize to absolute path
 	target, err = filepath.Abs(target)
 	if err != nil {
 		return fmt.Errorf("resolve path: %w", err)
@@ -51,34 +65,24 @@ func runMigrate(c *cli.Context) error {
 	fmt.Println("═══ bonsai migrate ═══")
 	fmt.Printf("Target: %s\n\n", target)
 
-	// Load config (from the target repo or defaults)
 	cfg, err := config.Load(target)
 	if err != nil {
 		cfg = config.Default()
 	}
 
-	// Create resolver (relative to target)
-	resolver := assets.NewResolver(target)
+	m := &migration{
+		target:   target,
+		config:   cfg,
+		resolver: assets.NewResolver(target),
+	}
 
-	// Phase A — Scan
-	topDirs, languages, existingDocs := phaseAScan(target)
+	m.scanRepo()
+	m.ensureArchIndex(c)
+	m.ensureConstitution()
+	m.scaffold()
+	m.baseline()
+	m.validate(c)
 
-	// Phase B — ARCH_INDEX
-	phaseBArchIndex(c, target, cfg)
-
-	// Phase C — CLAUDE.md
-	phaseCClaudeMD(target, resolver)
-
-	// Phase D — Scaffolds
-	phaseDScaffolds(target, resolver)
-
-	// Phase E — Baselines
-	phaseEBaselines(target, topDirs)
-
-	// Phase F — Validate
-	phaseFValidate(c, target, cfg, resolver)
-
-	// Summary
 	fmt.Println()
 	fmt.Println("═══ Migration Complete ═══")
 	fmt.Println()
@@ -90,32 +94,37 @@ func runMigrate(c *cli.Context) error {
 	fmt.Println("  5. Fix any violations reported")
 	fmt.Println("  6. Commit governance artifacts")
 
-	// Suppress unused variable warnings
-	_ = languages
-	_ = existingDocs
-
 	return nil
 }
 
-// phaseAScan scans the target repository.
-func phaseAScan(target string) (topDirs, languages, existingDocs []string) {
-	fmt.Println("▶ Phase A: Scanning repository...")
+// scanRepo inventories the target repository structure.
+func (m *migration) scanRepo() {
+	fmt.Println("▶ Scanning repository...")
 
-	topDirs = scanTopDirs(target)
-	printListOrDefault("  Directories", topDirs, "No subdirectories found")
+	m.scan.topDirs = m.topDirs()
+	m.printList("  Directories", m.scan.topDirs, "No subdirectories found")
 
-	languages = detectLanguages(target)
-	printListOrDefault("  Languages", languages, "(none detected)")
+	m.scan.languages = m.languages()
+	m.printList("  Languages", m.scan.languages, "(none detected)")
 
-	existingDocs = detectExistingDocs(target)
-	printListOrDefault("  Existing docs", existingDocs, "(none)")
+	m.scan.docs = m.existingDocs()
+	m.printList("  Existing docs", m.scan.docs, "(none)")
 
 	fmt.Println()
-	return topDirs, languages, existingDocs
 }
 
-func scanTopDirs(target string) []string {
-	entries, err := os.ReadDir(target)
+// langIndicators maps manifest files to language names.
+var langIndicators = map[string]string{
+	"go.mod":         "go",
+	"package.json":   "node",
+	"pyproject.toml": "python",
+	"Cargo.toml":     "rust",
+	"pom.xml":        "java",
+	"Gemfile":        "ruby",
+}
+
+func (m *migration) topDirs() []string {
+	entries, err := os.ReadDir(m.target)
 	if err != nil {
 		return nil
 	}
@@ -129,18 +138,10 @@ func scanTopDirs(target string) []string {
 	return dirs
 }
 
-func detectLanguages(target string) []string {
-	langDetectors := map[string]string{
-		"go.mod":         "go",
-		"package.json":   "node",
-		"pyproject.toml": "python",
-		"Cargo.toml":     "rust",
-		"pom.xml":        "java",
-		"Gemfile":        "ruby",
-	}
+func (m *migration) languages() []string {
 	var langs []string
-	for file, lang := range langDetectors {
-		if fileExists(filepath.Join(target, file)) {
+	for file, lang := range langIndicators {
+		if m.fileExists(file) {
 			langs = append(langs, lang)
 		}
 	}
@@ -148,18 +149,18 @@ func detectLanguages(target string) []string {
 	return langs
 }
 
-func detectExistingDocs(target string) []string {
+func (m *migration) existingDocs() []string {
 	candidates := []string{"README.md", "CLAUDE.md", "AGENTS.md", "docs/ARCH_INDEX.md", "ARCH_INDEX.md"}
-	var docs []string
+	var found []string
 	for _, doc := range candidates {
-		if fileExists(filepath.Join(target, doc)) {
-			docs = append(docs, doc)
+		if m.fileExists(doc) {
+			found = append(found, doc)
 		}
 	}
-	return docs
+	return found
 }
 
-func printListOrDefault(label string, items []string, fallback string) {
+func (m *migration) printList(label string, items []string, fallback string) {
 	if len(items) > 0 {
 		fmt.Printf("%s: %s\n", label, strings.Join(items, " "))
 	} else {
@@ -167,72 +168,62 @@ func printListOrDefault(label string, items []string, fallback string) {
 	}
 }
 
-// phaseBArchIndex handles ARCH_INDEX.md creation/review.
-func phaseBArchIndex(c *cli.Context, target string, cfg *config.Config) {
-	fmt.Println("▶ Phase B: ARCH_INDEX.md")
+// ensureArchIndex creates or reviews docs/ARCH_INDEX.md.
+func (m *migration) ensureArchIndex(c *urfave.Context) {
+	fmt.Println("▶ ARCH_INDEX.md")
 
-	archFile := findArchIndex(target)
-	if archFile == "" {
-		phaseBCreate(c, target, cfg)
+	if path := m.findArchIndex(); path != "" {
+		fmt.Printf("  Found: %s\n", path)
+		fmt.Println()
+		if confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
+			claudeAgent := agent.NewClaude(m.config.Agents.Claude.Bin)
+			archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", path, m.target)
+			_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
+		}
 	} else {
-		phaseBReview(c, target, archFile, cfg)
+		fmt.Println("  No ARCH_INDEX.md found")
+		fmt.Println()
+		if confirmPrompt("  Create ARCH_INDEX.md interactively with Claude? [Y/n] ", true) {
+			m.createArchIndex(c.Context)
+		} else {
+			fmt.Println("  Skipping ARCH_INDEX.md creation")
+			fmt.Println("  WARNING: repository will lack agent orientation without this file")
+		}
 	}
 
 	fmt.Println()
 }
 
-func findArchIndex(target string) string {
-	for _, candidate := range []string{
-		filepath.Join(target, "docs", "ARCH_INDEX.md"),
-		filepath.Join(target, "ARCH_INDEX.md"),
-	} {
-		if fileExists(candidate) {
-			return candidate
+func (m *migration) findArchIndex() string {
+	for _, rel := range []string{"docs/ARCH_INDEX.md", "ARCH_INDEX.md"} {
+		if m.fileExists(rel) {
+			return filepath.Join(m.target, rel)
 		}
 	}
 	return ""
 }
 
-func phaseBCreate(c *cli.Context, target string, cfg *config.Config) {
-	fmt.Println("  No ARCH_INDEX.md found")
-	fmt.Println()
-
-	if !confirmPrompt("  Create ARCH_INDEX.md interactively with Claude? [Y/n] ", true) {
-		fmt.Println("  Skipping ARCH_INDEX.md creation")
-		fmt.Println("  WARNING: repository will lack agent orientation without this file")
+func (m *migration) createArchIndex(ctx context.Context) {
+	docsDir := filepath.Join(m.target, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
 		return
 	}
 
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	archPrompt := fmt.Sprintf("You are an architect assistant. Examine the repository at %s and create a docs/ARCH_INDEX.md file. The file should be a fast lookup table for agents, summarizing what exists and where.", target)
+	claudeAgent := agent.NewClaude(m.config.Agents.Claude.Bin)
+	archPrompt := fmt.Sprintf("You are an architect assistant. Examine the repository at %s and create a docs/ARCH_INDEX.md file. The file should be a fast lookup table for agents, summarizing what exists and where.", m.target)
 
-	if err := os.MkdirAll(filepath.Join(target, "docs"), 0o755); err == nil {
-		fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
-		fmt.Println()
-		_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
-	}
-
-	if !fileExists(filepath.Join(target, "docs", "ARCH_INDEX.md")) {
-		scaffoldMinimalArchIndex(target)
-	}
-}
-
-func phaseBReview(c *cli.Context, target, archFile string, cfg *config.Config) {
-	fmt.Printf("  Found: %s\n", archFile)
+	fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
 	fmt.Println()
+	_ = claudeAgent.Interactive(ctx, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
 
-	if !confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
-		return
+	if !m.fileExists("docs/ARCH_INDEX.md") {
+		m.scaffoldMinimalArchIndex()
 	}
-
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", archFile, target)
-	_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
 }
 
-// scaffoldMinimalArchIndex creates a minimal ARCH_INDEX.md.
-func scaffoldMinimalArchIndex(target string) {
-	if err := os.MkdirAll(filepath.Join(target, "docs"), 0o755); err != nil {
+func (m *migration) scaffoldMinimalArchIndex() {
+	docsDir := filepath.Join(m.target, "docs")
+	if err := os.MkdirAll(docsDir, 0o755); err != nil {
 		return
 	}
 
@@ -254,43 +245,46 @@ It summarizes what exists and where, not how things are implemented.
 <!-- Add sections for each top-level directory -->
 `
 
-	path := filepath.Join(target, "docs", "ARCH_INDEX.md")
+	path := filepath.Join(docsDir, "ARCH_INDEX.md")
 	if err := os.WriteFile(path, []byte(content), 0o644); err == nil {
 		fmt.Println("  Scaffolded minimal docs/ARCH_INDEX.md")
 	}
 }
 
-// phaseCClaudeMD handles CLAUDE.md creation/review.
-func phaseCClaudeMD(target string, resolver *assets.Resolver) {
-	fmt.Println("▶ Phase C: Repository CLAUDE.md")
+// ensureConstitution creates or reviews CLAUDE.md.
+func (m *migration) ensureConstitution() {
+	fmt.Println("▶ Repository CLAUDE.md")
 
-	claudeDst := filepath.Join(target, "CLAUDE.md")
-	if fileExists(claudeDst) {
-		phaseCReview(claudeDst)
+	claudePath := filepath.Join(m.target, "CLAUDE.md")
+	if m.fileExists("CLAUDE.md") {
+		fmt.Println("  CLAUDE.md already exists")
+		fmt.Println()
+		if confirmPrompt("  Review CLAUDE.md? [y/N] ", false) {
+			m.previewFile(claudePath, 20)
+		}
 	} else {
-		phaseCScaffold(claudeDst, resolver)
+		templateData, err := m.resolver.ReadEmbedded("templates/migration/CLAUDE.md")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "  Migration CLAUDE.md template not found")
+			fmt.Fprintln(os.Stderr, "  Create CLAUDE.md manually")
+		} else if err := os.WriteFile(claudePath, templateData, 0o644); err == nil {
+			fmt.Println("  Created CLAUDE.md from template")
+			fmt.Println("  Review and customize for this repository")
+		}
 	}
 
 	fmt.Println()
 }
 
-func phaseCReview(path string) {
-	fmt.Println("  CLAUDE.md already exists")
-	fmt.Println()
-
-	if !confirmPrompt("  Review CLAUDE.md? [y/N] ", false) {
-		return
-	}
-
+func (m *migration) previewFile(path string, maxLines int) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
 	}
-
 	lines := strings.Split(string(data), "\n")
 	fmt.Println("  --- Current CLAUDE.md (first 20 lines) ---")
 	for i, line := range lines {
-		if i >= 20 {
+		if i >= maxLines {
 			break
 		}
 		fmt.Printf("  %s\n", line)
@@ -298,45 +292,28 @@ func phaseCReview(path string) {
 	fmt.Println("  ---")
 }
 
-func phaseCScaffold(claudeDst string, resolver *assets.Resolver) {
-	templateData, err := resolver.ReadEmbedded("templates/migration/CLAUDE.md")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "  Migration CLAUDE.md template not found")
-		fmt.Fprintln(os.Stderr, "  Create CLAUDE.md manually")
-		return
-	}
-	if err := os.WriteFile(claudeDst, templateData, 0o644); err == nil {
-		fmt.Println("  Created CLAUDE.md from template")
-		fmt.Println("  Review and customize for this repository")
-	}
-}
+// scaffold creates directory structure and default skill artifacts.
+func (m *migration) scaffold() {
+	fmt.Println("▶ Directory scaffolds")
 
-// phaseDScaffolds creates directory scaffolds and default artifacts.
-func phaseDScaffolds(target string, resolver *assets.Resolver) {
-	fmt.Println("▶ Phase D: Directory scaffolds")
-
-	ensureAIDirs(target)
-	scaffoldSkill(target, resolver)
-	ensureGitignoreAIOut(target)
-
-	fmt.Println()
-}
-
-func ensureAIDirs(target string) {
-	dirs := []string{"ai/skills", "ai/baselines", "ai/out"}
-	for _, dir := range dirs {
-		fullPath := filepath.Join(target, dir)
-		if isDirectory(fullPath) {
+	for _, dir := range []string{"ai/skills", "ai/baselines", "ai/out"} {
+		fullPath := filepath.Join(m.target, dir)
+		if m.isDir(fullPath) {
 			fmt.Printf("  %s/ exists\n", dir)
 		} else if err := os.MkdirAll(fullPath, 0o755); err == nil {
 			fmt.Printf("  Created %s/\n", dir)
 		}
 	}
+
+	m.scaffoldSkill()
+	m.ensureGitignore()
+
+	fmt.Println()
 }
 
-func scaffoldSkill(target string, resolver *assets.Resolver) {
-	skillDst := filepath.Join(target, "ai", "skills", "repo-convention-enforcer", "v1")
-	if isDirectory(skillDst) {
+func (m *migration) scaffoldSkill() {
+	skillDst := filepath.Join(m.target, "ai", "skills", "repo-convention-enforcer", "v1")
+	if m.isDir(skillDst) {
 		fmt.Println("  Skill scaffold already exists")
 		return
 	}
@@ -344,7 +321,7 @@ func scaffoldSkill(target string, resolver *assets.Resolver) {
 		return
 	}
 	for _, f := range []string{"SKILL.md", "input.schema.json", "output.schema.json"} {
-		data, err := resolver.ReadEmbedded(filepath.Join("templates", "migration", "skill", f))
+		data, err := m.resolver.ReadEmbedded(filepath.Join("templates", "migration", "skill", f))
 		if err == nil {
 			_ = os.WriteFile(filepath.Join(skillDst, f), data, 0o644)
 		}
@@ -352,15 +329,15 @@ func scaffoldSkill(target string, resolver *assets.Resolver) {
 	fmt.Printf("  Created skill scaffold: %s/\n", skillDst)
 }
 
-func ensureGitignoreAIOut(target string) {
-	gitignorePath := filepath.Join(target, ".gitignore")
-	if !fileExists(gitignorePath) {
+func (m *migration) ensureGitignore() {
+	gitignorePath := filepath.Join(m.target, ".gitignore")
+	if !m.fileExists(".gitignore") {
 		if err := os.WriteFile(gitignorePath, []byte("ai/out/\n"), 0o644); err == nil {
 			fmt.Println("  Created .gitignore with ai/out/")
 		}
 		return
 	}
-	data, _ := os.ReadFile(gitignorePath) // fileExists confirmed; error is unreachable
+	data, _ := os.ReadFile(gitignorePath)
 	if strings.Contains(string(data), "ai/out/") {
 		fmt.Println("  ai/out/ already in .gitignore")
 		return
@@ -373,9 +350,9 @@ func ensureGitignoreAIOut(target string) {
 	}
 }
 
-// phaseEBaselines generates optional baseline snapshots.
-func phaseEBaselines(target string, topDirs []string) {
-	fmt.Println("▶ Phase E: Baselines")
+// baseline generates optional baseline snapshots.
+func (m *migration) baseline() {
+	fmt.Println("▶ Baselines")
 
 	if !confirmPrompt("  Generate baseline snapshots? [y/N] ", false) {
 		fmt.Println("  Skipped")
@@ -383,23 +360,21 @@ func phaseEBaselines(target string, topDirs []string) {
 		return
 	}
 
-	baselineDir := filepath.Join(target, "ai", "baselines")
+	baselineDir := filepath.Join(m.target, "ai", "baselines")
 	if err := os.MkdirAll(baselineDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "  Failed to create baselines dir: %v\n", err)
 		fmt.Println()
 		return
 	}
 
-	// Directory listing baseline
-	if len(topDirs) > 0 {
-		dirListing := strings.Join(topDirs, "\n") + "\n"
+	if len(m.scan.topDirs) > 0 {
+		dirListing := strings.Join(m.scan.topDirs, "\n") + "\n"
 		if err := os.WriteFile(filepath.Join(baselineDir, "directories.txt"), []byte(dirListing), 0o644); err == nil {
 			fmt.Println("  Saved directory listing to baselines/directories.txt")
 		}
 	}
 
-	// File count baseline
-	count := countFiles(target)
+	count := m.countFiles()
 	metricsContent := fmt.Sprintf("total_files: %d\n", count)
 	if err := os.WriteFile(filepath.Join(baselineDir, "metrics.yaml"), []byte(metricsContent), 0o644); err == nil {
 		fmt.Println("  Saved metrics baseline")
@@ -408,12 +383,12 @@ func phaseEBaselines(target string, topDirs []string) {
 	fmt.Println()
 }
 
-// phaseFValidate runs governance validation on the target.
-func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver *assets.Resolver) {
-	fmt.Println("▶ Phase F: Validation")
+// validate runs governance validation on the scaffolded repository.
+func (m *migration) validate(c *urfave.Context) {
+	fmt.Println("▶ Validation")
 	fmt.Println()
 
-	reg, err := registry.Load(resolver)
+	reg, err := registry.Load(m.resolver)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Could not load registry: %v\n", err)
 		return
@@ -425,8 +400,8 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 		return
 	}
 
-	checkRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
-	orch := orchestrator.New(checkRouter, resolver)
+	checkRouter := agent.NewRouter(m.config.Agents.Claude.Bin, m.config.Agents.Codex.Bin)
+	orch := orchestrator.New(checkRouter, m.resolver)
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)
@@ -435,8 +410,8 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 	report, err := orch.Run(valCtx, orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              "bundle:default",
-		RepoRoot:            target,
-		Config:              cfg,
+		RepoRoot:            m.target,
+		Config:              m.config,
 		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         1,
 	}, sink)
@@ -456,14 +431,22 @@ func phaseFValidate(c *cli.Context, target string, cfg *config.Config, resolver 
 	}
 }
 
-// countFiles counts non-hidden files in a directory tree.
-func countFiles(root string) int {
+// --- filesystem helpers ---
+
+func (m *migration) fileExists(rel string) bool {
+	return fileExists(filepath.Join(m.target, rel))
+}
+
+func (m *migration) isDir(abs string) bool {
+	return isDirectory(abs)
+}
+
+func (m *migration) countFiles() int {
 	count := 0
-	_ = filepath.WalkDir(root, func(_ string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(m.target, func(_ string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // WalkDir: skip unreadable entries
 		}
-		// Skip .git
 		if d.IsDir() && d.Name() == ".git" {
 			return filepath.SkipDir
 		}
@@ -473,14 +456,4 @@ func countFiles(root string) int {
 		return nil
 	})
 	return count
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-func isDirectory(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
 }

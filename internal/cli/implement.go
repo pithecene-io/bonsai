@@ -1,13 +1,9 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
-	"github.com/pithecene-io/bonsai/internal/assets"
-	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/gate"
 )
 
@@ -22,34 +18,22 @@ func implementCommand() *cli.Command {
 
 func runImplement(c *cli.Context) error {
 	repoRoot := detectRepoRoot()
-
-	// Load config
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrapLight(repoRoot)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
-	// Create resolver
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	// Create agent
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-
-	// Create and run gating loop
 	loop := gate.New(gate.Opts{
 		RepoRoot:  repoRoot,
-		Config:    cfg,
-		Agent:     claudeAgent,
-		Resolver:  resolver,
+		Config:    env.Config,
+		Agent:     agent.NewClaude(env.Config.Agents.Claude.Bin),
+		Resolver:  env.Resolver,
 		ExtraArgs: c.Args().Slice(),
 	})
 
-	// Preflight checks (branch, worktree, merge base, plan.json)
 	if err := loop.Preflight(); err != nil {
 		return err
 	}
 
-	// Run the gating loop
 	return loop.Run(c.Context)
 }

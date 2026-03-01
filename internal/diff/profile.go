@@ -42,8 +42,8 @@ func ComputeProfile(repoRoot, base string, cfg *config.Config) (*Profile, error)
 	diffNames, nameStatus = mergeUntracked(diffNames, nameStatus, untracked)
 	p.FilesChanged = len(diffNames)
 
-	countNameStatus(p, nameStatus)
-	countDiffLines(p, diffOutput)
+	p.countNameStatus(nameStatus)
+	p.countDiffLines(diffOutput)
 	p.TopLevelDirs = collectTopDirs(diffNames)
 	p.PublicSurfacePaths = matchPublicSurface(diffNames, cfg.Routing.PublicSurfaceGlobs)
 	p.HasStructural = detectStructural(diffNames, cfg.Routing.StructuralPatterns)
@@ -73,7 +73,7 @@ func mergeUntracked(diffNames, nameStatus, untracked []string) (merged, status [
 }
 
 // countNameStatus counts new files and renames from name-status output.
-func countNameStatus(p *Profile, nameStatus []string) {
+func (p *Profile) countNameStatus(nameStatus []string) {
 	for _, entry := range nameStatus {
 		if strings.HasPrefix(entry, "A") {
 			p.NewFiles++
@@ -85,7 +85,7 @@ func countNameStatus(p *Profile, nameStatus []string) {
 }
 
 // countDiffLines counts added/removed lines from diff output.
-func countDiffLines(p *Profile, diffOutput string) {
+func (p *Profile) countDiffLines(diffOutput string) {
 	if diffOutput == "" {
 		return
 	}

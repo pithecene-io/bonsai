@@ -80,7 +80,7 @@ func runCheck(c *cli.Context) error {
 		return err
 	}
 
-	skills, source, err := resolveSkillSet(env.Registry, args.mode, args.bundle)
+	ss, err := resolveSkillSet(env.Registry, args.mode, args.bundle)
 	if err != nil {
 		return err
 	}
@@ -89,8 +89,8 @@ func runCheck(c *cli.Context) error {
 
 	orch := orchestrator.New(newAgentRouter(env.Config), env.Resolver)
 	opts := orchestrator.RunOpts{
-		Skills:              skills,
-		Source:              source,
+		Skills:              ss.Skills,
+		Source:              ss.Source,
 		BaseRef:             args.baseRef,
 		Scope:               args.scope,
 		FailFast:            args.failFast,
@@ -105,7 +105,7 @@ func runCheck(c *cli.Context) error {
 
 	var report *orchestrator.Report
 	if useTUI {
-		report, err = runCheckTUI(c.Context, orch, opts, source, skills)
+		report, err = runCheckTUI(c.Context, orch, opts, ss.Source, ss.Skills)
 	} else {
 		report, err = runCheckPlain(c.Context, orch, opts)
 	}
@@ -121,7 +121,7 @@ func runCheck(c *cli.Context) error {
 		return err
 	}
 
-	printCheckSummary(source, reportPath, report, args.baseRef)
+	printCheckSummary(ss.Source, reportPath, report, args.baseRef)
 
 	if report.ShouldFail() {
 		return cli.Exit("", 1)

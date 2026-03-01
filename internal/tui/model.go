@@ -118,6 +118,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleEvent(ev orchestrator.Event) Model {
+	// Ensure skill slice is large enough for index-bearing events.
+	if ev.Kind != orchestrator.EventFailFast && ev.Kind != orchestrator.EventComplete {
+		m = m.growSkills(ev.Index)
+	}
+
 	switch ev.Kind {
 	case orchestrator.EventQueued:
 		m = m.handleQueued(ev)
@@ -146,7 +151,6 @@ func (m Model) growSkills(idx int) Model {
 }
 
 func (m Model) handleQueued(ev orchestrator.Event) Model {
-	m = m.growSkills(ev.Index)
 	m.skills[ev.Index] = skillEntry{
 		name:      ev.SkillName,
 		cost:      ev.Cost,
@@ -158,7 +162,6 @@ func (m Model) handleQueued(ev orchestrator.Event) Model {
 }
 
 func (m Model) handleSkipped(ev orchestrator.Event) Model {
-	m = m.growSkills(ev.Index)
 	m.skills[ev.Index] = skillEntry{
 		name:      ev.SkillName,
 		cost:      ev.Cost,
@@ -172,17 +175,12 @@ func (m Model) handleSkipped(ev orchestrator.Event) Model {
 }
 
 func (m Model) handleStart(ev orchestrator.Event) Model {
-	if ev.Index < len(m.skills) {
-		m.skills[ev.Index].state = stateRunning
-		m.skills[ev.Index].startTime = time.Now()
-	}
+	m.skills[ev.Index].state = stateRunning
+	m.skills[ev.Index].startTime = time.Now()
 	return m
 }
 
 func (m Model) handleDone(ev orchestrator.Event) Model {
-	if ev.Index >= len(m.skills) {
-		return m
-	}
 	entry := &m.skills[ev.Index]
 	entry.elapsed = ev.Elapsed
 	entry.result = ev.Result
@@ -199,11 +197,9 @@ func (m Model) handleDone(ev orchestrator.Event) Model {
 }
 
 func (m Model) handleError(ev orchestrator.Event) Model {
-	if ev.Index < len(m.skills) {
-		m.skills[ev.Index].state = stateFailed
-		m.skills[ev.Index].reason = fmt.Sprintf("error: %v", ev.Err)
-		m.completed++
-	}
+	m.skills[ev.Index].state = stateFailed
+	m.skills[ev.Index].reason = fmt.Sprintf("error: %v", ev.Err)
+	m.completed++
 	return m
 }
 

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
-	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/prompt"
 	"github.com/pithecene-io/bonsai/internal/repo"
@@ -27,6 +27,13 @@ func patchCommand() *cli.Command {
 	}
 }
 
+// patchSession encapsulates the state for a three-phase patch surgery.
+type patchSession struct {
+	env     cmdEnv
+	builder *prompt.Builder
+	task    string
+}
+
 func runPatch(c *cli.Context) error {
 	task := c.Args().First()
 	if task == "" {
@@ -38,28 +45,34 @@ func runPatch(c *cli.Context) error {
 		return err
 	}
 
-	builder := prompt.NewBuilder(env.Resolver, env.RepoRoot)
+	ps := &patchSession{
+		env:     env,
+		builder: prompt.NewBuilder(env.Resolver, env.RepoRoot),
+		task:    task,
+	}
 
-	architectPlan, err := patchPhaseArchitect(c, builder, env, task)
+	plan, err := ps.architect(c.Context)
 	if err != nil {
 		return err
 	}
-	if architectPlan == "" {
+	if plan == "" {
 		return nil // user aborted
 	}
 
-	if err := patchPhaseEmit(c, builder, env.Config, architectPlan, task); err != nil {
+	if err := ps.emit(c.Context, plan); err != nil {
 		return err
 	}
 
-	return patchPhaseValidate(c, env)
+	return ps.validate(c.Context)
 }
 
-func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, env cmdEnv, task string) (string, error) {
+// architect plans the patch and returns the plan text.
+// Returns empty string if the user declines to proceed.
+func (ps *patchSession) architect(ctx context.Context) (string, error) {
 	fmt.Println("═══ Phase 1: Patch Architecture ═══")
-	fmt.Printf("Task: %s\n\n", task)
+	fmt.Printf("Task: %s\n\n", ps.task)
 
-	architectPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
+	systemPrompt, err := ps.builder.BuildInteractive(prompt.InteractiveOpts{
 		Mode: prompt.ModePatchArchitect,
 		Role: "patch-architect",
 	})
@@ -67,19 +80,19 @@ func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, env cmdEnv, ta
 		return "", fmt.Errorf("build architect prompt: %w", err)
 	}
 
-	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + task
-	architectPlan, err := agent.NewClaude(env.Config.Agents.Claude.Bin).NonInteractive(
-		c.Context, architectPrompt, userPrompt, agent.Model(env.Config.Models.ModelForRole("patch")))
+	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + ps.task
+	plan, err := agent.NewClaude(ps.env.Config.Agents.Claude.Bin).NonInteractive(
+		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patch")))
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}
 
-	planPath, err := savePatchPlan(env.RepoRoot, env.Config, task, architectPlan)
+	planPath, err := ps.savePlan(plan)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Println(architectPlan)
+	fmt.Println(plan)
 	fmt.Println()
 	fmt.Println("─── Review the plan above ───")
 	fmt.Printf("(Plan saved to %s)\n", planPath)
@@ -88,16 +101,16 @@ func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, env cmdEnv, ta
 		fmt.Println("Aborted.")
 		return "", nil
 	}
-	return architectPlan, nil
+	return plan, nil
 }
 
-func savePatchPlan(repoRoot string, cfg *config.Config, task, plan string) (string, error) {
-	outDir := filepath.Join(repoRoot, cfg.Output.Dir)
+func (ps *patchSession) savePlan(plan string) (string, error) {
+	outDir := filepath.Join(ps.env.RepoRoot, ps.env.Config.Output.Dir)
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return "", fmt.Errorf("create output dir: %w", err)
 	}
 	planData := map[string]string{
-		"task": task, "plan": plan,
+		"task": ps.task, "plan": plan,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 	planJSON, _ := json.MarshalIndent(planData, "", "  ")
@@ -108,11 +121,12 @@ func savePatchPlan(repoRoot string, cfg *config.Config, task, plan string) (stri
 	return planPath, nil
 }
 
-func patchPhaseEmit(c *cli.Context, builder *prompt.Builder, cfg *config.Config, architectPlan, task string) error {
+// emit runs the patcher agent to produce diffs from the architect plan.
+func (ps *patchSession) emit(ctx context.Context, plan string) error {
 	fmt.Println()
 	fmt.Println("═══ Phase 2: Patch Emission ═══")
 
-	patcherPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
+	patcherPrompt, err := ps.builder.BuildInteractive(prompt.InteractiveOpts{
 		Mode: prompt.ModePatcher,
 		Role: "patcher",
 	})
@@ -120,37 +134,38 @@ func patchPhaseEmit(c *cli.Context, builder *prompt.Builder, cfg *config.Config,
 		return fmt.Errorf("build patcher prompt: %w", err)
 	}
 
-	combinedPrompt := patcherPrompt + "\n\nArchitect plan:\n" + architectPlan + "\n\nTask: " + task + "\n\nExecute the architect plan above. Emit only unified diffs for the listed files."
+	combinedPrompt := patcherPrompt + "\n\nArchitect plan:\n" + plan + "\n\nTask: " + ps.task + "\n\nExecute the architect plan above. Emit only unified diffs for the listed files."
 
-	_ = agent.NewCodex(cfg.Agents.Codex.Bin).Interactive(c.Context, combinedPrompt, nil)
+	_ = agent.NewCodex(ps.env.Config.Agents.Codex.Bin).Interactive(ctx, combinedPrompt, nil)
 	return nil
 }
 
-func patchPhaseValidate(c *cli.Context, env cmdEnv) error {
+// validate runs the governance gate against the emitted patch.
+func (ps *patchSession) validate(ctx context.Context) error {
 	fmt.Println()
 	fmt.Println("═══ Phase 3: Validation ═══")
 
-	patchBase := repo.DetectMergeBase(env.RepoRoot, env.Config.Routing.MergeBaseCandidates)
+	patchBase := repo.DetectMergeBase(ps.env.RepoRoot, ps.env.Config.Routing.MergeBaseCandidates)
 
-	skills, err := env.Registry.SkillsForBundle("patch")
+	skills, err := ps.env.Registry.SkillsForBundle("patch")
 	if err != nil {
-		skills, err = env.Registry.SkillsForBundle("default")
+		skills, err = ps.env.Registry.SkillsForBundle("default")
 		if err != nil {
 			return fmt.Errorf("no patch or default bundle: %w", err)
 		}
 	}
 
-	orch := orchestrator.New(newAgentRouter(env.Config), env.Resolver)
+	orch := orchestrator.New(newAgentRouter(ps.env.Config), ps.env.Resolver)
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
-	report, err := orch.Run(c.Context, orchestrator.RunOpts{
+	report, err := orch.Run(ctx, orchestrator.RunOpts{
 		Skills:              skills,
 		Source:              "bundle:patch",
 		BaseRef:             patchBase,
 		FailFast:            true,
-		RepoRoot:            env.RepoRoot,
-		Config:              env.Config,
-		DefaultRequiresDiff: env.Registry.Defaults.EffectiveRequiresDiff(),
+		RepoRoot:            ps.env.RepoRoot,
+		Config:              ps.env.Config,
+		DefaultRequiresDiff: ps.env.Registry.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         1,
 	}, sink)
 	close(sink)
