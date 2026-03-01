@@ -79,25 +79,25 @@ func TestExtractDetailedFindings(t *testing.T) {
 
 	got := extractDetailedFindings(report)
 
-	if !contains(got, "SKILL: skill-a") {
+	if !strings.Contains(got, "SKILL: skill-a") {
 		t.Error("missing skill-a header")
 	}
-	if !contains(got, "blocking: missing file X") {
+	if !strings.Contains(got, "blocking: missing file X") {
 		t.Error("missing skill-a blocking detail")
 	}
-	if !contains(got, "major: major issue Y") {
+	if !strings.Contains(got, "major: major issue Y") {
 		t.Error("missing skill-a major detail")
 	}
-	if !contains(got, "warning: warning Z") {
+	if !strings.Contains(got, "warning: warning Z") {
 		t.Error("missing skill-a warning detail")
 	}
-	if contains(got, "skill-b") {
+	if strings.Contains(got, "skill-b") {
 		t.Error("should not contain passing skill-b")
 	}
-	if !contains(got, "SKILL: skill-c") {
+	if !strings.Contains(got, "SKILL: skill-c") {
 		t.Error("missing skill-c header")
 	}
-	if !contains(got, "blocking: another blocking") {
+	if !strings.Contains(got, "blocking: another blocking") {
 		t.Error("missing skill-c blocking detail")
 	}
 }
@@ -179,11 +179,6 @@ func TestExtractPerSkillFindings_AllPassed(t *testing.T) {
 	if len(got) != 0 {
 		t.Errorf("expected 0 findings, got %d", len(got))
 	}
-}
-
-// contains is a test helper wrapping strings.Contains.
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
 
 // --- fixLoop flow tests ---
