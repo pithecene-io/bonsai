@@ -39,6 +39,13 @@ Rules:
    diff are INFO.
 6. If no configuration schema files appear in the file tree or are
    modified in the diff, all output arrays must be empty.
+7. If the file tree contains configuration schema files (config structs,
+   YAML schemas, CLI flag definitions) but the file tree has no
+   `docs/contracts/` directory or that directory contains no
+   `CONTRACT_*.md` files, emit a WARNING finding: "Repository has
+   configuration surfaces but no contract documents in
+   docs/contracts/." This is a tree-based check — it applies
+   regardless of whether the diff modifies configuration files.
 
 Classify each finding by severity:
 - BLOCKING: hard violations that must prevent merge
