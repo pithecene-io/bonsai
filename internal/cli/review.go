@@ -6,9 +6,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
-	"github.com/pithecene-io/bonsai/internal/assets"
-	"github.com/pithecene-io/bonsai/internal/config"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/prompt"
 )
 
@@ -21,26 +18,13 @@ func reviewCommand() *cli.Command {
 }
 
 func runReview(c *cli.Context) error {
-	// Detect repo
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
-
-	// Load config
-	cfg, err := config.Load(repoRoot)
+	repoRoot := detectRepoRoot()
+	env, err := bootstrapLight(repoRoot)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
-	// Create resolver
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	// Build system prompt (review uses its own builder method)
-	builder := prompt.NewBuilder(resolver, repoRoot)
+	builder := prompt.NewBuilder(env.Resolver, repoRoot)
 	systemPrompt, err := builder.BuildReview()
 	if err != nil {
 		return fmt.Errorf("build prompt: %w", err)
@@ -48,12 +32,11 @@ func runReview(c *cli.Context) error {
 
 	// Route agent based on models.roles.review config.
 	// Default is "codex"; any other value routes to claude with that model.
-	reviewModel := cfg.Models.ModelForRole("review")
+	reviewModel := env.Config.Models.ModelForRole("review")
 	if reviewModel == "codex" {
-		codexAgent := agent.NewCodex(cfg.Agents.Codex.Bin)
-		return codexAgent.Interactive(c.Context, systemPrompt, nil)
+		return agent.NewCodex(env.Config.Agents.Codex.Bin).Interactive(c.Context, systemPrompt, nil)
 	}
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
+	claudeAgent := agent.NewClaude(env.Config.Agents.Claude.Bin)
 	var extraArgs []string
 	if reviewModel != "" {
 		extraArgs = append(extraArgs, "--model", reviewModel)

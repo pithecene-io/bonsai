@@ -43,7 +43,7 @@ func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs 
 // NonInteractive runs codex in non-interactive mode via `codex exec`.
 // The system prompt and user prompt are combined into a single prompt
 // since codex doesn't have a separate system prompt concept.
-func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
+func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	// Combine system + user prompt (codex has no --system-prompt)
 	combinedPrompt := systemPrompt + "\n\n" + userPrompt
 
@@ -52,8 +52,8 @@ func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, mo
 		"--ephemeral",
 		"--sandbox", "read-only",
 	}
-	if model != "" && model != "codex" {
-		args = append(args, "-m", model)
+	if model != "" && string(model) != "codex" {
+		args = append(args, "-m", string(model))
 	}
 	// Prompt via stdin (use "-" placeholder if needed, but codex reads
 	// stdin when no positional prompt is given)
@@ -81,10 +81,10 @@ func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt, mo
 
 // Autonomous runs codex in non-interactive mode but streams stdout/stderr
 // to the terminal instead of capturing output.
-func (c *Codex) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+func (c *Codex) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	args := []string{"exec", "--ephemeral", "--sandbox", "read-only"}
-	if model != "" && model != "codex" {
-		args = append(args, "-m", model)
+	if model != "" && string(model) != "codex" {
+		args = append(args, "-m", string(model))
 	}
 	args = append(args, "-")
 

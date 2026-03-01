@@ -55,7 +55,7 @@ func BenchmarkModel(b *testing.B) {
 	models := []struct {
 		name   string
 		agent  agent.Agent
-		model  string
+		model  agent.Model
 		budget time.Duration // per-model latency budget
 	}{
 		{"codex", agent.NewCodex(cfg.Agents.Codex.Bin), "codex", 30 * time.Second},
@@ -69,7 +69,7 @@ func BenchmarkModel(b *testing.B) {
 		models = append(models, struct {
 			name   string
 			agent  agent.Agent
-			model  string
+			model  agent.Model
 			budget time.Duration
 		}{"haiku-direct", a, "haiku", 5 * time.Second})
 	}
@@ -136,7 +136,7 @@ func TestModelLatency(t *testing.T) {
 	models := []struct {
 		name   string
 		agent  agent.Agent
-		model  string
+		model  agent.Model
 		budget time.Duration
 	}{
 		{"codex", agent.NewCodex(cfg.Agents.Codex.Bin), "codex", 30 * time.Second},
@@ -149,7 +149,7 @@ func TestModelLatency(t *testing.T) {
 		models = append(models, struct {
 			name   string
 			agent  agent.Agent
-			model  string
+			model  agent.Model
 			budget time.Duration
 		}{"haiku-direct", a, "haiku", 5 * time.Second})
 	}
@@ -234,7 +234,7 @@ func TestAnthropic_NonInteractive_Haiku(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	out, err := a.NonInteractive(ctx, systemPrompt, userPrompt, "haiku")
+	out, err := a.NonInteractive(ctx, systemPrompt, userPrompt, agent.Model("haiku"))
 	elapsed := time.Since(start)
 
 	if err != nil {

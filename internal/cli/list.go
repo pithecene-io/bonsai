@@ -6,9 +6,6 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/pithecene-io/bonsai/internal/assets"
-	"github.com/pithecene-io/bonsai/internal/config"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/registry"
 )
 
@@ -26,25 +23,11 @@ func listCommand() *cli.Command {
 }
 
 func runList(c *cli.Context) error {
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
-
-	cfg, err := config.Load(repoRoot)
+	env, err := bootstrap()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
-
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	reg, err := registry.Load(resolver)
-	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
+	reg := env.Registry
 
 	showSkills := c.Bool("skills")
 	showBundles := c.Bool("bundles")
@@ -58,37 +41,47 @@ func runList(c *cli.Context) error {
 	}
 
 	if showSkills {
-		fmt.Println("Skills:")
-		for i := range reg.Skills {
-			s := &reg.Skills[i]
-			mandatory := ""
-			if s.Mandatory {
-				mandatory = " [mandatory]"
-			}
-			fmt.Printf("  %-45s %s/%s  %s%s\n", s.Name, s.Cost, s.Mode, s.Domain, mandatory)
-		}
-		fmt.Println()
+		printSkills(reg)
 	}
-
 	if showBundles {
-		fmt.Println("Bundles:")
-		names := reg.BundleNames()
-		sort.Strings(names)
-		for _, name := range names {
-			skills := reg.Bundles[name]
-			fmt.Printf("  %-20s (%d skills)\n", name, len(skills))
-		}
-		fmt.Println()
+		printBundles(reg)
 	}
-
 	if showRoles {
-		fmt.Println("Roles:")
-		roles := []string{"architect", "implementer", "planner", "reviewer", "patch-architect", "patcher"}
-		for _, r := range roles {
-			fmt.Printf("  %s\n", r)
-		}
-		fmt.Println()
+		printRoles()
 	}
 
 	return nil
+}
+
+func printSkills(reg *registry.Registry) {
+	fmt.Println("Skills:")
+	for i := range reg.Skills {
+		s := &reg.Skills[i]
+		mandatory := ""
+		if s.Mandatory {
+			mandatory = " [mandatory]"
+		}
+		fmt.Printf("  %-45s %s/%s  %s%s\n", s.Name, s.Cost, s.Mode, s.Domain, mandatory)
+	}
+	fmt.Println()
+}
+
+func printBundles(reg *registry.Registry) {
+	fmt.Println("Bundles:")
+	names := reg.BundleNames()
+	sort.Strings(names)
+	for _, name := range names {
+		skills := reg.Bundles[name]
+		fmt.Printf("  %-20s (%d skills)\n", name, len(skills))
+	}
+	fmt.Println()
+}
+
+func printRoles() {
+	fmt.Println("Roles:")
+	roles := []string{"architect", "implementer", "planner", "reviewer", "patch-architect", "patcher"}
+	for _, r := range roles {
+		fmt.Printf("  %s\n", r)
+	}
+	fmt.Println()
 }

@@ -5,40 +5,58 @@ import (
 	"sort"
 )
 
-// costRank returns a numeric rank for cost-based sorting.
-// Matches: {"cheap":0,"moderate":1,"heavy":2}
-func costRank(cost string) int {
-	switch cost {
-	case "cheap":
-		return 0
-	case "moderate":
-		return 1
-	case "heavy":
-		return 2
-	default:
-		return 99
+// GovMode represents a governance mode determined by diff profiling.
+type GovMode string
+
+// Governance modes determined by diff profiling, ordered least to most comprehensive.
+const (
+	GovModePatch      GovMode = "PATCH"
+	GovModeNormal     GovMode = "NORMAL"
+	GovModeStructural GovMode = "STRUCTURAL"
+	GovModeAPI        GovMode = "API"
+	GovModeHeavy      GovMode = "HEAVY"
+	GovModeAudit      GovMode = "AUDIT"
+)
+
+// govModeSet is the set of valid governance modes.
+var govModeSet = map[GovMode]struct{}{
+	GovModePatch:      {},
+	GovModeNormal:     {},
+	GovModeStructural: {},
+	GovModeAPI:        {},
+	GovModeHeavy:      {},
+	GovModeAudit:      {},
+}
+
+// ParseGovMode validates and returns a GovMode from a raw string.
+func ParseGovMode(s string) (GovMode, error) {
+	m := GovMode(s)
+	if _, ok := govModeSet[m]; !ok {
+		return "", fmt.Errorf("invalid mode %q (valid: %v)", s, ValidModes())
 	}
+	return m, nil
+}
+
+// modeRanks maps analysis modes to sort-order ranks.
+var modeRanks = map[string]int{
+	"deterministic": 0,
+	"heuristic":     1,
+	"semantic":      2,
 }
 
 // modeRank returns a numeric rank for mode-based sorting.
-// Matches: {"deterministic":0,"heuristic":1,"semantic":2}
 func modeRank(mode string) int {
-	switch mode {
-	case "deterministic":
-		return 0
-	case "heuristic":
-		return 1
-	case "semantic":
-		return 2
-	default:
-		return 99
+	if r, ok := modeRanks[mode]; ok {
+		return r
 	}
+	return 99
 }
 
 // SkillsForMode returns skills that match the given mode, sorted by
 // cost (cheap→moderate→heavy) then mode (deterministic→heuristic→semantic).
 // Matches ai-check.sh mode-based routing.
-func (r *Registry) SkillsForMode(modeName string) ([]Skill, error) {
+func (r *Registry) SkillsForMode(mode GovMode) ([]Skill, error) {
+	modeName := string(mode)
 	var matched []Skill
 
 	for i := range r.Skills {
@@ -56,7 +74,7 @@ func (r *Registry) SkillsForMode(modeName string) ([]Skill, error) {
 
 	// Sort: cost first, then mode within same cost
 	sort.SliceStable(matched, func(i, j int) bool {
-		ci, cj := costRank(matched[i].Cost), costRank(matched[j].Cost)
+		ci, cj := matched[i].Cost.Rank(), matched[j].Cost.Rank()
 		if ci != cj {
 			return ci < cj
 		}
@@ -66,17 +84,10 @@ func (r *Registry) SkillsForMode(modeName string) ([]Skill, error) {
 	return matched, nil
 }
 
-// ValidModes returns the list of valid diff modes.
-func ValidModes() []string {
-	return []string{"PATCH", "NORMAL", "STRUCTURAL", "API", "HEAVY", "AUDIT"}
-}
-
-// IsValidMode returns true if the given mode string is valid.
-func IsValidMode(mode string) bool {
-	for _, m := range ValidModes() {
-		if m == mode {
-			return true
-		}
+// ValidModes returns the list of valid governance modes.
+func ValidModes() []GovMode {
+	return []GovMode{
+		GovModePatch, GovModeNormal, GovModeStructural,
+		GovModeAPI, GovModeHeavy, GovModeAudit,
 	}
-	return false
 }

@@ -29,11 +29,15 @@ linters:
 
     # maintainability
     - gocyclo
+    - gocognit
     - gocritic
     - misspell
 
   settings:
     gocyclo:
+      min-complexity: 12
+
+    gocognit:
       min-complexity: 12
 
     gocritic:
@@ -61,6 +65,7 @@ linters:
       - path: _test\.go
         linters:
           - gocyclo
+          - gocognit
 
 formatters:
   enable:

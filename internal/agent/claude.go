@@ -43,12 +43,12 @@ func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs
 // NonInteractive runs claude in non-interactive (print) mode.
 // The --model flag is placed early in the args to ensure the CLI
 // parses it before processing the system prompt.
-func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, model string) (string, error) {
+func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	var args []string
 
 	// --model MUST come before other flags to ensure correct parsing
 	if model != "" {
-		args = append(args, "--model", model)
+		args = append(args, "--model", string(model))
 	}
 
 	args = append(args,
@@ -61,7 +61,7 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 	)
 
 	// Use low effort for haiku to minimize latency on cheap evaluation.
-	if Model(model).IsHaiku() {
+	if model.IsHaiku() {
 		args = append(args, "--effort", "low")
 	}
 
@@ -97,11 +97,11 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt, m
 // Unlike NonInteractive, tools are not disabled — the model can
 // autonomously edit files and run commands. Output streams directly
 // to stdout/stderr rather than being captured.
-func (c *Claude) Autonomous(ctx context.Context, systemPrompt, userPrompt, model string) error {
+func (c *Claude) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	var args []string
 
 	if model != "" {
-		args = append(args, "--model", model)
+		args = append(args, "--model", string(model))
 	}
 
 	args = append(args,

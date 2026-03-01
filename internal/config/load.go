@@ -140,9 +140,150 @@ func promoteLegacyAgents(overlay *Config, legacy *legacyAgentsOverlay) {
 	}
 }
 
+// mergeFromEnv applies BONSAI_* environment variable overrides.
+func mergeFromEnv(cfg *Config) {
+	mergeIntEnvs(cfg)
+	mergeStringEnvs(cfg)
+	mergeMiscEnvs(cfg)
+	mergeLegacyEnvs(cfg)
+	mergeLegacyDefaultEnv(cfg)
+}
+
+// mergeIntEnvs applies integer env overrides.
+func mergeIntEnvs(cfg *Config) {
+	intBindings := []struct {
+		env string
+		dst *int
+	}{
+		{"BONSAI_DIFF_HEAVY_LINES", &cfg.Diff.HeavyDiffLines},
+		{"BONSAI_DIFF_HEAVY_FILES", &cfg.Diff.HeavyFilesChanged},
+		{"BONSAI_DIFF_PATCH_MAX_FILES", &cfg.Diff.PatchMaxFiles},
+		{"BONSAI_GATE_MAX_ITERATIONS", &cfg.Gate.MaxIterations},
+		{"BONSAI_FIX_MAX_ITERATIONS", &cfg.Fix.MaxIterations},
+	}
+	for _, b := range intBindings {
+		if v := os.Getenv(b.env); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				*b.dst = n
+			}
+		}
+	}
+}
+
+// mergeStringEnvs applies string env overrides for new-path names.
+func mergeStringEnvs(cfg *Config) {
+	stringBindings := []struct {
+		env string
+		dst *string
+	}{
+		{"BONSAI_CLAUDE_BIN", &cfg.Agents.Claude.Bin},
+		{"BONSAI_CODEX_BIN", &cfg.Agents.Codex.Bin},
+		{"BONSAI_PROVIDER_ANTHROPIC_API_KEY", &cfg.Providers.Anthropic.APIKey},
+		{"BONSAI_MODEL_SKILL_CHEAP", &cfg.Models.Skills.Cheap},
+		{"BONSAI_MODEL_SKILL_MODERATE", &cfg.Models.Skills.Moderate},
+		{"BONSAI_MODEL_SKILL_HEAVY", &cfg.Models.Skills.Heavy},
+		{"BONSAI_MODEL_ROLE_IMPLEMENT", &cfg.Models.Roles.Implement},
+		{"BONSAI_MODEL_ROLE_PLAN", &cfg.Models.Roles.Plan},
+		{"BONSAI_MODEL_ROLE_REVIEW", &cfg.Models.Roles.Review},
+		{"BONSAI_MODEL_ROLE_PATCH", &cfg.Models.Roles.Patch},
+		{"BONSAI_MODEL_ROLE_CHAT", &cfg.Models.Roles.Chat},
+		{"BONSAI_OUTPUT_DIR", &cfg.Output.Dir},
+	}
+	for _, b := range stringBindings {
+		if v := os.Getenv(b.env); v != "" {
+			*b.dst = v
+		}
+	}
+}
+
+// mergeMiscEnvs applies env overrides with non-trivial logic.
+func mergeMiscEnvs(cfg *Config) {
+	if v := os.Getenv("BONSAI_CHECK_JOBS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Check.Concurrency = intPtr(n)
+		}
+	}
+	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {
+		cfg.Skills.ExtraDirs = strings.Split(v, ":")
+	}
+}
+
+// mergeLegacyEnvs applies old-name env vars only when the new name is absent.
+func mergeLegacyEnvs(cfg *Config) {
+	legacyBindings := []struct {
+		newEnv    string
+		legacyEnv string
+		dst       *string
+	}{
+		{"BONSAI_PROVIDER_ANTHROPIC_API_KEY", "BONSAI_ANTHROPIC_API_KEY", &cfg.Providers.Anthropic.APIKey},
+		{"BONSAI_MODEL_SKILL_CHEAP", "BONSAI_MODEL_CHECK_CHEAP", &cfg.Models.Skills.Cheap},
+		{"BONSAI_MODEL_SKILL_MODERATE", "BONSAI_MODEL_CHECK_MODERATE", &cfg.Models.Skills.Moderate},
+		{"BONSAI_MODEL_SKILL_HEAVY", "BONSAI_MODEL_CHECK_HEAVY", &cfg.Models.Skills.Heavy},
+		{"BONSAI_MODEL_ROLE_IMPLEMENT", "BONSAI_MODEL_IMPLEMENT", &cfg.Models.Roles.Implement},
+		{"BONSAI_MODEL_ROLE_PLAN", "BONSAI_MODEL_PLAN", &cfg.Models.Roles.Plan},
+		{"BONSAI_MODEL_ROLE_REVIEW", "BONSAI_MODEL_REVIEW", &cfg.Models.Roles.Review},
+		{"BONSAI_MODEL_ROLE_PATCH", "BONSAI_MODEL_PATCH", &cfg.Models.Roles.Patch},
+		{"BONSAI_MODEL_ROLE_CHAT", "BONSAI_MODEL_CHAT", &cfg.Models.Roles.Chat},
+	}
+	for _, b := range legacyBindings {
+		if os.Getenv(b.newEnv) != "" {
+			continue
+		}
+		if v := os.Getenv(b.legacyEnv); v != "" {
+			*b.dst = v
+		}
+	}
+}
+
+// mergeLegacyDefaultEnv fills any slot not already overridden by
+// a specific env var (new or legacy) with the blanket default.
+func mergeLegacyDefaultEnv(cfg *Config) {
+	v := os.Getenv("BONSAI_MODEL_DEFAULT")
+	if v == "" {
+		return
+	}
+
+	defaultBindings := []struct {
+		guards []string // env names that block this default
+		dst    *string
+	}{
+		{[]string{"BONSAI_MODEL_SKILL_CHEAP", "BONSAI_MODEL_CHECK_CHEAP"}, &cfg.Models.Skills.Cheap},
+		{[]string{"BONSAI_MODEL_SKILL_MODERATE", "BONSAI_MODEL_CHECK_MODERATE"}, &cfg.Models.Skills.Moderate},
+		{[]string{"BONSAI_MODEL_SKILL_HEAVY", "BONSAI_MODEL_CHECK_HEAVY"}, &cfg.Models.Skills.Heavy},
+		{[]string{"BONSAI_MODEL_ROLE_IMPLEMENT", "BONSAI_MODEL_IMPLEMENT"}, &cfg.Models.Roles.Implement},
+		{[]string{"BONSAI_MODEL_ROLE_PLAN", "BONSAI_MODEL_PLAN"}, &cfg.Models.Roles.Plan},
+		{[]string{"BONSAI_MODEL_ROLE_REVIEW", "BONSAI_MODEL_REVIEW"}, &cfg.Models.Roles.Review},
+		{[]string{"BONSAI_MODEL_ROLE_PATCH", "BONSAI_MODEL_PATCH"}, &cfg.Models.Roles.Patch},
+		{[]string{"BONSAI_MODEL_ROLE_CHAT", "BONSAI_MODEL_CHAT"}, &cfg.Models.Roles.Chat},
+	}
+	for _, b := range defaultBindings {
+		if anyEnvSet(b.guards) {
+			continue
+		}
+		*b.dst = v
+	}
+}
+
+// anyEnvSet returns true if any of the named env vars is non-empty.
+func anyEnvSet(names []string) bool {
+	for _, n := range names {
+		if os.Getenv(n) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // mergeConfig merges non-zero values from src into dst.
 func mergeConfig(dst, src *Config) {
-	// Diff
+	mergeDiffConfig(dst, src)
+	mergeRoutingConfig(dst, src)
+	mergeScalarConfig(dst, src)
+	mergeModelsConfig(&dst.Models, &src.Models)
+}
+
+// mergeDiffConfig merges diff threshold overrides.
+func mergeDiffConfig(dst, src *Config) {
 	if src.Diff.HeavyDiffLines > 0 {
 		dst.Diff.HeavyDiffLines = src.Diff.HeavyDiffLines
 	}
@@ -152,8 +293,10 @@ func mergeConfig(dst, src *Config) {
 	if src.Diff.PatchMaxFiles > 0 {
 		dst.Diff.PatchMaxFiles = src.Diff.PatchMaxFiles
 	}
+}
 
-	// Routing
+// mergeRoutingConfig merges routing slice overrides (full replacement).
+func mergeRoutingConfig(dst, src *Config) {
 	if len(src.Routing.PublicSurfaceGlobs) > 0 {
 		dst.Routing.PublicSurfaceGlobs = src.Routing.PublicSurfaceGlobs
 	}
@@ -163,44 +306,31 @@ func mergeConfig(dst, src *Config) {
 	if len(src.Routing.MergeBaseCandidates) > 0 {
 		dst.Routing.MergeBaseCandidates = src.Routing.MergeBaseCandidates
 	}
+}
 
-	// Gate
+// mergeScalarConfig merges remaining scalar config fields.
+func mergeScalarConfig(dst, src *Config) {
 	if src.Gate.MaxIterations > 0 {
 		dst.Gate.MaxIterations = src.Gate.MaxIterations
 	}
-
-	// Check
 	if src.Check.Concurrency != nil {
 		dst.Check.Concurrency = src.Check.Concurrency
 	}
-
-	// Fix
 	if src.Fix.MaxIterations > 0 {
 		dst.Fix.MaxIterations = src.Fix.MaxIterations
 	}
-
-	// Providers
 	if src.Providers.Anthropic.APIKey != "" {
 		dst.Providers.Anthropic.APIKey = src.Providers.Anthropic.APIKey
 	}
-
-	// Agents
 	if src.Agents.Claude.Bin != "" {
 		dst.Agents.Claude.Bin = src.Agents.Claude.Bin
 	}
 	if src.Agents.Codex.Bin != "" {
 		dst.Agents.Codex.Bin = src.Agents.Codex.Bin
 	}
-
-	// Models
-	mergeModelsConfig(&dst.Models, &src.Models)
-
-	// Output
 	if src.Output.Dir != "" {
 		dst.Output.Dir = src.Output.Dir
 	}
-
-	// Skills
 	if len(src.Skills.ExtraDirs) > 0 {
 		dst.Skills.ExtraDirs = src.Skills.ExtraDirs
 	}
@@ -208,181 +338,33 @@ func mergeConfig(dst, src *Config) {
 
 // mergeModelsConfig merges non-empty model config fields from src into dst.
 func mergeModelsConfig(dst, src *ModelsConfig) {
-	// Skills
-	if src.Skills.Cheap != "" {
-		dst.Skills.Cheap = src.Skills.Cheap
+	skills := []struct {
+		src string
+		dst *string
+	}{
+		{src.Skills.Cheap, &dst.Skills.Cheap},
+		{src.Skills.Moderate, &dst.Skills.Moderate},
+		{src.Skills.Heavy, &dst.Skills.Heavy},
 	}
-	if src.Skills.Moderate != "" {
-		dst.Skills.Moderate = src.Skills.Moderate
-	}
-	if src.Skills.Heavy != "" {
-		dst.Skills.Heavy = src.Skills.Heavy
-	}
-
-	// Roles
-	if src.Roles.Implement != "" {
-		dst.Roles.Implement = src.Roles.Implement
-	}
-	if src.Roles.Plan != "" {
-		dst.Roles.Plan = src.Roles.Plan
-	}
-	if src.Roles.Review != "" {
-		dst.Roles.Review = src.Roles.Review
-	}
-	if src.Roles.Patch != "" {
-		dst.Roles.Patch = src.Roles.Patch
-	}
-	if src.Roles.Chat != "" {
-		dst.Roles.Chat = src.Roles.Chat
-	}
-}
-
-// mergeFromEnv applies BONSAI_* environment variable overrides.
-func mergeFromEnv(cfg *Config) {
-	if v := os.Getenv("BONSAI_DIFF_HEAVY_LINES"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Diff.HeavyDiffLines = n
-		}
-	}
-	if v := os.Getenv("BONSAI_DIFF_HEAVY_FILES"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Diff.HeavyFilesChanged = n
-		}
-	}
-	if v := os.Getenv("BONSAI_DIFF_PATCH_MAX_FILES"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Diff.PatchMaxFiles = n
-		}
-	}
-	if v := os.Getenv("BONSAI_GATE_MAX_ITERATIONS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Gate.MaxIterations = n
-		}
-	}
-	if v := os.Getenv("BONSAI_FIX_MAX_ITERATIONS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Fix.MaxIterations = n
-		}
-	}
-	if v := os.Getenv("BONSAI_CLAUDE_BIN"); v != "" {
-		cfg.Agents.Claude.Bin = v
-	}
-	if v := os.Getenv("BONSAI_CODEX_BIN"); v != "" {
-		cfg.Agents.Codex.Bin = v
-	}
-	if v := os.Getenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY"); v != "" {
-		cfg.Providers.Anthropic.APIKey = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_SKILL_CHEAP"); v != "" {
-		cfg.Models.Skills.Cheap = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_SKILL_MODERATE"); v != "" {
-		cfg.Models.Skills.Moderate = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_SKILL_HEAVY"); v != "" {
-		cfg.Models.Skills.Heavy = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT"); v != "" {
-		cfg.Models.Roles.Implement = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_ROLE_PLAN"); v != "" {
-		cfg.Models.Roles.Plan = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_ROLE_REVIEW"); v != "" {
-		cfg.Models.Roles.Review = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_ROLE_PATCH"); v != "" {
-		cfg.Models.Roles.Patch = v
-	}
-	if v := os.Getenv("BONSAI_MODEL_ROLE_CHAT"); v != "" {
-		cfg.Models.Roles.Chat = v
-	}
-	if v := os.Getenv("BONSAI_OUTPUT_DIR"); v != "" {
-		cfg.Output.Dir = v
-	}
-	if v := os.Getenv("BONSAI_CHECK_JOBS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Check.Concurrency = intPtr(n)
-		}
-	}
-	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {
-		cfg.Skills.ExtraDirs = strings.Split(v, ":")
-	}
-
-	// Legacy env var compat — old names apply only when new names are absent.
-	if os.Getenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY") == "" {
-		if v := os.Getenv("BONSAI_ANTHROPIC_API_KEY"); v != "" {
-			cfg.Providers.Anthropic.APIKey = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_SKILL_CHEAP") == "" {
-		if v := os.Getenv("BONSAI_MODEL_CHECK_CHEAP"); v != "" {
-			cfg.Models.Skills.Cheap = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_SKILL_MODERATE") == "" {
-		if v := os.Getenv("BONSAI_MODEL_CHECK_MODERATE"); v != "" {
-			cfg.Models.Skills.Moderate = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_SKILL_HEAVY") == "" {
-		if v := os.Getenv("BONSAI_MODEL_CHECK_HEAVY"); v != "" {
-			cfg.Models.Skills.Heavy = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT") == "" {
-		if v := os.Getenv("BONSAI_MODEL_IMPLEMENT"); v != "" {
-			cfg.Models.Roles.Implement = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_ROLE_PLAN") == "" {
-		if v := os.Getenv("BONSAI_MODEL_PLAN"); v != "" {
-			cfg.Models.Roles.Plan = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_ROLE_REVIEW") == "" {
-		if v := os.Getenv("BONSAI_MODEL_REVIEW"); v != "" {
-			cfg.Models.Roles.Review = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_ROLE_PATCH") == "" {
-		if v := os.Getenv("BONSAI_MODEL_PATCH"); v != "" {
-			cfg.Models.Roles.Patch = v
-		}
-	}
-	if os.Getenv("BONSAI_MODEL_ROLE_CHAT") == "" {
-		if v := os.Getenv("BONSAI_MODEL_CHAT"); v != "" {
-			cfg.Models.Roles.Chat = v
+	for _, s := range skills {
+		if s.src != "" {
+			*s.dst = s.src
 		}
 	}
 
-	// Legacy blanket default — fills any slot not already overridden by
-	// a specific env var (new or legacy).
-	if v := os.Getenv("BONSAI_MODEL_DEFAULT"); v != "" {
-		m := &cfg.Models
-		if os.Getenv("BONSAI_MODEL_SKILL_CHEAP") == "" && os.Getenv("BONSAI_MODEL_CHECK_CHEAP") == "" {
-			m.Skills.Cheap = v
-		}
-		if os.Getenv("BONSAI_MODEL_SKILL_MODERATE") == "" && os.Getenv("BONSAI_MODEL_CHECK_MODERATE") == "" {
-			m.Skills.Moderate = v
-		}
-		if os.Getenv("BONSAI_MODEL_SKILL_HEAVY") == "" && os.Getenv("BONSAI_MODEL_CHECK_HEAVY") == "" {
-			m.Skills.Heavy = v
-		}
-		if os.Getenv("BONSAI_MODEL_ROLE_IMPLEMENT") == "" && os.Getenv("BONSAI_MODEL_IMPLEMENT") == "" {
-			m.Roles.Implement = v
-		}
-		if os.Getenv("BONSAI_MODEL_ROLE_PLAN") == "" && os.Getenv("BONSAI_MODEL_PLAN") == "" {
-			m.Roles.Plan = v
-		}
-		if os.Getenv("BONSAI_MODEL_ROLE_REVIEW") == "" && os.Getenv("BONSAI_MODEL_REVIEW") == "" {
-			m.Roles.Review = v
-		}
-		if os.Getenv("BONSAI_MODEL_ROLE_PATCH") == "" && os.Getenv("BONSAI_MODEL_PATCH") == "" {
-			m.Roles.Patch = v
-		}
-		if os.Getenv("BONSAI_MODEL_ROLE_CHAT") == "" && os.Getenv("BONSAI_MODEL_CHAT") == "" {
-			m.Roles.Chat = v
+	roles := []struct {
+		src string
+		dst *string
+	}{
+		{src.Roles.Implement, &dst.Roles.Implement},
+		{src.Roles.Plan, &dst.Roles.Plan},
+		{src.Roles.Review, &dst.Roles.Review},
+		{src.Roles.Patch, &dst.Roles.Patch},
+		{src.Roles.Chat, &dst.Roles.Chat},
+	}
+	for _, r := range roles {
+		if r.src != "" {
+			*r.dst = r.src
 		}
 	}
 }

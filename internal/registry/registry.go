@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
@@ -46,7 +45,7 @@ type Skill struct {
 	Version      string  `yaml:"version"`
 	Path         string  `yaml:"path"`
 	Domain       string  `yaml:"domain"`
-	Cost         string  `yaml:"cost"`
+	Cost         Cost    `yaml:"cost"`
 	Mode         string  `yaml:"mode"`
 	Mandatory    bool    `yaml:"mandatory"`
 	Trigger      string  `yaml:"trigger"`
@@ -135,6 +134,3 @@ func (r *Registry) BundleNames() []string {
 	}
 	return names
 }
-
-// Ensure unused import is referenced
-var _ = filepath.Join

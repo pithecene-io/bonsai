@@ -9,9 +9,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
-	"github.com/pithecene-io/bonsai/internal/assets"
-	"github.com/pithecene-io/bonsai/internal/config"
-	"github.com/pithecene-io/bonsai/internal/gitutil"
 	"github.com/pithecene-io/bonsai/internal/prompt"
 )
 
@@ -25,26 +22,13 @@ func planCommand() *cli.Command {
 }
 
 func runPlan(c *cli.Context) error {
-	// Detect repo
-	repoRoot := "."
-	if gitutil.IsInsideWorkTree(".") {
-		if r, err := gitutil.ShowToplevel("."); err == nil {
-			repoRoot = r
-		}
-	}
-
-	// Load config
-	cfg, err := config.Load(repoRoot)
+	repoRoot := detectRepoRoot()
+	env, err := bootstrapLight(repoRoot)
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+		return err
 	}
 
-	// Create resolver
-	resolver := assets.NewResolver(repoRoot)
-	resolver.ExtraSkillDirs = cfg.Skills.ExtraDirs
-
-	// Build system prompt
-	builder := prompt.NewBuilder(resolver, repoRoot)
+	builder := prompt.NewBuilder(env.Resolver, repoRoot)
 	systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
 		Mode: prompt.ModePlanner,
 		Role: "planner",
@@ -53,23 +37,21 @@ func runPlan(c *cli.Context) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	// Create output dir
-	outDir := filepath.Join(repoRoot, cfg.Output.Dir)
+	outDir := filepath.Join(repoRoot, env.Config.Output.Dir)
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("create output dir: %w", err)
 	}
 
-	// Create agent and start interactive session
-	claudeAgent := agent.NewClaude(cfg.Agents.Claude.Bin)
-	planModel := cfg.Models.ModelForRole("plan")
+	claudeAgent := agent.NewClaude(env.Config.Agents.Claude.Bin)
+	planModel := env.Config.Models.ModelForRole("plan")
 
-	extraArgs := []string{}
+	var extraArgs []string
 	if planModel != "" {
 		extraArgs = append(extraArgs, "--model", planModel)
 	}
 	extraArgs = append(extraArgs, c.Args().Slice()...)
 
-	// Run session. Match shell: `claude ... || true` — ignore ctrl-C / session end.
+	// Match shell: `claude ... || true` — ignore ctrl-C / session end.
 	_ = claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
 
 	// Post-session: detect plan.json

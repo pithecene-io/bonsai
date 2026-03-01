@@ -44,7 +44,7 @@ func TestLookupSkill(t *testing.T) {
 	if !s.Mandatory {
 		t.Error("expected mandatory to be true")
 	}
-	if s.Cost != "cheap" {
+	if s.Cost != registry.CostCheap {
 		t.Errorf("Cost = %q", s.Cost)
 	}
 }
@@ -86,7 +86,7 @@ func TestSkillsForBundle_NotFound(t *testing.T) {
 func TestSkillsForMode_NORMAL(t *testing.T) {
 	reg := loadTestRegistry(t)
 
-	skills, err := reg.SkillsForMode("NORMAL")
+	skills, err := reg.SkillsForMode(registry.GovModeNormal)
 	if err != nil {
 		t.Fatalf("SkillsForMode: %v", err)
 	}
@@ -95,20 +95,20 @@ func TestSkillsForMode_NORMAL(t *testing.T) {
 	}
 
 	// Verify sort order: cheap before moderate before heavy
-	lastCost := -1
+	lastRank := -1
 	for _, s := range skills {
-		cost := costRankPublic(s.Cost)
-		if cost < lastCost {
-			t.Errorf("sort order violated: %s (%s) after cost rank %d", s.Name, s.Cost, lastCost)
+		rank := s.Cost.Rank()
+		if rank < lastRank {
+			t.Errorf("sort order violated: %s (%s) after cost rank %d", s.Name, s.Cost, lastRank)
 		}
-		lastCost = cost
+		lastRank = rank
 	}
 }
 
 func TestSkillsForMode_AUDIT(t *testing.T) {
 	reg := loadTestRegistry(t)
 
-	skills, err := reg.SkillsForMode("AUDIT")
+	skills, err := reg.SkillsForMode(registry.GovModeAudit)
 	if err != nil {
 		t.Fatalf("SkillsForMode: %v", err)
 	}
@@ -128,24 +128,25 @@ func TestSkillsForMode_Invalid(t *testing.T) {
 	}
 }
 
-func TestIsValidMode(t *testing.T) {
+func TestParseGovMode(t *testing.T) {
 	tests := []struct {
-		mode string
-		want bool
+		mode    string
+		wantErr bool
 	}{
-		{"PATCH", true},
-		{"NORMAL", true},
-		{"STRUCTURAL", true},
-		{"API", true},
-		{"HEAVY", true},
-		{"AUDIT", true},
-		{"INVALID", false},
-		{"", false},
+		{"PATCH", false},
+		{"NORMAL", false},
+		{"STRUCTURAL", false},
+		{"API", false},
+		{"HEAVY", false},
+		{"AUDIT", false},
+		{"INVALID", true},
+		{"", true},
 	}
 
 	for _, tt := range tests {
-		if got := registry.IsValidMode(tt.mode); got != tt.want {
-			t.Errorf("IsValidMode(%q) = %v, want %v", tt.mode, got, tt.want)
+		_, err := registry.ParseGovMode(tt.mode)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("ParseGovMode(%q) error = %v, wantErr %v", tt.mode, err, tt.wantErr)
 		}
 	}
 }
@@ -186,19 +187,5 @@ func TestDefaultsEffectiveRequiresDiff(t *testing.T) {
 				t.Errorf("EffectiveRequiresDiff() = %v, want %v", got, tt.want)
 			}
 		})
-	}
-}
-
-// costRankPublic mirrors the internal costRank for test assertions.
-func costRankPublic(cost string) int {
-	switch cost {
-	case "cheap":
-		return 0
-	case "moderate":
-		return 1
-	case "heavy":
-		return 2
-	default:
-		return 99
 	}
 }

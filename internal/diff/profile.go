@@ -32,40 +32,48 @@ type Profile struct {
 func ComputeProfile(repoRoot, base string, cfg *config.Config) (*Profile, error) {
 	p := &Profile{}
 
-	// Get diff output
+	// Git commands may fail (e.g. no commits yet, detached HEAD);
+	// fall back to empty results so profiling degrades gracefully.
 	diffOutput, _ := gitutil.Diff(repoRoot, base)
-
-	// Get name-status
 	nameStatus, _ := gitutil.DiffNameStatus(repoRoot, base)
-
-	// Get diff names
 	diffNames, _ := gitutil.DiffNameOnly(repoRoot, base)
-
-	// Include untracked files (git diff never shows these)
 	untracked, _ := gitutil.UntrackedFiles(repoRoot)
-	if len(untracked) > 0 {
-		// Merge untracked into diffNames (dedup)
-		seen := make(map[string]bool, len(diffNames))
-		for _, f := range diffNames {
-			seen[f] = true
-		}
-		for _, f := range untracked {
-			if !seen[f] {
-				diffNames = append(diffNames, f)
-				seen[f] = true
-			}
-		}
 
-		// Append to nameStatus as additions
-		for _, f := range untracked {
-			nameStatus = append(nameStatus, "A\t"+f)
-		}
-	}
-
-	// Count files changed
+	diffNames, nameStatus = mergeUntracked(diffNames, nameStatus, untracked)
 	p.FilesChanged = len(diffNames)
 
-	// Count new files and renames from name-status
+	p.countNameStatus(nameStatus)
+	p.countDiffLines(diffOutput)
+	p.TopLevelDirs = collectTopDirs(diffNames)
+	p.PublicSurfacePaths = matchPublicSurface(diffNames, cfg.Routing.PublicSurfaceGlobs)
+	p.HasStructural = detectStructural(diffNames, cfg.Routing.StructuralPatterns)
+
+	return p, nil
+}
+
+// mergeUntracked deduplicates untracked files into diffNames and appends
+// synthetic A\t<name> entries to nameStatus.
+func mergeUntracked(diffNames, nameStatus, untracked []string) (merged, status []string) {
+	if len(untracked) == 0 {
+		return diffNames, nameStatus
+	}
+
+	seen := make(map[string]bool, len(diffNames))
+	for _, f := range diffNames {
+		seen[f] = true
+	}
+	for _, f := range untracked {
+		if !seen[f] {
+			diffNames = append(diffNames, f)
+			seen[f] = true
+		}
+		nameStatus = append(nameStatus, "A\t"+f)
+	}
+	return diffNames, nameStatus
+}
+
+// countNameStatus counts new files and renames from name-status output.
+func (p *Profile) countNameStatus(nameStatus []string) {
 	for _, entry := range nameStatus {
 		if strings.HasPrefix(entry, "A") {
 			p.NewFiles++
@@ -74,54 +82,60 @@ func ComputeProfile(repoRoot, base string, cfg *config.Config) (*Profile, error)
 			p.Renames++
 		}
 	}
+}
 
-	// Count lines from diff output
-	if diffOutput != "" {
-		for _, line := range strings.Split(diffOutput, "\n") {
-			if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "++") {
-				p.LinesAdded++
-			}
-			if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "--") {
-				p.LinesRemoved++
-			}
-		}
-		p.DiffLines = len(strings.Split(diffOutput, "\n"))
+// countDiffLines counts added/removed lines from diff output.
+func (p *Profile) countDiffLines(diffOutput string) {
+	if diffOutput == "" {
+		return
 	}
+	for _, line := range strings.Split(diffOutput, "\n") {
+		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "++") {
+			p.LinesAdded++
+		}
+		if strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "--") {
+			p.LinesRemoved++
+		}
+	}
+	p.DiffLines = len(strings.Split(diffOutput, "\n"))
+}
 
-	// Top-level directories touched
+// collectTopDirs returns the set of top-level directories touched.
+func collectTopDirs(diffNames []string) []string {
 	topDirSet := make(map[string]bool)
 	for _, f := range diffNames {
 		parts := strings.SplitN(f, "/", 2)
 		topDirSet[parts[0]] = true
 	}
+	var dirs []string
 	for d := range topDirSet {
-		p.TopLevelDirs = append(p.TopLevelDirs, d)
+		dirs = append(dirs, d)
 	}
+	return dirs
+}
 
-	// Public surface paths
-	publicGlobs := cfg.Routing.PublicSurfaceGlobs
+// matchPublicSurface returns files matching any public surface glob.
+func matchPublicSurface(diffNames, publicGlobs []string) []string {
+	var paths []string
 	for _, f := range diffNames {
 		for _, glob := range publicGlobs {
 			if strings.HasPrefix(f, glob) {
-				p.PublicSurfacePaths = append(p.PublicSurfacePaths, f)
+				paths = append(paths, f)
 				break
 			}
 		}
 	}
+	return paths
+}
 
-	// Structural detection
-	structuralPatterns := cfg.Routing.StructuralPatterns
+// detectStructural returns true if any file matches a structural pattern.
+func detectStructural(diffNames, patterns []string) bool {
 	for _, f := range diffNames {
-		for _, pat := range structuralPatterns {
+		for _, pat := range patterns {
 			if strings.Contains(f, pat) {
-				p.HasStructural = true
-				break
+				return true
 			}
 		}
-		if p.HasStructural {
-			break
-		}
 	}
-
-	return p, nil
+	return false
 }
