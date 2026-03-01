@@ -12,11 +12,9 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/pithecene-io/bonsai/internal/agent"
-	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 	"github.com/pithecene-io/bonsai/internal/prompt"
-	"github.com/pithecene-io/bonsai/internal/registry"
 	"github.com/pithecene-io/bonsai/internal/repo"
 )
 
@@ -42,7 +40,7 @@ func runPatch(c *cli.Context) error {
 
 	builder := prompt.NewBuilder(env.Resolver, env.RepoRoot)
 
-	architectPlan, err := patchPhaseArchitect(c, builder, env.Config, env.RepoRoot, task)
+	architectPlan, err := patchPhaseArchitect(c, builder, env, task)
 	if err != nil {
 		return err
 	}
@@ -54,10 +52,10 @@ func runPatch(c *cli.Context) error {
 		return err
 	}
 
-	return patchPhaseValidate(c, env.Resolver, env.Config, env.RepoRoot)
+	return patchPhaseValidate(c, env)
 }
 
-func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, cfg *config.Config, repoRoot, task string) (string, error) {
+func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, env cmdEnv, task string) (string, error) {
 	fmt.Println("═══ Phase 1: Patch Architecture ═══")
 	fmt.Printf("Task: %s\n\n", task)
 
@@ -69,14 +67,14 @@ func patchPhaseArchitect(c *cli.Context, builder *prompt.Builder, cfg *config.Co
 		return "", fmt.Errorf("build architect prompt: %w", err)
 	}
 
-	userPrompt := fmt.Sprintf("Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n%s", task)
-	architectPlan, err := agent.NewClaude(cfg.Agents.Claude.Bin).NonInteractive(
-		c.Context, architectPrompt, userPrompt, agent.Model(cfg.Models.ModelForRole("patch")))
+	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + task
+	architectPlan, err := agent.NewClaude(env.Config.Agents.Claude.Bin).NonInteractive(
+		c.Context, architectPrompt, userPrompt, agent.Model(env.Config.Models.ModelForRole("patch")))
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}
 
-	planPath, err := savePatchPlan(repoRoot, cfg, task, architectPlan)
+	planPath, err := savePatchPlan(env.RepoRoot, env.Config, task, architectPlan)
 	if err != nil {
 		return "", err
 	}
@@ -122,34 +120,27 @@ func patchPhaseEmit(c *cli.Context, builder *prompt.Builder, cfg *config.Config,
 		return fmt.Errorf("build patcher prompt: %w", err)
 	}
 
-	combinedPrompt := fmt.Sprintf("%s\n\nArchitect plan:\n%s\n\nTask: %s\n\nExecute the architect plan above. Emit only unified diffs for the listed files.",
-		patcherPrompt, architectPlan, task)
+	combinedPrompt := patcherPrompt + "\n\nArchitect plan:\n" + architectPlan + "\n\nTask: " + task + "\n\nExecute the architect plan above. Emit only unified diffs for the listed files."
 
 	_ = agent.NewCodex(cfg.Agents.Codex.Bin).Interactive(c.Context, combinedPrompt, nil)
 	return nil
 }
 
-func patchPhaseValidate(c *cli.Context, resolver *assets.Resolver, cfg *config.Config, repoRoot string) error {
+func patchPhaseValidate(c *cli.Context, env cmdEnv) error {
 	fmt.Println()
 	fmt.Println("═══ Phase 3: Validation ═══")
 
-	patchBase := repo.DetectMergeBase(repoRoot, cfg.Routing.MergeBaseCandidates)
+	patchBase := repo.DetectMergeBase(env.RepoRoot, env.Config.Routing.MergeBaseCandidates)
 
-	reg, err := registry.Load(resolver)
+	skills, err := env.Registry.SkillsForBundle("patch")
 	if err != nil {
-		return fmt.Errorf("load registry: %w", err)
-	}
-
-	skills, err := reg.SkillsForBundle("patch")
-	if err != nil {
-		skills, err = reg.SkillsForBundle("default")
+		skills, err = env.Registry.SkillsForBundle("default")
 		if err != nil {
 			return fmt.Errorf("no patch or default bundle: %w", err)
 		}
 	}
 
-	checkRouter := agent.NewRouter(cfg.Agents.Claude.Bin, cfg.Agents.Codex.Bin)
-	orch := orchestrator.New(checkRouter, resolver)
+	orch := orchestrator.New(newAgentRouter(env.Config), env.Resolver)
 	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
 
 	report, err := orch.Run(c.Context, orchestrator.RunOpts{
@@ -157,9 +148,9 @@ func patchPhaseValidate(c *cli.Context, resolver *assets.Resolver, cfg *config.C
 		Source:              "bundle:patch",
 		BaseRef:             patchBase,
 		FailFast:            true,
-		RepoRoot:            repoRoot,
-		Config:              cfg,
-		DefaultRequiresDiff: reg.Defaults.EffectiveRequiresDiff(),
+		RepoRoot:            env.RepoRoot,
+		Config:              env.Config,
+		DefaultRequiresDiff: env.Registry.Defaults.EffectiveRequiresDiff(),
 		Concurrency:         1,
 	}, sink)
 	close(sink)

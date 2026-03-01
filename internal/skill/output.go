@@ -2,6 +2,7 @@ package skill
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -19,88 +20,49 @@ type Output struct {
 	Details  map[string]any `json:"details,omitempty"`
 }
 
+// validStatuses is the set of allowed status enum values.
+var validStatuses = map[string]bool{"pass": true, "fail": true}
+
+// requiredKeys lists all keys that must be present in the JSON object.
+var requiredKeys = []string{"skill", "version", "status", "blocking", "major", "warning", "info"}
+
 // ParseOutput parses and validates a JSON response against the unified
-// output schema. This is the defense-in-depth validation matching
-// ai-skill.sh lines 333-373.
+// output schema. Unmarshals once into Output, then validates struct
+// fields. A lightweight key-presence check catches missing required keys
+// that encoding/json silently zero-fills.
 func ParseOutput(raw string) (*Output, error) {
 	raw = strings.TrimSpace(stripCodeFences(raw))
 	if raw == "" {
-		return nil, fmt.Errorf("empty response")
+		return nil, errors.New("empty response")
 	}
 
-	var rawMap map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(raw), &rawMap); err != nil {
+	// Parse into struct — validates types in a single pass.
+	var out Output
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	var errs []string
-	errs = validateStringFields(rawMap, errs)
-	errs = validateStatusEnum(rawMap, errs)
-	errs = validateArrayFields(rawMap, errs)
-
-	if len(errs) > 0 {
+	// Key-presence check: encoding/json silently zero-fills missing keys,
+	// so we verify presence with a lightweight map parse (no per-element work).
+	var keys map[string]json.RawMessage
+	_ = json.Unmarshal([]byte(raw), &keys) // can't fail — already parsed above
+	if errs := validate(&out, keys); len(errs) > 0 {
 		return nil, fmt.Errorf("schema validation failed:\n  %s", strings.Join(errs, "\n  "))
-	}
-
-	var out Output
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		return nil, fmt.Errorf("parse output: %w", err)
 	}
 
 	return &out, nil
 }
 
-// validateStringFields checks that required string keys exist and are strings.
-func validateStringFields(rawMap map[string]json.RawMessage, errs []string) []string {
-	for _, key := range []string{"skill", "version", "status"} {
-		rawVal, ok := rawMap[key]
-		if !ok {
-			errs = append(errs, fmt.Sprintf("missing required key: %s", key))
-			continue
-		}
-		var s string
-		if err := json.Unmarshal(rawVal, &s); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: expected string, got %s", key, string(rawVal)))
+// validate checks required-key presence and enum constraints.
+func validate(o *Output, keys map[string]json.RawMessage) []string {
+	var errs []string
+	for _, key := range requiredKeys {
+		if _, ok := keys[key]; !ok {
+			errs = append(errs, "missing required key: "+key)
 		}
 	}
-	return errs
-}
-
-// validateStatusEnum checks that "status" is "pass" or "fail".
-func validateStatusEnum(rawMap map[string]json.RawMessage, errs []string) []string {
-	statusRaw, ok := rawMap["status"]
-	if !ok {
-		return errs
-	}
-	var status string
-	if err := json.Unmarshal(statusRaw, &status); err != nil {
-		return errs
-	}
-	if status != "pass" && status != "fail" {
-		errs = append(errs, fmt.Sprintf("status: must be \"pass\" or \"fail\", got %q", status))
-	}
-	return errs
-}
-
-// validateArrayFields checks that required array keys are arrays of strings.
-func validateArrayFields(rawMap map[string]json.RawMessage, errs []string) []string {
-	for _, key := range []string{"blocking", "major", "warning", "info"} {
-		rawVal, ok := rawMap[key]
-		if !ok {
-			errs = append(errs, fmt.Sprintf("missing required key: %s", key))
-			continue
-		}
-		var arr []json.RawMessage
-		if err := json.Unmarshal(rawVal, &arr); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: expected array, got %s", key, string(rawVal)))
-			continue
-		}
-		for i, elem := range arr {
-			var s string
-			if err := json.Unmarshal(elem, &s); err != nil {
-				errs = append(errs, fmt.Sprintf("%s[%d]: expected string, got %s", key, i, string(elem)))
-			}
-		}
+	if o.Status != "" && !validStatuses[o.Status] {
+		errs = append(errs, fmt.Sprintf("status: must be \"pass\" or \"fail\", got %q", o.Status))
 	}
 	return errs
 }
@@ -112,17 +74,19 @@ func (o *Output) ShouldFail() bool {
 	return o.Status == "fail" && len(o.Blocking) > 0
 }
 
-// stripCodeFences removes markdown code fence wrappers from JSON responses.
-// Matches: sed '/^```\(json\)\{0,1\}$/d'
+// stripCodeFences removes markdown code fence wrappers (```json / ```)
+// from JSON responses.
 func stripCodeFences(s string) string {
-	lines := strings.Split(s, "\n")
-	var result []string
-	for _, line := range lines {
+	var b strings.Builder
+	for line := range strings.SplitSeq(s, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "```" || trimmed == "```json" {
 			continue
 		}
-		result = append(result, line)
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(line)
 	}
-	return strings.Join(result, "\n")
+	return b.String()
 }

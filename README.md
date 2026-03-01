@@ -362,6 +362,34 @@ task check      # vet + lint + test
 task snapshot   # goreleaser snapshot (local)
 ```
 
+## Design
+
+AI agents are non-deterministic. A rule in a system prompt is obeyed
+probabilistically, not deterministically. Bonsai exists because
+governance of AI-generated code requires external enforcement, not
+self-policing.
+
+**How it works.** Each governance concern lives in a SKILL.md file — a
+focused validation prompt with structured input/output schemas. Bonsai
+applies these skills in two ways:
+
+- **Code-generating commands** (`implement`, `fix`, `patch`) use dual
+  enforcement: compact criteria are injected into the role prompt at
+  generation time (zero extra API calls), then skills run as a post-hoc
+  gate. On failure, diagnostics feed back for a corrective iteration.
+- **Validation commands** (`check`) run the post-hoc gate only.
+
+**Economics.** Pre-injection adds ~500 tokens of extracted criteria, not
+full SKILL.md prose. Post-hoc skills run cheapest-first with fail-fast.
+The gate loop targets first-pass compliance to minimize iterations.
+Bonsai should cost fewer total tokens than verbose prompting with blind
+retries.
+
+**Limitations.** The generate-then-validate loop is probabilistic. There
+is no convergence guarantee within the iteration budget. When the loop
+exhausts its budget, bonsai reports failure with diagnostics — it never
+silently accepts non-compliant output.
+
 Architecture: [docs/ARCH_INDEX.md](docs/ARCH_INDEX.md)
 
 ---

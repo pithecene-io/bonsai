@@ -181,17 +181,9 @@ func TestExtractPerSkillFindings_AllPassed(t *testing.T) {
 	}
 }
 
+// contains is a test helper wrapping strings.Contains.
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && containsStr(s, substr)
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }
 
 // --- fixLoop flow tests ---

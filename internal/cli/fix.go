@@ -327,79 +327,75 @@ func runFixCheck(ctx context.Context, opts fixOpts) (*orchestrator.Report, error
 	return report, err
 }
 
+// severityPairs maps severity labels to Result detail accessors.
+var severityPairs = []struct {
+	label string
+	get   func(*orchestrator.Result) []string
+}{
+	{"blocking", func(r *orchestrator.Result) []string { return r.BlockingDetails }},
+	{"major", func(r *orchestrator.Result) []string { return r.MajorDetails }},
+	{"warning", func(r *orchestrator.Result) []string { return r.WarningDetails }},
+}
+
+// formatDetails returns severity-prefixed lines for a result's findings.
+func formatDetails(r *orchestrator.Result, prefix string) []string {
+	var lines []string
+	for _, sp := range severityPairs {
+		for _, d := range sp.get(r) {
+			lines = append(lines, prefix+sp.label+": "+d)
+		}
+	}
+	return lines
+}
+
+// failedResults returns pointers to all results with non-zero exit codes.
+func failedResults(report *orchestrator.Report) []*orchestrator.Result {
+	var failed []*orchestrator.Result
+	for i := range report.Results {
+		if report.Results[i].ExitCode != 0 {
+			failed = append(failed, &report.Results[i])
+		}
+	}
+	return failed
+}
+
 // extractDetailedFindings builds a findings context string with full detail
-// strings, not just counts. This gives the AI enough context to know WHAT to fix.
+// strings, not just counts.
 func extractDetailedFindings(report *orchestrator.Report) string {
 	var sections []string
-	for i := range report.Results {
-		r := &report.Results[i]
-		if r.ExitCode == 0 {
-			continue
-		}
-		var lines []string
-		lines = append(lines, fmt.Sprintf("SKILL: %s", r.Name))
-		for _, d := range r.BlockingDetails {
-			lines = append(lines, fmt.Sprintf("  blocking: %s", d))
-		}
-		for _, d := range r.MajorDetails {
-			lines = append(lines, fmt.Sprintf("  major: %s", d))
-		}
-		for _, d := range r.WarningDetails {
-			lines = append(lines, fmt.Sprintf("  warning: %s", d))
-		}
+	for _, r := range failedResults(report) {
+		lines := append([]string{"SKILL: " + r.Name}, formatDetails(r, "  ")...)
 		sections = append(sections, strings.Join(lines, "\n"))
 	}
 	return strings.Join(sections, "\n\n")
 }
 
 // extractPerSkillFindings groups failed results into per-skill findings
-// for targeted autonomous fix passes. The skills slice provides cost
-// information not stored in orchestrator.Result.
+// for targeted autonomous fix passes.
 func extractPerSkillFindings(report *orchestrator.Report, skills []registry.Skill) []skillFindings {
-	// Build name→cost lookup
 	costByName := make(map[string]registry.Cost, len(skills))
 	for i := range skills {
 		costByName[skills[i].Name] = skills[i].Cost
 	}
 
 	var results []skillFindings
-	for i := range report.Results {
-		r := &report.Results[i]
-		if r.ExitCode == 0 {
-			continue
-		}
-		sf := skillFindings{
-			Name: r.Name,
-			Cost: costByName[r.Name],
-		}
-		for _, d := range r.BlockingDetails {
-			sf.Lines = append(sf.Lines, fmt.Sprintf("blocking: %s", d))
-		}
-		for _, d := range r.MajorDetails {
-			sf.Lines = append(sf.Lines, fmt.Sprintf("major: %s", d))
-		}
-		for _, d := range r.WarningDetails {
-			sf.Lines = append(sf.Lines, fmt.Sprintf("warning: %s", d))
-		}
-		results = append(results, sf)
+	for _, r := range failedResults(report) {
+		results = append(results, skillFindings{
+			Name:  r.Name,
+			Cost:  costByName[r.Name],
+			Lines: formatDetails(r, ""),
+		})
 	}
 	return results
 }
 
 // printDetailedFindings prints failed findings to stderr.
 func printDetailedFindings(report *orchestrator.Report) {
-	for i := range report.Results {
-		r := &report.Results[i]
-		if r.ExitCode == 0 {
-			continue
-		}
+	for _, r := range failedResults(report) {
 		fmt.Fprintf(os.Stderr, "  SKILL: %s | blocking:%d major:%d warning:%d\n",
 			r.Name, r.Blocking, r.Major, r.Warning)
-		for _, d := range r.BlockingDetails {
-			fmt.Fprintf(os.Stderr, "    blocking: %s\n", d)
-		}
-		for _, d := range r.MajorDetails {
-			fmt.Fprintf(os.Stderr, "    major: %s\n", d)
+		for _, line := range formatDetails(r, "    ") {
+			fmt.Fprintln(os.Stderr, line)
 		}
 	}
 }

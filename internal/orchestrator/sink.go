@@ -59,3 +59,9 @@ func logResultLine(logger func(string), r *Result) {
 			r.Name, r.Blocking, r.Major, r.Warning))
 	}
 }
+
+func logFindingDetails(logger func(string), severity string, details []string) {
+	for _, d := range details {
+		logger(fmt.Sprintf("    %s: %s", severity, d))
+	}
+}
