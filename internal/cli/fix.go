@@ -251,12 +251,7 @@ func (fl *fixLoop) check(ctx context.Context) (*orchestrator.Report, error) {
 		return fl.checkTUI(ctx, orch, runOpts)
 	}
 
-	// Plain text output via LoggerSink
-	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
-	report, err := orch.Run(ctx, runOpts, sink)
-	close(sink)
-	<-sinkDone
-	return report, err
+	return orch.RunWithLogger(ctx, runOpts, nil)
 }
 
 func (fl *fixLoop) checkTUI(ctx context.Context, orch *orchestrator.Orchestrator, runOpts orchestrator.RunOpts) (*orchestrator.Report, error) {

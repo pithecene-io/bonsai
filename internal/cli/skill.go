@@ -81,7 +81,7 @@ func runSkill(c *cli.Context) error {
 	}
 
 	if output.ShouldFail() {
-		os.Exit(1)
+		return cli.Exit("", 1)
 	}
 	return nil
 }

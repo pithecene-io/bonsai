@@ -174,11 +174,7 @@ func runCheckPlain(
 	orch *orchestrator.Orchestrator,
 	opts orchestrator.RunOpts,
 ) (*orchestrator.Report, error) {
-	sink, sinkDone := orchestrator.LoggerSink(func(msg string) { fmt.Println(msg) })
-	report, err := orch.Run(ctx, opts, sink)
-	close(sink)
-	<-sinkDone
-	return report, err
+	return orch.RunWithLogger(ctx, opts, nil)
 }
 
 func writeCheckReport(repoRoot string, cfg *config.Config, report *orchestrator.Report) (string, error) {

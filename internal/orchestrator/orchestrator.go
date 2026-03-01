@@ -204,6 +204,21 @@ func (o *Orchestrator) Run(ctx context.Context, opts RunOpts, events chan<- Even
 	return report, nil
 }
 
+// RunWithLogger executes the skill set, logging events via logger.
+// A nil logger defaults to fmt.Println.
+// It manages the event channel lifecycle internally, eliminating the
+// create-close-wait boilerplate that callers of Run would otherwise repeat.
+func (o *Orchestrator) RunWithLogger(ctx context.Context, opts RunOpts, logger func(string)) (*Report, error) {
+	if logger == nil {
+		logger = func(msg string) { fmt.Println(msg) }
+	}
+	sink, done := LoggerSink(logger)
+	report, err := o.Run(ctx, opts, sink)
+	close(sink)
+	<-done
+	return report, err
+}
+
 // partition separates skippable skills from runnable ones,
 // emitting skip/queue events and populating pre-filled results.
 func (rs *runScope) partition() []indexedSkill {
