@@ -55,7 +55,7 @@ func TestFilterCheapSkills_Empty(t *testing.T) {
 	}
 }
 
-func TestExtractDetailedFindings(t *testing.T) {
+func TestReportFormatFindings(t *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{
@@ -77,7 +77,7 @@ func TestExtractDetailedFindings(t *testing.T) {
 		},
 	}
 
-	got := extractDetailedFindings(report)
+	got := report.FormatFindings()
 
 	if !strings.Contains(got, "SKILL: skill-a") {
 		t.Error("missing skill-a header")
@@ -102,19 +102,19 @@ func TestExtractDetailedFindings(t *testing.T) {
 	}
 }
 
-func TestExtractDetailedFindings_AllPassed(t *testing.T) {
+func TestReportFormatFindings_AllPassed(t *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 0},
 		},
 	}
-	got := extractDetailedFindings(report)
+	got := report.FormatFindings()
 	if got != "" {
 		t.Errorf("expected empty string for all-passed report, got %q", got)
 	}
 }
 
-func TestExtractPerSkillFindings(t *testing.T) {
+func TestPerSkillFindings(t *testing.T) {
 	skills := []registry.Skill{
 		{Name: "skill-a", Cost: "cheap"},
 		{Name: "skill-b", Cost: "moderate"},
@@ -140,9 +140,10 @@ func TestExtractPerSkillFindings(t *testing.T) {
 		},
 	}
 
-	got := extractPerSkillFindings(report, skills)
+	fl := &fixLoop{skills: skills}
+	got := fl.perSkillFindings(report)
 	if len(got) != 2 {
-		t.Fatalf("extractPerSkillFindings: got %d, want 2", len(got))
+		t.Fatalf("perSkillFindings: got %d, want 2", len(got))
 	}
 
 	// First failed skill
@@ -169,13 +170,14 @@ func TestExtractPerSkillFindings(t *testing.T) {
 	}
 }
 
-func TestExtractPerSkillFindings_AllPassed(t *testing.T) {
+func TestPerSkillFindings_AllPassed(t *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 0},
 		},
 	}
-	got := extractPerSkillFindings(report, nil)
+	fl := &fixLoop{}
+	got := fl.perSkillFindings(report)
 	if len(got) != 0 {
 		t.Errorf("expected 0 findings, got %d", len(got))
 	}
@@ -221,18 +223,14 @@ func testSkill() registry.Skill {
 	}
 }
 
-// testFixOpts returns fixOpts wired to mock agents for testing.
-func testFixOpts(t *testing.T, checkMock, sessionMock agent.Agent) fixOpts {
+// testFixLoop returns a fixLoop wired to mock agents for testing.
+func testFixLoop(t *testing.T, checkMock, sessionMock agent.Agent) *fixLoop {
 	t.Helper()
-	resolver := assets.NewResolver("")
-	reg := &registry.Registry{
-		Defaults: registry.Defaults{},
-	}
-	return fixOpts{
+	return &fixLoop{
 		checkAgent:    checkMock,
 		sessionAgent:  sessionMock,
-		resolver:      resolver,
-		registry:      reg,
+		resolver:      assets.NewResolver(""),
+		registry:      &registry.Registry{Defaults: registry.Defaults{}},
 		config:        config.Default(),
 		skills:        []registry.Skill{testSkill()},
 		source:        "test:fix",
@@ -249,8 +247,8 @@ func TestFixLoop_InitialCheckPasses(t *testing.T) {
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
-	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(t.Context(), opts)
+	fl := testFixLoop(t, checkMock, sessionMock)
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -278,8 +276,8 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
-	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(t.Context(), opts)
+	fl := testFixLoop(t, checkMock, sessionMock)
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -298,7 +296,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	}
 
 	// Artifacts should be saved
-	reportPath := filepath.Join(opts.repoRoot, config.Default().Output.Dir, "fix.report.json")
+	reportPath := filepath.Join(fl.repoRoot, config.Default().Output.Dir, "fix.report.json")
 	if _, err := os.Stat(reportPath); os.IsNotExist(err) {
 		t.Error("fix.report.json not saved after successful fix")
 	}
@@ -312,10 +310,10 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
-	opts := testFixOpts(t, checkMock, sessionMock)
-	opts.maxIterations = 2
+	fl := testFixLoop(t, checkMock, sessionMock)
+	fl.maxIterations = 2
 
-	err := fixLoop(t.Context(), opts)
+	err := fl.run(t.Context())
 	if err == nil {
 		t.Fatal("expected error after max iterations exhausted")
 	}
@@ -341,8 +339,9 @@ func TestFixLoop_ContextCancellation(t *testing.T) {
 
 	sessionMock := &cancellingMockAgent{cancel: cancel}
 
-	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(ctx, opts)
+	fl := testFixLoop(t, checkMock, sessionMock)
+	fl.sessionAgent = sessionMock
+	err := fl.run(ctx)
 	// Should return nil (clean exit on cancellation)
 	if err != nil {
 		t.Errorf("expected nil on context cancellation, got: %v", err)
@@ -392,8 +391,8 @@ func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
-	opts := testFixOpts(t, checkMock, sessionMock)
-	err := fixLoop(t.Context(), opts)
+	fl := testFixLoop(t, checkMock, sessionMock)
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -472,13 +471,11 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
-	resolver := assets.NewResolver("")
-	reg := &registry.Registry{Defaults: registry.Defaults{}}
-	opts := fixOpts{
+	fl := &fixLoop{
 		checkAgent:    checkMock,
 		sessionAgent:  sessionMock,
-		resolver:      resolver,
-		registry:      reg,
+		resolver:      assets.NewResolver(""),
+		registry:      &registry.Registry{Defaults: registry.Defaults{}},
 		config:        config.Default(),
 		skills:        skills,
 		source:        "test:multi",
@@ -486,7 +483,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 		maxIterations: 3,
 	}
 
-	err := fixLoop(t.Context(), opts)
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop: %v", err)
 	}
@@ -509,7 +506,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 	}
 }
 
-// --- interrupt regression tests (injected runCheck) ---
+// --- interrupt regression tests (injected checker) ---
 
 // TestFixLoop_InitialCheckInterrupt_NilReport verifies that fixLoop
 // returns nil (clean exit) when the initial check returns (nil, nil),
@@ -517,15 +514,16 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 // was a nil-pointer dereference on report.ShouldFail().
 func TestFixLoop_InitialCheckInterrupt_NilReport(t *testing.T) {
 	mock := &agent.MockAgent{NameVal: "mock"}
-	err := fixLoop(t.Context(), fixOpts{
+	fl := &fixLoop{
 		checkAgent:    mock,
 		sessionAgent:  mock,
 		skills:        []registry.Skill{testSkill()},
 		maxIterations: 3,
-		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
+		checker: func(_ context.Context) (*orchestrator.Report, error) {
 			return nil, nil //nolint:nilnil // testing the nil-report guard
 		},
-	})
+	}
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop returned error on initial interrupt: %v", err)
 	}
@@ -543,14 +541,14 @@ func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
 	mock := &agent.MockAgent{NameVal: "mock"}
 
 	tmpDir := t.TempDir()
-	err := fixLoop(t.Context(), fixOpts{
+	fl := &fixLoop{
 		checkAgent:    mock,
 		sessionAgent:  mock,
 		resolver:      assets.NewResolver(tmpDir),
 		skills:        []registry.Skill{testSkill()},
 		maxIterations: 3,
 		repoRoot:      tmpDir,
-		runCheck: func(_ context.Context, _ fixOpts) (*orchestrator.Report, error) {
+		checker: func(_ context.Context) (*orchestrator.Report, error) {
 			n := checkCalls.Add(1)
 			if n == 1 {
 				// Initial check: report a blocking failure so the
@@ -570,7 +568,8 @@ func TestFixLoop_RecheckInterrupt_NilReport(t *testing.T) {
 			// Re-check: simulate TUI interrupt.
 			return nil, nil //nolint:nilnil // testing the nil-report guard
 		},
-	})
+	}
+	err := fl.run(t.Context())
 	if err != nil {
 		t.Fatalf("fixLoop returned error on re-check interrupt: %v", err)
 	}

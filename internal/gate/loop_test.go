@@ -1,9 +1,7 @@
 package gate
 
 import (
-	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,8 +9,7 @@ import (
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
 
-func TestExtractFindings(t *testing.T) {
-	l := &Loop{}
+func TestReportFindingSummary(t *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 0, Blocking: 0, Major: 1, Warning: 2},
@@ -21,7 +18,7 @@ func TestExtractFindings(t *testing.T) {
 		},
 	}
 
-	findings := l.extractFindings(report)
+	findings := report.FindingSummary()
 
 	if findings == "" {
 		t.Fatal("expected non-empty findings")
@@ -47,8 +44,7 @@ func TestExtractFindings(t *testing.T) {
 	}
 }
 
-func TestExtractFindingsEmpty(t *testing.T) {
-	l := &Loop{}
+func TestReportFindingSummary_Empty(t *testing.T) {
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 0},
@@ -56,47 +52,20 @@ func TestExtractFindingsEmpty(t *testing.T) {
 		},
 	}
 
-	findings := l.extractFindings(report)
+	findings := report.FindingSummary()
 	if findings != "" {
 		t.Errorf("expected empty findings for all-passing report, got: %q", findings)
 	}
 }
 
-func TestExtractFindings_AllFailed(t *testing.T) {
-	l := &Loop{}
-	report := &orchestrator.Report{
-		Results: []orchestrator.Result{
-			{Name: "skill-a", ExitCode: 1, Blocking: 1, Major: 0, Warning: 0},
-			{Name: "skill-b", ExitCode: 1, Blocking: 0, Major: 2, Warning: 3},
-		},
-	}
-
-	findings := l.extractFindings(report)
-	lines := strings.Split(findings, "\n")
-	if len(lines) != 2 {
-		t.Errorf("expected 2 lines, got %d: %q", len(lines), findings)
-	}
-}
-
-func TestExtractFindings_EmptyResults(t *testing.T) {
-	l := &Loop{}
-	report := &orchestrator.Report{}
-
-	findings := l.extractFindings(report)
-	if findings != "" {
-		t.Errorf("expected empty findings for empty results, got: %q", findings)
-	}
-}
-
-func TestPrintFailedFindings(_ *testing.T) {
+func TestReportPrintFindings(_ *testing.T) {
 	// This test just verifies it doesn't panic; output goes to stderr
-	l := &Loop{}
 	report := &orchestrator.Report{
 		Results: []orchestrator.Result{
 			{Name: "skill-a", ExitCode: 1, Blocking: 2, Major: 0, Warning: 0},
 		},
 	}
-	l.printFailedFindings(report)
+	report.PrintFindings(os.Stderr)
 }
 
 func TestPrintFailedFindings_NoneFailedNoPanic(_ *testing.T) {

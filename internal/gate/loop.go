@@ -154,18 +154,18 @@ func (l *Loop) runGateIteration(ctx context.Context, iteration, maxIter int) (*i
 
 	if iteration == maxIter {
 		fmt.Fprintf(os.Stderr, "\n✖ Governance gate failed after %d iterations\n", maxIter)
-		l.printFailedFindings(report)
+		report.PrintFindings(os.Stderr)
 		return nil, fmt.Errorf("governance gate failed after %d iterations", maxIter)
 	}
 
-	l.printFailedFindings(report)
+	report.PrintFindings(os.Stderr)
 	fmt.Printf("\nGovernance gate failed — %d blocking finding(s)\n", report.BlockingFailed)
 
 	if !l.promptReenter() {
 		return nil, fmt.Errorf("user declined to re-enter")
 	}
 
-	return &iterState{findings: l.extractFindings(report)}, nil
+	return &iterState{findings: report.FindingSummary()}, nil
 }
 
 // runSession builds the system prompt and invokes claude interactively.
@@ -333,33 +333,6 @@ func (l *Loop) saveArtifacts(report *orchestrator.Report) {
 			fmt.Printf("Saved: %s\n", reportPath)
 		}
 	}
-}
-
-// printFailedFindings prints a summary of failed skill findings to stderr.
-func (l *Loop) printFailedFindings(report *orchestrator.Report) {
-	for i := range report.Results {
-		r := &report.Results[i]
-		if r.ExitCode != 0 {
-			fmt.Fprintf(os.Stderr, "  SKILL: %s | blocking:%d major:%d warning:%d\n",
-				r.Name, r.Blocking, r.Major, r.Warning)
-		}
-	}
-}
-
-// extractFindings extracts failed findings into a string for prompt re-injection.
-// Format matches ai-implement.sh:
-//
-//	"SKILL: <name> | blocking: <n> | major: <n> | warning: <n>"
-func (l *Loop) extractFindings(report *orchestrator.Report) string {
-	var lines []string
-	for i := range report.Results {
-		r := &report.Results[i]
-		if r.ExitCode != 0 {
-			lines = append(lines, fmt.Sprintf("SKILL: %s | blocking: %d | major: %d | warning: %d",
-				r.Name, r.Blocking, r.Major, r.Warning))
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 // promptReenter asks the user if they want to re-enter the session.

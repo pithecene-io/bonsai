@@ -6,6 +6,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +51,35 @@ type Result struct {
 	InfoDetails     []string `json:"info_details,omitempty"`
 }
 
+// severityPairs maps severity labels to detail slices for table-driven iteration.
+var severityPairs = []struct {
+	label   string
+	details func(*Result) []string
+}{
+	{"blocking", func(r *Result) []string { return r.BlockingDetails }},
+	{"major", func(r *Result) []string { return r.MajorDetails }},
+	{"warning", func(r *Result) []string { return r.WarningDetails }},
+}
+
+// Failed returns true when this result represents a non-passing skill.
+func (r *Result) Failed() bool { return r.ExitCode != 0 }
+
+// Details returns severity-prefixed detail lines for this result's findings.
+func (r *Result) Details(prefix string) []string {
+	var lines []string
+	for _, sp := range severityPairs {
+		for _, d := range sp.details(r) {
+			lines = append(lines, prefix+sp.label+": "+d)
+		}
+	}
+	return lines
+}
+
+// SummaryLine returns a one-line status string for display.
+func (r *Result) SummaryLine() string {
+	return fmt.Sprintf("blocking:%d major:%d warning:%d", r.Blocking, r.Major, r.Warning)
+}
+
 // Report holds the aggregate orchestrator output.
 type Report struct {
 	Source         string   `json:"source"`
@@ -60,6 +90,48 @@ type Report struct {
 	Skipped        int      `json:"skipped"`
 	BlockingFailed int      `json:"blocking_failed"`
 	Results        []Result `json:"results"`
+}
+
+// FailedResults returns pointers to all results with non-zero exit codes.
+func (r *Report) FailedResults() []*Result {
+	var failed []*Result
+	for i := range r.Results {
+		if r.Results[i].Failed() {
+			failed = append(failed, &r.Results[i])
+		}
+	}
+	return failed
+}
+
+// FormatFindings builds a multi-section findings string with full detail lines.
+func (r *Report) FormatFindings() string {
+	var sections []string
+	for _, res := range r.FailedResults() {
+		lines := append([]string{"SKILL: " + res.Name}, res.Details("  ")...)
+		sections = append(sections, strings.Join(lines, "\n"))
+	}
+	return strings.Join(sections, "\n\n")
+}
+
+// FindingSummary returns a compact summary for prompt re-injection.
+// Format: "SKILL: <name> | blocking: <n> | major: <n> | warning: <n>"
+func (r *Report) FindingSummary() string {
+	var lines []string
+	for _, res := range r.FailedResults() {
+		lines = append(lines, fmt.Sprintf("SKILL: %s | blocking: %d | major: %d | warning: %d",
+			res.Name, res.Blocking, res.Major, res.Warning))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// PrintFindings writes failed findings to w.
+func (r *Report) PrintFindings(w io.Writer) {
+	for _, res := range r.FailedResults() {
+		_, _ = fmt.Fprintf(w, "  SKILL: %s | %s\n", res.Name, res.SummaryLine())
+		for _, line := range res.Details("    ") {
+			_, _ = fmt.Fprintln(w, line)
+		}
+	}
 }
 
 // Orchestrator runs a set of skills and aggregates results.
@@ -191,7 +263,13 @@ func (ws *workerState) triggerFailFast(rs *runScope, idx int, s registry.Skill) 
 
 // dispatch launches concurrent skill workers with semaphore and fail-fast.
 func (rs *runScope) dispatch(ctx context.Context, runnable []indexedSkill) {
-	concurrency := effectiveConcurrency(rs.opts.Concurrency, len(runnable))
+	concurrency := rs.opts.Concurrency
+	if concurrency <= 0 {
+		concurrency = len(runnable)
+	}
+	if concurrency == 0 {
+		concurrency = 1
+	}
 
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -216,16 +294,6 @@ func (rs *runScope) dispatch(ctx context.Context, runnable []indexedSkill) {
 	}
 
 	wg.Wait()
-}
-
-func effectiveConcurrency(requested, runnableCount int) int {
-	if requested <= 0 {
-		requested = runnableCount
-	}
-	if requested == 0 {
-		return 1
-	}
-	return requested
 }
 
 func (rs *runScope) runWorker(
@@ -259,7 +327,7 @@ func (rs *runScope) runWorker(
 		Elapsed: time.Duration(result.Elapsed * float64(time.Millisecond)),
 	})
 
-	if rs.opts.FailFast && result.ExitCode != 0 && s.Mandatory {
+	if rs.opts.FailFast && result.Failed() && s.Mandatory {
 		ws.triggerFailFast(rs, idx, s)
 	}
 }
@@ -279,7 +347,7 @@ func (rs *runScope) aggregate() *Report {
 		switch {
 		case r.Status == "skipped":
 			report.Skipped++
-		case r.Status == "error" || r.ExitCode != 0:
+		case r.Status == "error" || r.Failed():
 			report.Failed++
 			if r.Mandatory && r.Status != "skipped" {
 				report.BlockingFailed++

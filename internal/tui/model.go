@@ -187,7 +187,7 @@ func (m Model) handleDone(ev orchestrator.Event) Model {
 	entry.elapsed = ev.Elapsed
 	entry.result = ev.Result
 	switch {
-	case ev.Result != nil && ev.Result.ExitCode == 0:
+	case ev.Result != nil && !ev.Result.Failed():
 		entry.state = statePassed
 	case ev.Result != nil && ev.Result.Mandatory:
 		entry.state = stateFailed
@@ -234,9 +234,10 @@ func (m Model) View() string {
 
 		// Show finding details for completed skills
 		if s.result != nil {
-			m.renderDetails(&b, "blocking", s.result.BlockingDetails)
-			m.renderDetails(&b, "major", s.result.MajorDetails)
-			m.renderDetails(&b, "warning", s.result.WarningDetails)
+			for _, line := range s.result.Details("      ") {
+				b.WriteString(styleDetail.Render(line))
+				b.WriteString("\n")
+			}
 		}
 	}
 
@@ -310,14 +311,6 @@ func (m Model) renderSkill(s skillEntry) string {
 	}
 
 	return fmt.Sprintf("  %s %s %s %s", icon, name, meta, timing)
-}
-
-func (m Model) renderDetails(b *strings.Builder, severity string, details []string) {
-	for _, d := range details {
-		line := fmt.Sprintf("      %s: %s", severity, d)
-		b.WriteString(styleDetail.Render(line))
-		b.WriteString("\n")
-	}
 }
 
 func (m Model) renderProgress() string {
