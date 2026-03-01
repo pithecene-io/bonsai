@@ -6,11 +6,11 @@ import "fmt"
 // is backed by a goroutine that formats events as human-readable strings and
 // calls the provided logger function. The done channel is closed when the
 // goroutine exits (after the event channel is closed).
-func LoggerSink(logger func(string)) (chan<- Event, <-chan struct{}) {
+func LoggerSink(logger func(string)) (events chan<- Event, done <-chan struct{}) {
 	ch := make(chan Event, 64)
-	done := make(chan struct{})
+	d := make(chan struct{})
 	go func() {
-		defer close(done)
+		defer close(d)
 		for ev := range ch {
 			switch ev.Kind {
 			case EventSkipped:
@@ -35,7 +35,7 @@ func LoggerSink(logger func(string)) (chan<- Event, <-chan struct{}) {
 			}
 		}
 	}()
-	return ch, done
+	return ch, d
 }
 
 func logResultLine(logger func(string), r *Result) {

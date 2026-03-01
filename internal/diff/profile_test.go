@@ -12,7 +12,7 @@ import (
 
 // setupTestRepo creates a temporary git repo with an initial commit and
 // returns the repo root and the base commit SHA.
-func setupTestRepo(t *testing.T) (string, string) {
+func setupTestRepo(t *testing.T) (repoRoot, baseSHA string) {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -49,14 +49,12 @@ func TestComputeProfile_TrackedChanges(t *testing.T) {
 	cfg := config.Default()
 
 	// Add a tracked file with known content.
-	if err := os.WriteFile(filepath.Join(dir, "src/main.go"), []byte("package main\n"), 0o644); err != nil {
-		// src/ dir might not exist
-		if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, "src/main.go"), []byte("package main\n"), 0o644); err != nil {
-			t.Fatalf("write: %v", err)
-		}
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(srcDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
 	}
 	if _, err := gitutil.Run(dir, "add", "."); err != nil {
 		t.Fatalf("git add: %v", err)
@@ -155,7 +153,7 @@ func TestComputeProfile_PublicSurfaceDetection(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "api", "v1"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "api/v1/handler.go"), []byte("package v1\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "api", "v1", "handler.go"), []byte("package v1\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if _, err := gitutil.Run(dir, "add", "."); err != nil {
@@ -186,7 +184,7 @@ func TestComputeProfile_StructuralDetection(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "internal", "orchestrator"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "internal/orchestrator/run.go"), []byte("package orchestrator\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "internal", "orchestrator", "run.go"), []byte("package orchestrator\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if _, err := gitutil.Run(dir, "add", "."); err != nil {
@@ -214,13 +212,13 @@ func TestComputeProfile_TopLevelDirs(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "src/app.go"), []byte("package src\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "src", "app.go"), []byte("package src\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "docs"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "docs/guide.md"), []byte("# Guide\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "docs", "guide.md"), []byte("# Guide\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if _, err := gitutil.Run(dir, "add", "."); err != nil {
