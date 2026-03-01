@@ -319,12 +319,12 @@ func TestSaveArtifacts_CreatesOutputDir(t *testing.T) {
 	// saveArtifacts with no git repo will fail on the diff call,
 	// but should still create the output directory and write the report
 	report := &orchestrator.Report{
-		Source:    "test",
-		Total:    2,
-		Passed:   2,
-		Failed:   0,
-		Skipped:  0,
-		Results:  []orchestrator.Result{{Name: "skill-a", ExitCode: 0}},
+		Source:  "test",
+		Total:   2,
+		Passed:  2,
+		Failed:  0,
+		Skipped: 0,
+		Results: []orchestrator.Result{{Name: "skill-a", ExitCode: 0}},
 	}
 
 	l.saveArtifacts(report)
