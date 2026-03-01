@@ -106,3 +106,197 @@ func TestResolveSkillDir_NotFound(t *testing.T) {
 		t.Error("expected error for nonexistent skill")
 	}
 }
+
+func TestReadFile_FallsBackToEmbedded(t *testing.T) {
+	// With no repo root, ReadFile should fall back to embedded assets
+	r := assets.NewResolver("")
+	data, err := r.ReadFile("claude.md")
+	if err != nil {
+		t.Fatalf("ReadFile(claude.md): %v", err)
+	}
+	if len(data) == 0 {
+		t.Error("expected non-empty claude.md from embedded")
+	}
+}
+
+func TestReadFile_RepoLocalOverride(t *testing.T) {
+	dir := t.TempDir()
+	aiDir := filepath.Join(dir, "ai")
+	if err := os.MkdirAll(aiDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(aiDir, "claude.md"), []byte("# Custom"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := assets.NewResolver(dir)
+	data, err := r.ReadFile("claude.md")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(data) != "# Custom" {
+		t.Errorf("expected repo-local override, got %q", string(data))
+	}
+}
+
+func TestReadFile_NotFound(t *testing.T) {
+	r := assets.NewResolver("")
+	_, err := r.ReadFile("nonexistent-file-that-does-not-exist.xyz")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestReadEmbedded_NotFound(t *testing.T) {
+	r := assets.NewResolver("")
+	_, err := r.ReadEmbedded("nonexistent.md")
+	if err == nil {
+		t.Error("expected error for nonexistent embedded file")
+	}
+}
+
+func TestResolveSkillDir_ExtraDirs(t *testing.T) {
+	extraDir := t.TempDir()
+	skillDir := filepath.Join(extraDir, "custom-skill", "v1")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &assets.Resolver{
+		ExtraSkillDirs: []string{extraDir},
+	}
+	fsPath, embedPath, err := r.ResolveSkillDir("custom-skill", "v1")
+	if err != nil {
+		t.Fatalf("ResolveSkillDir: %v", err)
+	}
+	if fsPath != skillDir {
+		t.Errorf("fsPath = %q, want %q", fsPath, skillDir)
+	}
+	if embedPath != "" {
+		t.Errorf("expected empty embedPath, got %q", embedPath)
+	}
+}
+
+func TestResolveSkillDir_UserConfigOverride(t *testing.T) {
+	userDir := t.TempDir()
+	skillDir := filepath.Join(userDir, "skills", "my-skill", "v1")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &assets.Resolver{
+		UserConfigDir: userDir,
+	}
+	fsPath, embedPath, err := r.ResolveSkillDir("my-skill", "v1")
+	if err != nil {
+		t.Fatalf("ResolveSkillDir: %v", err)
+	}
+	if fsPath != skillDir {
+		t.Errorf("fsPath = %q, want %q", fsPath, skillDir)
+	}
+	if embedPath != "" {
+		t.Errorf("expected empty embedPath, got %q", embedPath)
+	}
+}
+
+func TestResolveSkillDir_PriorityOrder(t *testing.T) {
+	// Repo-local should win over extra dirs and user config
+	repoDir := t.TempDir()
+	extraDir := t.TempDir()
+	userDir := t.TempDir()
+
+	name, version := "priority-test", "v1"
+
+	// Create skill in all three locations
+	repoSkillDir := filepath.Join(repoDir, "ai", "skills", name, version)
+	extraSkillDir := filepath.Join(extraDir, name, version)
+	userSkillDir := filepath.Join(userDir, "skills", name, version)
+	for _, d := range []string{repoSkillDir, extraSkillDir, userSkillDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	r := &assets.Resolver{
+		RepoRoot:       repoDir,
+		UserConfigDir:  userDir,
+		ExtraSkillDirs: []string{extraDir},
+	}
+
+	fsPath, _, err := r.ResolveSkillDir(name, version)
+	if err != nil {
+		t.Fatalf("ResolveSkillDir: %v", err)
+	}
+	if fsPath != repoSkillDir {
+		t.Errorf("expected repo-local to win, got %q", fsPath)
+	}
+}
+
+func TestResolveRoleFile_UserConfigOverride(t *testing.T) {
+	userDir := t.TempDir()
+	roleDir := filepath.Join(userDir, "roles")
+	if err := os.MkdirAll(roleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(roleDir, "reviewer.md"), []byte("# User reviewer"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &assets.Resolver{
+		UserConfigDir: userDir,
+	}
+	data, err := r.ResolveRoleFile("reviewer")
+	if err != nil {
+		t.Fatalf("ResolveRoleFile: %v", err)
+	}
+	if string(data) != "# User reviewer" {
+		t.Errorf("expected user config override, got %q", string(data))
+	}
+}
+
+func TestResolveRoleFile_NotFound(t *testing.T) {
+	r := assets.NewResolver("")
+	_, err := r.ResolveRoleFile("nonexistent-role")
+	if err == nil {
+		t.Error("expected error for nonexistent role")
+	}
+}
+
+func TestResolveRoleFile_RepoWinsOverUser(t *testing.T) {
+	repoDir := t.TempDir()
+	userDir := t.TempDir()
+
+	// Create in both locations
+	repoRoleDir := filepath.Join(repoDir, "ai", "roles")
+	userRoleDir := filepath.Join(userDir, "roles")
+	for _, d := range []string{repoRoleDir, userRoleDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(repoRoleDir, "test.md"), []byte("repo"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userRoleDir, "test.md"), []byte("user"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := &assets.Resolver{
+		RepoRoot:      repoDir,
+		UserConfigDir: userDir,
+	}
+	data, err := r.ResolveRoleFile("test")
+	if err != nil {
+		t.Fatalf("ResolveRoleFile: %v", err)
+	}
+	if string(data) != "repo" {
+		t.Errorf("expected repo to win over user, got %q", string(data))
+	}
+}
+
+func TestNewResolver_EmptyRepoRoot(t *testing.T) {
+	r := assets.NewResolver("")
+	if r.RepoRoot != "" {
+		t.Errorf("RepoRoot = %q, want empty", r.RepoRoot)
+	}
+}
