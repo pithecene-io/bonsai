@@ -105,7 +105,7 @@ The schema requires:
 - `warning`: array of warning findings
 - `info`: array of info findings
 
-Each finding is an object with at minimum a `message` string field.
+Each finding is a plain string describing the issue.
 
 Status MUST be `"fail"` if and only if the `blocking` array is
 non-empty.

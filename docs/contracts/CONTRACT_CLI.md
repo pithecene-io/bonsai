@@ -29,7 +29,7 @@ defined in `internal/cli/`.
 | `bonsai fix` | *(none)* | Autonomously fix governance findings |
 | `bonsai plan` | `[-- claude-args...]` | Interactive planning session |
 | `bonsai implement` | `[-- claude-args...]` | Implementation with governance gating |
-| `bonsai review` | *(none)* | Autonomous code review |
+| `bonsai review` | *(none)* | Interactive code review session |
 | `bonsai patch` | `<task-description>` | Three-phase patch surgery |
 | `bonsai chat` | `[role] [-- claude-args...]` | Interactive AI chat |
 | `bonsai skill` | `<name>` | Run a single governance skill |
