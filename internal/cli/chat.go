@@ -39,7 +39,7 @@ func runChat(c *cli.Context) error {
 	}
 
 	if _, err := env.Resolver.ResolveRoleFile(role); err != nil {
-		return fmt.Errorf("role %q not found (available: architect, implementer, planner, reviewer, patch-architect, patcher)", role)
+		return fmt.Errorf("role %q not found (available: architect, implementer, planner, reviewer, patcher)", role)
 	}
 
 	mode, ok := roleModes[role]

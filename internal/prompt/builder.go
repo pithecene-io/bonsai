@@ -17,13 +17,12 @@ type Mode string
 
 // Operating modes declared in system prompts.
 const (
-	ModeArchitect      Mode = "ARCHITECT"
-	ModePlanner        Mode = "PLANNER"
-	ModeImplementer    Mode = "IMPLEMENTER"
-	ModeReviewer       Mode = "REVIEWER"
-	ModeValidator      Mode = "VALIDATOR"
-	ModePatchArchitect Mode = "PATCH-ARCHITECT"
-	ModePatcher        Mode = "PATCHER"
+	ModeArchitect   Mode = "ARCHITECT"
+	ModePlanner     Mode = "PLANNER"
+	ModeImplementer Mode = "IMPLEMENTER"
+	ModeReviewer    Mode = "REVIEWER"
+	ModeValidator   Mode = "VALIDATOR"
+	ModePatcher     Mode = "PATCHER"
 )
 
 // Builder composes system prompts from layered governance documents.
@@ -317,8 +316,6 @@ func modeDefaultRole(m Mode) string {
 		return "implementer"
 	case ModeReviewer:
 		return "reviewer"
-	case ModePatchArchitect:
-		return "patch-architect"
 	case ModePatcher:
 		return "patcher"
 	default:

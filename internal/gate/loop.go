@@ -183,7 +183,7 @@ func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 
 	extraArgs := l.opts.ExtraArgs
 	if l.opts.Config != nil {
-		if implModel := l.opts.Config.Models.ModelForRole("implement"); implModel != "" {
+		if implModel := l.opts.Config.Models.ModelForRole("implementer"); implModel != "" {
 			extraArgs = append([]string{"--model", implModel}, extraArgs...)
 		}
 	}

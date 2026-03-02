@@ -56,7 +56,7 @@ _bonsai_completions() {
       return 0
       ;;
     chat)
-      COMPREPLY=($(compgen -W "architect implementer planner reviewer patch-architect patcher" -- "${cur}"))
+      COMPREPLY=($(compgen -W "architect implementer planner reviewer patcher" -- "${cur}"))
       return 0
       ;;
     check)
@@ -117,7 +117,7 @@ _bonsai() {
     args)
       case "${words[1]}" in
         chat)
-          _values 'role' architect implementer planner reviewer patch-architect patcher
+          _values 'role' architect implementer planner reviewer patcher
           ;;
         check)
           _arguments \
@@ -161,7 +161,7 @@ complete -c bonsai -n '__fish_use_subcommand' -a hooks -d 'Manage git hooks'
 complete -c bonsai -n '__fish_use_subcommand' -a completion -d 'Generate completions'
 complete -c bonsai -n '__fish_use_subcommand' -a help -d 'Show help'
 
-complete -c bonsai -n '__fish_seen_subcommand_from chat' -a 'architect implementer planner reviewer patch-architect patcher'
+complete -c bonsai -n '__fish_seen_subcommand_from chat' -a 'architect implementer planner reviewer patcher'
 complete -c bonsai -n '__fish_seen_subcommand_from check' -l bundle -d 'Bundle name'
 complete -c bonsai -n '__fish_seen_subcommand_from check' -l mode -d 'Governance mode'
 complete -c bonsai -n '__fish_seen_subcommand_from check' -l scope -d 'Comma-separated path prefixes'

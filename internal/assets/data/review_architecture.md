@@ -105,7 +105,7 @@ Use `ai-patch` instead of full implementation. It runs three phases:
 
 ### Phase 1 — Patch Architecture
 
-Claude with `patch-architect.md` plans the change.
+Claude with `architect.md` plans the scoped change.
 
 Output must contain:
 - Files to modify

@@ -219,27 +219,27 @@ func TestModelForRole(t *testing.T) {
 		want string
 	}{
 		{
-			name: "implement",
-			m:    config.ModelsConfig{Roles: config.RoleModels{Implement: "opus"}},
-			role: "implement",
+			name: "implementer",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Implementer: "opus"}},
+			role: "implementer",
 			want: "opus",
 		},
 		{
-			name: "plan",
-			m:    config.ModelsConfig{Roles: config.RoleModels{Plan: "opus"}},
-			role: "plan",
+			name: "planner",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Planner: "opus"}},
+			role: "planner",
 			want: "opus",
 		},
 		{
-			name: "review",
-			m:    config.ModelsConfig{Roles: config.RoleModels{Review: "haiku"}},
-			role: "review",
+			name: "reviewer",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Reviewer: "haiku"}},
+			role: "reviewer",
 			want: "haiku",
 		},
 		{
-			name: "patch",
-			m:    config.ModelsConfig{Roles: config.RoleModels{Patch: "opus"}},
-			role: "patch",
+			name: "patcher",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Patcher: "opus"}},
+			role: "patcher",
 			want: "opus",
 		},
 		{
@@ -262,8 +262,8 @@ func TestModelForRole(t *testing.T) {
 		},
 		{
 			name: "empty role field returns empty",
-			m:    config.ModelsConfig{Roles: config.RoleModels{Implement: ""}},
-			role: "implement",
+			m:    config.ModelsConfig{Roles: config.RoleModels{Implementer: ""}},
+			role: "implementer",
 			want: "",
 		},
 	}
@@ -290,17 +290,17 @@ func TestDefaultModelsConfig(t *testing.T) {
 	if m.Skills.Heavy != "sonnet" {
 		t.Errorf("Skills.Heavy = %q, want sonnet", m.Skills.Heavy)
 	}
-	if m.Roles.Implement != "opus" {
-		t.Errorf("Roles.Implement = %q, want opus", m.Roles.Implement)
+	if m.Roles.Implementer != "opus" {
+		t.Errorf("Roles.Implementer = %q, want opus", m.Roles.Implementer)
 	}
-	if m.Roles.Plan != "opus" {
-		t.Errorf("Roles.Plan = %q, want opus", m.Roles.Plan)
+	if m.Roles.Planner != "opus" {
+		t.Errorf("Roles.Planner = %q, want opus", m.Roles.Planner)
 	}
-	if m.Roles.Review != "codex" {
-		t.Errorf("Roles.Review = %q, want codex", m.Roles.Review)
+	if m.Roles.Reviewer != "codex" {
+		t.Errorf("Roles.Reviewer = %q, want codex", m.Roles.Reviewer)
 	}
-	if m.Roles.Patch != "sonnet" {
-		t.Errorf("Roles.Patch = %q, want sonnet", m.Roles.Patch)
+	if m.Roles.Patcher != "sonnet" {
+		t.Errorf("Roles.Patcher = %q, want sonnet", m.Roles.Patcher)
 	}
 	if m.Roles.Chat != "sonnet" {
 		t.Errorf("Roles.Chat = %q, want sonnet", m.Roles.Chat)
@@ -315,8 +315,8 @@ func TestLoadRepoConfig_ModelsConfig(t *testing.T) {
     cheap: haiku
     heavy: opus
   roles:
-    implement: opus
-    plan: opus
+    implementer: opus
+    planner: opus
 `
 	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -333,15 +333,15 @@ func TestLoadRepoConfig_ModelsConfig(t *testing.T) {
 	if cfg.Models.Skills.Heavy != "opus" {
 		t.Errorf("Models.Skills.Heavy = %q, want opus", cfg.Models.Skills.Heavy)
 	}
-	if cfg.Models.Roles.Implement != "opus" {
-		t.Errorf("Models.Roles.Implement = %q, want opus", cfg.Models.Roles.Implement)
+	if cfg.Models.Roles.Implementer != "opus" {
+		t.Errorf("Models.Roles.Implementer = %q, want opus", cfg.Models.Roles.Implementer)
 	}
-	if cfg.Models.Roles.Plan != "opus" {
-		t.Errorf("Models.Roles.Plan = %q, want opus", cfg.Models.Roles.Plan)
+	if cfg.Models.Roles.Planner != "opus" {
+		t.Errorf("Models.Roles.Planner = %q, want opus", cfg.Models.Roles.Planner)
 	}
 	// Unset fields should retain defaults
-	if cfg.Models.Roles.Review != "codex" {
-		t.Errorf("Models.Roles.Review = %q, want codex (default)", cfg.Models.Roles.Review)
+	if cfg.Models.Roles.Reviewer != "codex" {
+		t.Errorf("Models.Roles.Reviewer = %q, want codex (default)", cfg.Models.Roles.Reviewer)
 	}
 	if cfg.Models.Skills.Moderate != "sonnet" {
 		t.Errorf("Models.Skills.Moderate = %q, want sonnet (default)", cfg.Models.Skills.Moderate)
@@ -351,10 +351,10 @@ func TestLoadRepoConfig_ModelsConfig(t *testing.T) {
 func TestLoadEnvOverride_ModelsConfig(t *testing.T) {
 	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-3")
 	t.Setenv("BONSAI_MODEL_SKILL_HEAVY", "opus-4")
-	t.Setenv("BONSAI_MODEL_ROLE_IMPLEMENT", "opus")
-	t.Setenv("BONSAI_MODEL_ROLE_PLAN", "opus")
-	t.Setenv("BONSAI_MODEL_ROLE_REVIEW", "haiku")
-	t.Setenv("BONSAI_MODEL_ROLE_PATCH", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_IMPLEMENTER", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_PLANNER", "opus")
+	t.Setenv("BONSAI_MODEL_ROLE_REVIEWER", "haiku")
+	t.Setenv("BONSAI_MODEL_ROLE_PATCHER", "opus")
 	t.Setenv("BONSAI_MODEL_ROLE_CHAT", "haiku")
 
 	cfg, err := config.Load("")
@@ -368,17 +368,17 @@ func TestLoadEnvOverride_ModelsConfig(t *testing.T) {
 	if cfg.Models.Skills.Heavy != "opus-4" {
 		t.Errorf("Skills.Heavy = %q, want opus-4", cfg.Models.Skills.Heavy)
 	}
-	if cfg.Models.Roles.Implement != "opus" {
-		t.Errorf("Roles.Implement = %q, want opus", cfg.Models.Roles.Implement)
+	if cfg.Models.Roles.Implementer != "opus" {
+		t.Errorf("Roles.Implementer = %q, want opus", cfg.Models.Roles.Implementer)
 	}
-	if cfg.Models.Roles.Plan != "opus" {
-		t.Errorf("Roles.Plan = %q, want opus", cfg.Models.Roles.Plan)
+	if cfg.Models.Roles.Planner != "opus" {
+		t.Errorf("Roles.Planner = %q, want opus", cfg.Models.Roles.Planner)
 	}
-	if cfg.Models.Roles.Review != "haiku" {
-		t.Errorf("Roles.Review = %q, want haiku", cfg.Models.Roles.Review)
+	if cfg.Models.Roles.Reviewer != "haiku" {
+		t.Errorf("Roles.Reviewer = %q, want haiku", cfg.Models.Roles.Reviewer)
 	}
-	if cfg.Models.Roles.Patch != "opus" {
-		t.Errorf("Roles.Patch = %q, want opus", cfg.Models.Roles.Patch)
+	if cfg.Models.Roles.Patcher != "opus" {
+		t.Errorf("Roles.Patcher = %q, want opus", cfg.Models.Roles.Patcher)
 	}
 	if cfg.Models.Roles.Chat != "haiku" {
 		t.Errorf("Roles.Chat = %q, want haiku", cfg.Models.Roles.Chat)
@@ -437,228 +437,3 @@ func TestLoadRepoConfig_ConcurrencyZeroOverridesNonZero(t *testing.T) {
 	}
 }
 
-func TestLoadRepoConfig_LegacyAgentsCompat(t *testing.T) {
-	dir := t.TempDir()
-	repoConfig := filepath.Join(dir, ".bonsai.yaml")
-	yaml := `agents:
-  anthropic:
-    api_key: sk-legacy-key
-  models:
-    check:
-      cheap: haiku-legacy
-      moderate: sonnet-legacy
-      heavy: opus-legacy
-    implement: opus-legacy
-    plan: opus-legacy
-    review: codex-legacy
-    patch: sonnet-legacy
-    chat: sonnet-legacy
-`
-	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	cfg, err := config.Load(dir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.Providers.Anthropic.APIKey != "sk-legacy-key" {
-		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-legacy-key", cfg.Providers.Anthropic.APIKey)
-	}
-	if cfg.Models.Skills.Cheap != "haiku-legacy" {
-		t.Errorf("Skills.Cheap = %q, want haiku-legacy", cfg.Models.Skills.Cheap)
-	}
-	if cfg.Models.Skills.Moderate != "sonnet-legacy" {
-		t.Errorf("Skills.Moderate = %q, want sonnet-legacy", cfg.Models.Skills.Moderate)
-	}
-	if cfg.Models.Skills.Heavy != "opus-legacy" {
-		t.Errorf("Skills.Heavy = %q, want opus-legacy", cfg.Models.Skills.Heavy)
-	}
-	if cfg.Models.Roles.Implement != "opus-legacy" {
-		t.Errorf("Roles.Implement = %q, want opus-legacy", cfg.Models.Roles.Implement)
-	}
-	if cfg.Models.Roles.Plan != "opus-legacy" {
-		t.Errorf("Roles.Plan = %q, want opus-legacy", cfg.Models.Roles.Plan)
-	}
-	if cfg.Models.Roles.Review != "codex-legacy" {
-		t.Errorf("Roles.Review = %q, want codex-legacy", cfg.Models.Roles.Review)
-	}
-	if cfg.Models.Roles.Patch != "sonnet-legacy" {
-		t.Errorf("Roles.Patch = %q, want sonnet-legacy", cfg.Models.Roles.Patch)
-	}
-	if cfg.Models.Roles.Chat != "sonnet-legacy" {
-		t.Errorf("Roles.Chat = %q, want sonnet-legacy", cfg.Models.Roles.Chat)
-	}
-}
-
-func TestLoadRepoConfig_NewPathWinsOverLegacy(t *testing.T) {
-	dir := t.TempDir()
-	repoConfig := filepath.Join(dir, ".bonsai.yaml")
-	// File sets BOTH old and new paths — new must win.
-	yaml := `providers:
-  anthropic:
-    api_key: sk-new-key
-agents:
-  anthropic:
-    api_key: sk-legacy-key
-models:
-  skills:
-    cheap: haiku-new
-  roles:
-    implement: opus-new
-`
-	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	cfg, err := config.Load(dir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.Providers.Anthropic.APIKey != "sk-new-key" {
-		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-new-key (new wins)", cfg.Providers.Anthropic.APIKey)
-	}
-	if cfg.Models.Skills.Cheap != "haiku-new" {
-		t.Errorf("Skills.Cheap = %q, want haiku-new (new wins)", cfg.Models.Skills.Cheap)
-	}
-	if cfg.Models.Roles.Implement != "opus-new" {
-		t.Errorf("Roles.Implement = %q, want opus-new (new wins)", cfg.Models.Roles.Implement)
-	}
-}
-
-func TestLoadEnvOverride_LegacyEnvCompat(t *testing.T) {
-	t.Setenv("BONSAI_ANTHROPIC_API_KEY", "sk-env-legacy")
-	t.Setenv("BONSAI_MODEL_CHECK_CHEAP", "haiku-env-legacy")
-	t.Setenv("BONSAI_MODEL_CHECK_MODERATE", "sonnet-env-legacy")
-	t.Setenv("BONSAI_MODEL_CHECK_HEAVY", "opus-env-legacy")
-	t.Setenv("BONSAI_MODEL_IMPLEMENT", "opus-env-legacy")
-	t.Setenv("BONSAI_MODEL_PLAN", "opus-env-legacy")
-	t.Setenv("BONSAI_MODEL_REVIEW", "codex-env-legacy")
-	t.Setenv("BONSAI_MODEL_PATCH", "sonnet-env-legacy")
-	t.Setenv("BONSAI_MODEL_CHAT", "sonnet-env-legacy")
-
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.Providers.Anthropic.APIKey != "sk-env-legacy" {
-		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-env-legacy", cfg.Providers.Anthropic.APIKey)
-	}
-	if cfg.Models.Skills.Cheap != "haiku-env-legacy" {
-		t.Errorf("Skills.Cheap = %q, want haiku-env-legacy", cfg.Models.Skills.Cheap)
-	}
-	if cfg.Models.Skills.Moderate != "sonnet-env-legacy" {
-		t.Errorf("Skills.Moderate = %q, want sonnet-env-legacy", cfg.Models.Skills.Moderate)
-	}
-	if cfg.Models.Skills.Heavy != "opus-env-legacy" {
-		t.Errorf("Skills.Heavy = %q, want opus-env-legacy", cfg.Models.Skills.Heavy)
-	}
-	if cfg.Models.Roles.Implement != "opus-env-legacy" {
-		t.Errorf("Roles.Implement = %q, want opus-env-legacy", cfg.Models.Roles.Implement)
-	}
-	if cfg.Models.Roles.Plan != "opus-env-legacy" {
-		t.Errorf("Roles.Plan = %q, want opus-env-legacy", cfg.Models.Roles.Plan)
-	}
-	if cfg.Models.Roles.Review != "codex-env-legacy" {
-		t.Errorf("Roles.Review = %q, want codex-env-legacy", cfg.Models.Roles.Review)
-	}
-	if cfg.Models.Roles.Patch != "sonnet-env-legacy" {
-		t.Errorf("Roles.Patch = %q, want sonnet-env-legacy", cfg.Models.Roles.Patch)
-	}
-	if cfg.Models.Roles.Chat != "sonnet-env-legacy" {
-		t.Errorf("Roles.Chat = %q, want sonnet-env-legacy", cfg.Models.Roles.Chat)
-	}
-}
-
-func TestLoadRepoConfig_LegacyDefaultFillsEmptySlots(t *testing.T) {
-	dir := t.TempDir()
-	repoConfig := filepath.Join(dir, ".bonsai.yaml")
-	yaml := `agents:
-  models:
-    default: custom-default
-    check:
-      cheap: haiku-explicit
-`
-	if err := os.WriteFile(repoConfig, []byte(yaml), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-
-	cfg, err := config.Load(dir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	// Explicit slot wins over default.
-	if cfg.Models.Skills.Cheap != "haiku-explicit" {
-		t.Errorf("Skills.Cheap = %q, want haiku-explicit (explicit wins)", cfg.Models.Skills.Cheap)
-	}
-	// Default fills remaining empty slots.
-	if cfg.Models.Skills.Moderate != "custom-default" {
-		t.Errorf("Skills.Moderate = %q, want custom-default (filled by default)", cfg.Models.Skills.Moderate)
-	}
-	if cfg.Models.Skills.Heavy != "custom-default" {
-		t.Errorf("Skills.Heavy = %q, want custom-default (filled by default)", cfg.Models.Skills.Heavy)
-	}
-	if cfg.Models.Roles.Implement != "custom-default" {
-		t.Errorf("Roles.Implement = %q, want custom-default (filled by default)", cfg.Models.Roles.Implement)
-	}
-	if cfg.Models.Roles.Chat != "custom-default" {
-		t.Errorf("Roles.Chat = %q, want custom-default (filled by default)", cfg.Models.Roles.Chat)
-	}
-}
-
-func TestLoadEnvOverride_LegacyDefaultFillsEmptySlots(t *testing.T) {
-	t.Setenv("BONSAI_MODEL_DEFAULT", "blanket-model")
-	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-specific")
-
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	// Specific env var wins.
-	if cfg.Models.Skills.Cheap != "haiku-specific" {
-		t.Errorf("Skills.Cheap = %q, want haiku-specific (specific wins)", cfg.Models.Skills.Cheap)
-	}
-	// Default fills remaining slots.
-	if cfg.Models.Skills.Moderate != "blanket-model" {
-		t.Errorf("Skills.Moderate = %q, want blanket-model (filled by default)", cfg.Models.Skills.Moderate)
-	}
-	if cfg.Models.Skills.Heavy != "blanket-model" {
-		t.Errorf("Skills.Heavy = %q, want blanket-model (filled by default)", cfg.Models.Skills.Heavy)
-	}
-	if cfg.Models.Roles.Implement != "blanket-model" {
-		t.Errorf("Roles.Implement = %q, want blanket-model (filled by default)", cfg.Models.Roles.Implement)
-	}
-	if cfg.Models.Roles.Chat != "blanket-model" {
-		t.Errorf("Roles.Chat = %q, want blanket-model (filled by default)", cfg.Models.Roles.Chat)
-	}
-}
-
-func TestLoadEnvOverride_NewEnvWinsOverLegacy(t *testing.T) {
-	// Set both old and new env vars — new must win.
-	t.Setenv("BONSAI_PROVIDER_ANTHROPIC_API_KEY", "sk-new-env")
-	t.Setenv("BONSAI_ANTHROPIC_API_KEY", "sk-legacy-env")
-	t.Setenv("BONSAI_MODEL_SKILL_CHEAP", "haiku-new-env")
-	t.Setenv("BONSAI_MODEL_CHECK_CHEAP", "haiku-legacy-env")
-	t.Setenv("BONSAI_MODEL_ROLE_IMPLEMENT", "opus-new-env")
-	t.Setenv("BONSAI_MODEL_IMPLEMENT", "opus-legacy-env")
-
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.Providers.Anthropic.APIKey != "sk-new-env" {
-		t.Errorf("Providers.Anthropic.APIKey = %q, want sk-new-env (new wins)", cfg.Providers.Anthropic.APIKey)
-	}
-	if cfg.Models.Skills.Cheap != "haiku-new-env" {
-		t.Errorf("Skills.Cheap = %q, want haiku-new-env (new wins)", cfg.Models.Skills.Cheap)
-	}
-	if cfg.Models.Roles.Implement != "opus-new-env" {
-		t.Errorf("Roles.Implement = %q, want opus-new-env (new wins)", cfg.Models.Roles.Implement)
-	}
-}

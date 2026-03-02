@@ -65,79 +65,8 @@ func mergeFromFile(cfg *Config, path string) error {
 		return err
 	}
 
-	// Backward compat: promote legacy agents.anthropic / agents.models
-	// into the new top-level paths when the new paths are absent.
-	var legacy legacyAgentsOverlay
-	if err := yaml.Unmarshal(data, &legacy); err == nil {
-		promoteLegacyAgents(&overlay, &legacy)
-	}
-
 	mergeConfig(cfg, &overlay)
 	return nil
-}
-
-// legacyAgentsOverlay captures the pre-v0.5 agents.anthropic and
-// agents.models YAML paths so existing .bonsai.yaml files keep working.
-type legacyAgentsOverlay struct {
-	Agents struct {
-		Anthropic AnthropicConfig `yaml:"anthropic"`
-		Models    struct {
-			Default string `yaml:"default"`
-			Check   struct {
-				Cheap    string `yaml:"cheap"`
-				Moderate string `yaml:"moderate"`
-				Heavy    string `yaml:"heavy"`
-			} `yaml:"check"`
-			Implement string `yaml:"implement"`
-			Plan      string `yaml:"plan"`
-			Review    string `yaml:"review"`
-			Patch     string `yaml:"patch"`
-			Chat      string `yaml:"chat"`
-		} `yaml:"models"`
-	} `yaml:"agents"`
-}
-
-// promoteLegacyAgents copies legacy agents.* values into the overlay's
-// new top-level paths, but only when the new-path field is still empty
-// (so an overlay that sets both old and new paths lets the new path win).
-func promoteLegacyAgents(overlay *Config, legacy *legacyAgentsOverlay) {
-	la := &legacy.Agents
-	if la.Anthropic.APIKey != "" && overlay.Providers.Anthropic.APIKey == "" {
-		overlay.Providers.Anthropic.APIKey = la.Anthropic.APIKey
-	}
-
-	lm := &la.Models
-
-	// Table of legacy -> new field mappings.
-	type mapping struct {
-		src string
-		dst *string
-	}
-	mappings := []mapping{
-		{lm.Check.Cheap, &overlay.Models.Skills.Cheap},
-		{lm.Check.Moderate, &overlay.Models.Skills.Moderate},
-		{lm.Check.Heavy, &overlay.Models.Skills.Heavy},
-		{lm.Implement, &overlay.Models.Roles.Implement},
-		{lm.Plan, &overlay.Models.Roles.Plan},
-		{lm.Review, &overlay.Models.Roles.Review},
-		{lm.Patch, &overlay.Models.Roles.Patch},
-		{lm.Chat, &overlay.Models.Roles.Chat},
-	}
-
-	for _, m := range mappings {
-		if m.src != "" && *m.dst == "" {
-			*m.dst = m.src
-		}
-	}
-
-	// Legacy blanket default — fills any still-empty slot.
-	if d := lm.Default; d != "" {
-		for _, m := range mappings {
-			if *m.dst == "" {
-				*m.dst = d
-			}
-		}
-	}
 }
 
 // mergeFromEnv applies BONSAI_* environment variable overrides.
@@ -145,8 +74,6 @@ func mergeFromEnv(cfg *Config) {
 	mergeIntEnvs(cfg)
 	mergeStringEnvs(cfg)
 	mergeMiscEnvs(cfg)
-	mergeLegacyEnvs(cfg)
-	mergeLegacyDefaultEnv(cfg)
 }
 
 // mergeIntEnvs applies integer env overrides.
@@ -182,10 +109,10 @@ func mergeStringEnvs(cfg *Config) {
 		{"BONSAI_MODEL_SKILL_CHEAP", &cfg.Models.Skills.Cheap},
 		{"BONSAI_MODEL_SKILL_MODERATE", &cfg.Models.Skills.Moderate},
 		{"BONSAI_MODEL_SKILL_HEAVY", &cfg.Models.Skills.Heavy},
-		{"BONSAI_MODEL_ROLE_IMPLEMENT", &cfg.Models.Roles.Implement},
-		{"BONSAI_MODEL_ROLE_PLAN", &cfg.Models.Roles.Plan},
-		{"BONSAI_MODEL_ROLE_REVIEW", &cfg.Models.Roles.Review},
-		{"BONSAI_MODEL_ROLE_PATCH", &cfg.Models.Roles.Patch},
+		{"BONSAI_MODEL_ROLE_IMPLEMENTER", &cfg.Models.Roles.Implementer},
+		{"BONSAI_MODEL_ROLE_PLANNER", &cfg.Models.Roles.Planner},
+		{"BONSAI_MODEL_ROLE_REVIEWER", &cfg.Models.Roles.Reviewer},
+		{"BONSAI_MODEL_ROLE_PATCHER", &cfg.Models.Roles.Patcher},
 		{"BONSAI_MODEL_ROLE_CHAT", &cfg.Models.Roles.Chat},
 		{"BONSAI_OUTPUT_DIR", &cfg.Output.Dir},
 	}
@@ -206,72 +133,6 @@ func mergeMiscEnvs(cfg *Config) {
 	if v := os.Getenv("BONSAI_SKILLS_EXTRA_DIRS"); v != "" {
 		cfg.Skills.ExtraDirs = strings.Split(v, ":")
 	}
-}
-
-// mergeLegacyEnvs applies old-name env vars only when the new name is absent.
-func mergeLegacyEnvs(cfg *Config) {
-	legacyBindings := []struct {
-		newEnv    string
-		legacyEnv string
-		dst       *string
-	}{
-		{"BONSAI_PROVIDER_ANTHROPIC_API_KEY", "BONSAI_ANTHROPIC_API_KEY", &cfg.Providers.Anthropic.APIKey},
-		{"BONSAI_MODEL_SKILL_CHEAP", "BONSAI_MODEL_CHECK_CHEAP", &cfg.Models.Skills.Cheap},
-		{"BONSAI_MODEL_SKILL_MODERATE", "BONSAI_MODEL_CHECK_MODERATE", &cfg.Models.Skills.Moderate},
-		{"BONSAI_MODEL_SKILL_HEAVY", "BONSAI_MODEL_CHECK_HEAVY", &cfg.Models.Skills.Heavy},
-		{"BONSAI_MODEL_ROLE_IMPLEMENT", "BONSAI_MODEL_IMPLEMENT", &cfg.Models.Roles.Implement},
-		{"BONSAI_MODEL_ROLE_PLAN", "BONSAI_MODEL_PLAN", &cfg.Models.Roles.Plan},
-		{"BONSAI_MODEL_ROLE_REVIEW", "BONSAI_MODEL_REVIEW", &cfg.Models.Roles.Review},
-		{"BONSAI_MODEL_ROLE_PATCH", "BONSAI_MODEL_PATCH", &cfg.Models.Roles.Patch},
-		{"BONSAI_MODEL_ROLE_CHAT", "BONSAI_MODEL_CHAT", &cfg.Models.Roles.Chat},
-	}
-	for _, b := range legacyBindings {
-		if os.Getenv(b.newEnv) != "" {
-			continue
-		}
-		if v := os.Getenv(b.legacyEnv); v != "" {
-			*b.dst = v
-		}
-	}
-}
-
-// mergeLegacyDefaultEnv fills any slot not already overridden by
-// a specific env var (new or legacy) with the blanket default.
-func mergeLegacyDefaultEnv(cfg *Config) {
-	v := os.Getenv("BONSAI_MODEL_DEFAULT")
-	if v == "" {
-		return
-	}
-
-	defaultBindings := []struct {
-		guards []string // env names that block this default
-		dst    *string
-	}{
-		{[]string{"BONSAI_MODEL_SKILL_CHEAP", "BONSAI_MODEL_CHECK_CHEAP"}, &cfg.Models.Skills.Cheap},
-		{[]string{"BONSAI_MODEL_SKILL_MODERATE", "BONSAI_MODEL_CHECK_MODERATE"}, &cfg.Models.Skills.Moderate},
-		{[]string{"BONSAI_MODEL_SKILL_HEAVY", "BONSAI_MODEL_CHECK_HEAVY"}, &cfg.Models.Skills.Heavy},
-		{[]string{"BONSAI_MODEL_ROLE_IMPLEMENT", "BONSAI_MODEL_IMPLEMENT"}, &cfg.Models.Roles.Implement},
-		{[]string{"BONSAI_MODEL_ROLE_PLAN", "BONSAI_MODEL_PLAN"}, &cfg.Models.Roles.Plan},
-		{[]string{"BONSAI_MODEL_ROLE_REVIEW", "BONSAI_MODEL_REVIEW"}, &cfg.Models.Roles.Review},
-		{[]string{"BONSAI_MODEL_ROLE_PATCH", "BONSAI_MODEL_PATCH"}, &cfg.Models.Roles.Patch},
-		{[]string{"BONSAI_MODEL_ROLE_CHAT", "BONSAI_MODEL_CHAT"}, &cfg.Models.Roles.Chat},
-	}
-	for _, b := range defaultBindings {
-		if anyEnvSet(b.guards) {
-			continue
-		}
-		*b.dst = v
-	}
-}
-
-// anyEnvSet returns true if any of the named env vars is non-empty.
-func anyEnvSet(names []string) bool {
-	for _, n := range names {
-		if os.Getenv(n) != "" {
-			return true
-		}
-	}
-	return false
 }
 
 // mergeConfig merges non-zero values from src into dst.
@@ -356,10 +217,10 @@ func mergeModelsConfig(dst, src *ModelsConfig) {
 		src string
 		dst *string
 	}{
-		{src.Roles.Implement, &dst.Roles.Implement},
-		{src.Roles.Plan, &dst.Roles.Plan},
-		{src.Roles.Review, &dst.Roles.Review},
-		{src.Roles.Patch, &dst.Roles.Patch},
+		{src.Roles.Implementer, &dst.Roles.Implementer},
+		{src.Roles.Planner, &dst.Roles.Planner},
+		{src.Roles.Reviewer, &dst.Roles.Reviewer},
+		{src.Roles.Patcher, &dst.Roles.Patcher},
 		{src.Roles.Chat, &dst.Roles.Chat},
 	}
 	for _, r := range roles {

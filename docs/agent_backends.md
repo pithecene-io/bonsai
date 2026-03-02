@@ -213,10 +213,10 @@ cost tiers and interactive roles to model names.
 | **Skill — cheap** | `haiku` |
 | **Skill — moderate** | `sonnet` |
 | **Skill — heavy** | `sonnet` |
-| **Role — implement** | `opus` |
-| **Role — plan** | `opus` |
-| **Role — review** | `codex` |
-| **Role — patch** | `sonnet` |
+| **Role — implementer** | `opus` |
+| **Role — planner** | `opus` |
+| **Role — reviewer** | `codex` |
+| **Role — patcher** | `sonnet` |
 | **Role — chat** | `sonnet` |
 
 There is no fallback default. Every slot has a compiled-in default in
@@ -230,8 +230,8 @@ chain: user config, repo config (`.bonsai.yaml`), or env vars.
 
 - `ModelForSkill(cost)` — resolves by cost tier (`cheap`, `moderate`,
   `heavy`); unknown cost returns empty
-- `ModelForRole(role)` — resolves by role name (`implement`, `plan`,
-  `review`, `patch`, `chat`); unknown role returns empty
+- `ModelForRole(role)` — resolves by role name (`implementer`, `planner`,
+  `reviewer`, `patcher`, `chat`); unknown role returns empty
 
 ## Debugging
 

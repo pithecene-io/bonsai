@@ -43,7 +43,7 @@ func runPlan(c *cli.Context) error {
 	}
 
 	claudeAgent := agent.NewClaude(env.Config.Agents.Claude.Bin)
-	planModel := env.Config.Models.ModelForRole("plan")
+	planModel := env.Config.Models.ModelForRole("planner")
 
 	var extraArgs []string
 	if planModel != "" {

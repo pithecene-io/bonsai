@@ -73,8 +73,8 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 	fmt.Printf("Task: %s\n\n", ps.task)
 
 	systemPrompt, err := ps.builder.BuildInteractive(prompt.InteractiveOpts{
-		Mode: prompt.ModePatchArchitect,
-		Role: "patch-architect",
+		Mode: prompt.ModeArchitect,
+		Role: "architect",
 	})
 	if err != nil {
 		return "", fmt.Errorf("build architect prompt: %w", err)
@@ -82,7 +82,7 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 
 	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + ps.task
 	plan, err := agent.NewClaude(ps.env.Config.Agents.Claude.Bin).NonInteractive(
-		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patch")))
+		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patcher")))
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}

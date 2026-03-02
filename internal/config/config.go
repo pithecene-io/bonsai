@@ -79,10 +79,10 @@ type AgentBinConfig struct {
 //	    moderate: sonnet       # medium-complexity checks
 //	    heavy: opus            # expensive checks
 //	  roles:
-//	    implement: opus        # feature work
-//	    plan: opus             # planning sessions
-//	    review: codex          # code review (uses codex agent)
-//	    patch: sonnet          # patch surgery
+//	    implementer: opus      # feature work
+//	    planner: opus          # planning sessions
+//	    reviewer: codex        # code review (uses codex agent)
+//	    patcher: sonnet        # patch surgery
 //	    chat: sonnet           # interactive chat
 type ModelsConfig struct {
 	Skills SkillModels `yaml:"skills"`
@@ -98,11 +98,11 @@ type SkillModels struct {
 
 // RoleModels maps interactive roles to model names.
 type RoleModels struct {
-	Implement string `yaml:"implement"`
-	Plan      string `yaml:"plan"`
-	Review    string `yaml:"review"`
-	Patch     string `yaml:"patch"`
-	Chat      string `yaml:"chat"`
+	Implementer string `yaml:"implementer"`
+	Planner     string `yaml:"planner"`
+	Reviewer    string `yaml:"reviewer"`
+	Patcher     string `yaml:"patcher"`
+	Chat        string `yaml:"chat"`
 }
 
 // ModelForSkill returns the model for a skill given its cost tier.
@@ -119,11 +119,11 @@ func (m ModelsConfig) ModelForSkill(cost string) string {
 // Returns empty string for unknown role (agent picks its own default).
 func (m ModelsConfig) ModelForRole(role string) string {
 	return map[string]string{
-		"implement": m.Roles.Implement,
-		"plan":      m.Roles.Plan,
-		"review":    m.Roles.Review,
-		"patch":     m.Roles.Patch,
-		"chat":      m.Roles.Chat,
+		"implementer": m.Roles.Implementer,
+		"planner":     m.Roles.Planner,
+		"reviewer":    m.Roles.Reviewer,
+		"patcher":     m.Roles.Patcher,
+		"chat":        m.Roles.Chat,
 	}[role]
 }
 
@@ -188,11 +188,11 @@ func Default() *Config {
 				Heavy:    "sonnet",
 			},
 			Roles: RoleModels{
-				Implement: "opus",
-				Plan:      "opus",
-				Review:    "codex",
-				Patch:     "sonnet",
-				Chat:      "sonnet",
+				Implementer: "opus",
+				Planner:     "opus",
+				Reviewer:    "codex",
+				Patcher:     "sonnet",
+				Chat:        "sonnet",
 			},
 		},
 		Output: OutputConfig{
