@@ -73,6 +73,9 @@ models:
 `chat` is a config key but not a prompt role — it controls the model
 for `bonsai chat` sessions regardless of which role is selected.
 
+`patcher` is a single config key controlling the model for both
+`architect` (phase 1) and `patcher` (phase 2) of `bonsai patch`.
+
 ## Role File Format
 
 Each role file is a Markdown document with:

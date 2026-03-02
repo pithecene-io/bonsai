@@ -84,15 +84,13 @@ Modes determine which skills run based on diff characteristics:
 
 Mode determination follows this cascade (in `internal/diff/mode.go`):
 
-1. If plan intent is set, use the plan's declared mode
-2. If diff is heavy (lines > threshold OR files > threshold), use
-   `HEAVY`
-3. If both structural and API changes detected, use `HEAVY`
-4. If API changes detected, use `API`
-5. If structural changes detected, use `STRUCTURAL`
-6. If diff qualifies as patch (files ≤ threshold, no new files, no
-   renames), use `PATCH`
-7. Default: `NORMAL`
+1. **HEAVY** if `diff_lines > threshold` OR `files > threshold` OR
+   (structural AND API changes detected)
+2. **STRUCTURAL** if top-level dirs changed (>1) OR renames present
+3. **API** if public surface paths touched
+4. **PATCH** if plan intent is `"patch"` OR (`files ≤ threshold`,
+   no new files, no renames)
+5. **NORMAL** (default)
 
 ## Output Schema
 
@@ -105,7 +103,7 @@ The schema requires:
 - `warning`: array of warning findings
 - `info`: array of info findings
 
-Each finding is an object with at minimum a `message` string field.
+Each finding is a plain string describing the issue.
 
 Status MUST be `"fail"` if and only if the `blocking` array is
 non-empty.
