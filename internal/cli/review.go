@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/urfave/cli/v2"
@@ -30,10 +31,22 @@ func runReview(c *cli.Context) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	// Review is autonomous: the agent receives the prompt, reviews the
-	// code changes, and exits. Use the router for model-aware dispatch.
-	reviewModel := env.Config.Models.ModelForRole("reviewer")
-	router := agent.NewRouter(env.Config.Agents.Claude.Bin, env.Config.Agents.Codex.Bin)
+	rs := &reviewRunner{
+		agent: agent.NewRouter(env.Config.Agents.Claude.Bin, env.Config.Agents.Codex.Bin),
+		model: agent.Model(env.Config.Models.ModelForRole("reviewer")),
+	}
+	return rs.run(c.Context, systemPrompt)
+}
+
+// reviewRunner encapsulates the review dispatch so the agent is injectable
+// for testing.
+type reviewRunner struct {
+	agent agent.Agent
+	model agent.Model
+}
+
+// run invokes an autonomous review session via Execute.
+func (rr *reviewRunner) run(ctx context.Context, systemPrompt string) error {
 	userPrompt := "Review the code changes on this branch."
-	return router.Execute(c.Context, systemPrompt, userPrompt, agent.Model(reviewModel))
+	return rr.agent.Execute(ctx, systemPrompt, userPrompt, rr.model)
 }
