@@ -314,7 +314,7 @@ backend automatically based on the model name.
 | Codex CLI | codex | Non-interactive and interactive sessions |
 
 The backend is determined by the model name, not the role — if you
-assign `review: sonnet` in your config, code review routes through the
+assign `reviewer: sonnet` in your config, code review routes through the
 Anthropic API (or Claude CLI) instead of Codex. See
 [Default Model Assignments](#default-model-assignments) for the
 out-of-the-box configuration.
