@@ -66,7 +66,7 @@ func defaultOpts(skills []registry.Skill, repoRoot string) orchestrator.RunOpts 
 func TestRun_AllSkillsPass(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveResponse: mustJSON(t, skillOutput{
+		EvaluateResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
 			Status:   "pass",
@@ -99,7 +99,7 @@ func TestRun_AllSkillsPass(t *testing.T) {
 func TestRun_MandatoryFailure(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveResponse: mustJSON(t, skillOutput{
+		EvaluateResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
 			Status:   "fail",
@@ -131,7 +131,7 @@ func TestRun_MandatoryFailure(t *testing.T) {
 func TestRun_FailFast(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveResponse: mustJSON(t, skillOutput{
+		EvaluateResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
 			Status:   "fail",
@@ -235,7 +235,7 @@ func TestRun_SkillLoadError(t *testing.T) {
 func TestRun_NonMandatoryFailure(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveResponse: mustJSON(t, skillOutput{
+		EvaluateResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
 			Status:   "fail",

@@ -178,7 +178,7 @@ func (m *migration) ensureArchIndex(c *urfave.Context) {
 		if confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
 			claudeAgent := agent.NewClaude(m.config.Agents.Claude.Bin)
 			archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", path, m.target)
-			_ = claudeAgent.Interactive(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
+			_ = claudeAgent.Session(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
 		}
 	} else {
 		fmt.Println("  No ARCH_INDEX.md found")
@@ -214,7 +214,7 @@ func (m *migration) createArchIndex(ctx context.Context) {
 
 	fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
 	fmt.Println()
-	_ = claudeAgent.Interactive(ctx, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
+	_ = claudeAgent.Session(ctx, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
 
 	if !m.fileExists("docs/ARCH_INDEX.md") {
 		m.scaffoldMinimalArchIndex()

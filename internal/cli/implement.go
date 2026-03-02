@@ -11,7 +11,7 @@ func implementCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "implement",
 		Usage:     "Start an implementation session with governance gating",
-		ArgsUsage: "[-- claude-args...]",
+		ArgsUsage: "[-- extra-args...]",
 		Action:    runImplement,
 	}
 }

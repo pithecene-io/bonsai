@@ -79,7 +79,7 @@ func BenchmarkModel(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 				start := time.Now()
-				out, err := m.agent.NonInteractive(ctx, systemPrompt, userPrompt, m.model)
+				out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model)
 				elapsed := time.Since(start)
 				cancel()
 
@@ -161,7 +161,7 @@ func TestModelLatency(t *testing.T) {
 			defer cancel()
 
 			start := time.Now()
-			out, err := m.agent.NonInteractive(ctx, systemPrompt, userPrompt, m.model)
+			out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model)
 			elapsed := time.Since(start)
 
 			r := result{model: m.name, elapsed: elapsed, budget: m.budget, output: out, err: err}
@@ -199,13 +199,13 @@ func TestModelLatency(t *testing.T) {
 	t.Log("╚═══════════╩════════════╩════════╝")
 }
 
-// TestAnthropic_NonInteractive_Haiku verifies the direct API backend
+// TestAnthropic_Evaluate_Haiku verifies the direct API backend
 // can complete a cheap skill evaluation within the 5s latency budget.
 //
 // Run with:
 //
-//	go test -tags integration -run TestAnthropic_NonInteractive_Haiku -v -timeout 30s ./internal/agent/
-func TestAnthropic_NonInteractive_Haiku(t *testing.T) {
+//	go test -tags integration -run TestAnthropic_Evaluate_Haiku -v -timeout 30s ./internal/agent/
+func TestAnthropic_Evaluate_Haiku(t *testing.T) {
 	a := agent.NewAnthropic()
 	if a == nil {
 		t.Skip("ANTHROPIC_API_KEY not set — skipping direct API test")
@@ -234,11 +234,11 @@ func TestAnthropic_NonInteractive_Haiku(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	out, err := a.NonInteractive(ctx, systemPrompt, userPrompt, agent.Model("haiku"))
+	out, err := a.Evaluate(ctx, systemPrompt, userPrompt, agent.Model("haiku"))
 	elapsed := time.Since(start)
 
 	if err != nil {
-		t.Fatalf("NonInteractive: %v (after %v)", err, elapsed)
+		t.Fatalf("Evaluate: %v (after %v)", err, elapsed)
 	}
 
 	t.Logf("[haiku-direct] %v — %d chars output", elapsed, len(out))

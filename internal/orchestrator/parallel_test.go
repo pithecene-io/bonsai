@@ -33,7 +33,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	delay := 50 * time.Millisecond
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			time.Sleep(delay)
 			return passJSON(), nil
 		},
@@ -73,7 +73,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	// skill 2 should never run.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			// All skills get the same fail response; mandatory matters for fail-fast
 			return failJSON(), nil
 		},
@@ -113,7 +113,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 func TestRun_EventChannel(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -187,7 +187,7 @@ func TestRun_EventChannel(t *testing.T) {
 func TestRun_NilEventChannel(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -207,7 +207,7 @@ func TestRun_ConcurrencyOne(t *testing.T) {
 	// Verify sequential behavior matches expectations
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -245,7 +245,7 @@ func TestRun_ConcurrencyOne(t *testing.T) {
 func TestRun_FindingDetails(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		NonInteractiveResponse: mustJSON(t, skillOutput{
+		EvaluateResponse: mustJSON(t, skillOutput{
 			Skill:    "repo-convention-enforcer",
 			Version:  "v1",
 			Status:   "fail",
@@ -289,7 +289,7 @@ func TestRun_ModelRouting(t *testing.T) {
 	// Verify that the model from config.ModelsConfig reaches the agent.
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -324,10 +324,10 @@ func TestRun_ModelRouting(t *testing.T) {
 	if mock.CallCount() != 2 {
 		t.Fatalf("calls = %d, want 2", mock.CallCount())
 	}
-	if got := mock.NonInteractiveCalls[0].Model; got != "haiku" {
+	if got := mock.EvaluateCalls[0].Model; got != "haiku" {
 		t.Errorf("call[0].Model = %q, want haiku", got)
 	}
-	if got := mock.NonInteractiveCalls[1].Model; got != "opus" {
+	if got := mock.EvaluateCalls[1].Model; got != "opus" {
 		t.Errorf("call[1].Model = %q, want opus", got)
 	}
 }
@@ -336,7 +336,7 @@ func TestRun_ModelOverride(t *testing.T) {
 	// Verify that ModelOverride in RunOpts takes precedence over config routing.
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -374,10 +374,10 @@ func TestRun_ModelOverride(t *testing.T) {
 		t.Fatalf("calls = %d, want 2", mock.CallCount())
 	}
 	// Both should be "opus" regardless of cost tier
-	if got := mock.NonInteractiveCalls[0].Model; got != "opus" {
+	if got := mock.EvaluateCalls[0].Model; got != "opus" {
 		t.Errorf("call[0].Model = %q, want opus (override)", got)
 	}
-	if got := mock.NonInteractiveCalls[1].Model; got != "opus" {
+	if got := mock.EvaluateCalls[1].Model; got != "opus" {
 		t.Errorf("call[1].Model = %q, want opus (override)", got)
 	}
 }
@@ -386,7 +386,7 @@ func TestRun_ModelRouting_EmptyCost(t *testing.T) {
 	// Verify that an empty cost field returns empty model (agent picks default).
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -416,7 +416,7 @@ func TestRun_ModelRouting_EmptyCost(t *testing.T) {
 	if mock.CallCount() != 1 {
 		t.Fatalf("calls = %d, want 1", mock.CallCount())
 	}
-	if got := mock.NonInteractiveCalls[0].Model; got != "" {
+	if got := mock.EvaluateCalls[0].Model; got != "" {
 		t.Errorf("call[0].Model = %q, want empty (unknown cost → agent default)", got)
 	}
 }
@@ -425,7 +425,7 @@ func TestRun_ModelRouting_NilConfig(t *testing.T) {
 	// Verify no panic when Config is nil (model should be empty).
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: passJSON(),
+		EvaluateResponse: passJSON(),
 	}
 
 	orch := newTestOrch(t, mock)
@@ -448,7 +448,7 @@ func TestRun_ModelRouting_NilConfig(t *testing.T) {
 	if mock.CallCount() != 1 {
 		t.Fatalf("calls = %d, want 1", mock.CallCount())
 	}
-	if got := mock.NonInteractiveCalls[0].Model; got != "" {
+	if got := mock.EvaluateCalls[0].Model; got != "" {
 		t.Errorf("call[0].Model = %q, want empty (nil config)", got)
 	}
 }

@@ -23,7 +23,7 @@ func TestRunner_Run_ValidResponse(t *testing.T) {
 
 	mock := &agent.MockAgent{
 		NameVal:                "mock",
-		NonInteractiveResponse: validJSON,
+		EvaluateResponse: validJSON,
 	}
 	resolver := assets.NewResolver("")
 	builder := prompt.NewBuilder(resolver, "")
@@ -53,7 +53,7 @@ func TestRunner_Run_ValidResponse(t *testing.T) {
 func TestRunner_Run_InvalidResponse(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "mock",
-		NonInteractiveResponse: "not valid json at all",
+		EvaluateResponse: "not valid json at all",
 	}
 	resolver := assets.NewResolver("")
 	builder := prompt.NewBuilder(resolver, "")
@@ -77,7 +77,7 @@ func TestRunner_Run_InvalidResponse(t *testing.T) {
 func TestRunner_Run_AgentError(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:           "mock",
-		NonInteractiveErr: errors.New("agent failed"),
+		EvaluateErr: errors.New("agent failed"),
 	}
 	resolver := assets.NewResolver("")
 	builder := prompt.NewBuilder(resolver, "")
@@ -111,7 +111,7 @@ func TestRunner_Run_WithDiffPayload(t *testing.T) {
 
 	mock := &agent.MockAgent{
 		NameVal:                "mock",
-		NonInteractiveResponse: validJSON,
+		EvaluateResponse: validJSON,
 	}
 	resolver := assets.NewResolver("")
 	builder := prompt.NewBuilder(resolver, "")

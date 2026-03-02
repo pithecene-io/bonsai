@@ -29,14 +29,14 @@ func TestAnthropic_Name(t *testing.T) {
 	}
 }
 
-func TestAnthropic_InteractiveReturnsError(t *testing.T) {
+func TestAnthropic_SessionReturnsError(t *testing.T) {
 	a := agent.NewAnthropic(agent.WithAPIKey("test-key"))
 	if a == nil {
 		t.Fatal("NewAnthropic returned nil with explicit key")
 	}
-	err := a.Interactive(t.Context(), "sys", nil)
+	err := a.Session(t.Context(), "sys", nil)
 	if err == nil {
-		t.Error("Interactive should return an error for direct API backend")
+		t.Error("Session should return an error for direct API backend")
 	}
 }
 
@@ -191,9 +191,9 @@ func TestNewAnthropic_CredentialPrecedence(t *testing.T) {
 			// When wantAPIKey is set, make a real request and verify
 			// the key that arrives on the wire.
 			if tt.wantAPIKey != "" {
-				_, err := a.NonInteractive(t.Context(), "sys", "user", agent.Model("haiku"))
+				_, err := a.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"))
 				if err != nil {
-					t.Fatalf("NonInteractive: %v", err)
+					t.Fatalf("Evaluate: %v", err)
 				}
 				if gotKey != tt.wantAPIKey {
 					t.Errorf("X-Api-Key on wire = %q, want %q", gotKey, tt.wantAPIKey)
@@ -246,9 +246,9 @@ func TestAnthropic_RequestShape_APIKey(t *testing.T) {
 		t.Fatal("expected non-OAuth path")
 	}
 
-	_, err := a.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 
 	if captured == nil {
@@ -317,9 +317,9 @@ func TestAnthropic_RequestShape_OAuth(t *testing.T) {
 		t.Fatal("expected OAuth path")
 	}
 
-	_, err := a.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 
 	if captured == nil {

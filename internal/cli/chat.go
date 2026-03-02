@@ -13,7 +13,7 @@ func chatCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "chat",
 		Usage:     "Start an interactive AI chat session",
-		ArgsUsage: "[role] [-- claude-args...]",
+		ArgsUsage: "[role] [-- extra-args...]",
 		Action:    runChat,
 	}
 }
@@ -68,5 +68,5 @@ func runChat(c *cli.Context) error {
 		modelArgs = append(modelArgs, "--model", chatModel)
 	}
 	modelArgs = append(modelArgs, extraArgs...)
-	return claudeAgent.Interactive(c.Context, systemPrompt, modelArgs)
+	return claudeAgent.Session(c.Context, systemPrompt, modelArgs)
 }

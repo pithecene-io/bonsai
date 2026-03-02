@@ -10,13 +10,13 @@ import (
 // Router implements Agent by dispatching to Claude CLI, Codex CLI, or
 // the direct Anthropic API backend based on the model string.
 //
-// Dispatch order for NonInteractive:
+// Dispatch order for Evaluate:
 //
 //	IsCodex()                      → Codex CLI
 //	IsClaude() && Anthropic != nil → Anthropic direct API
 //	default                        → Claude CLI (fallback)
 //
-// Interactive always routes to Claude CLI.
+// Session always routes to Claude CLI.
 type Router struct {
 	Claude    *Claude
 	Codex     *Codex
@@ -43,20 +43,20 @@ func NewRouter(claudeBin, codexBin string, opts ...AnthropicOption) *Router {
 // Name returns "router".
 func (r *Router) Name() string { return "router" }
 
-// Interactive starts an interactive session. Always routes to Claude CLI.
-func (r *Router) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
-	return r.Claude.Interactive(ctx, systemPrompt, extraArgs)
+// Session starts an interactive session. Always routes to Claude CLI.
+func (r *Router) Session(ctx context.Context, systemPrompt string, extraArgs []string) error {
+	return r.Claude.Session(ctx, systemPrompt, extraArgs)
 }
 
-// NonInteractive dispatches based on the model string.
+// Evaluate dispatches based on the model string.
 // When the Anthropic direct API is selected but fails (auth error,
 // outage, network), it falls back to Claude CLI automatically.
-func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (r *Router) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	switch {
 	case model.IsCodex():
-		return r.Codex.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		return r.Codex.Evaluate(ctx, systemPrompt, userPrompt, model)
 	case model.IsClaude() && r.Anthropic != nil:
-		out, err := r.Anthropic.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		out, err := r.Anthropic.Evaluate(ctx, systemPrompt, userPrompt, model)
 		if err == nil {
 			return out, nil
 		}
@@ -75,23 +75,23 @@ func (r *Router) NonInteractive(ctx context.Context, systemPrompt, userPrompt st
 		if os.Getenv("BONSAI_DEBUG") != "" {
 			fmt.Fprintf(os.Stderr, "[bonsai:debug] anthropic failed, falling back to claude CLI: %v\n", err)
 		}
-		out, fallbackErr := r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		out, fallbackErr := r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model)
 		if fallbackErr != nil {
 			return "", errors.Join(err, fallbackErr)
 		}
 		return out, nil
 	default:
-		return r.Claude.NonInteractive(ctx, systemPrompt, userPrompt, model)
+		return r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model)
 	}
 }
 
-// Autonomous dispatches based on the model string.
+// Execute dispatches based on the model string.
 // Codex supports autonomous tool-use; for claude-family models the
 // Claude CLI is used (the Anthropic direct API does not support
-// autonomous mode).
-func (r *Router) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
+// execute mode).
+func (r *Router) Execute(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	if model.IsCodex() {
-		return r.Codex.Autonomous(ctx, systemPrompt, userPrompt, model)
+		return r.Codex.Execute(ctx, systemPrompt, userPrompt, model)
 	}
-	return r.Claude.Autonomous(ctx, systemPrompt, userPrompt, model)
+	return r.Claude.Execute(ctx, systemPrompt, userPrompt, model)
 }

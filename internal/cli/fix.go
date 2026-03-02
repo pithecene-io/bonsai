@@ -219,7 +219,7 @@ func (fl *fixLoop) fixSessions(ctx context.Context, failedSkills []skillFindings
 			model = fl.config.Models.ModelForSkill(string(sf.Cost))
 		}
 
-		if sessErr := fl.sessionAgent.Autonomous(ctx, systemPrompt, sf.UserPrompt(), agent.Model(model)); sessErr != nil {
+		if sessErr := fl.sessionAgent.Execute(ctx, systemPrompt, sf.UserPrompt(), agent.Model(model)); sessErr != nil {
 			if ctx.Err() != nil {
 				return nil //nolint:nilerr // cancellation is intentional clean exit
 			}

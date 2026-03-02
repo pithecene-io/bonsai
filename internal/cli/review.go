@@ -30,16 +30,10 @@ func runReview(c *cli.Context) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	// Route agent based on models.roles.reviewer config.
-	// Default is "codex"; any other value routes to claude with that model.
+	// Review is autonomous: the agent receives the prompt, reviews the
+	// code changes, and exits. Use the router for model-aware dispatch.
 	reviewModel := env.Config.Models.ModelForRole("reviewer")
-	if reviewModel == "codex" {
-		return agent.NewCodex(env.Config.Agents.Codex.Bin).Interactive(c.Context, systemPrompt, nil)
-	}
-	claudeAgent := agent.NewClaude(env.Config.Agents.Claude.Bin)
-	var extraArgs []string
-	if reviewModel != "" {
-		extraArgs = append(extraArgs, "--model", reviewModel)
-	}
-	return claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
+	router := agent.NewRouter(env.Config.Agents.Claude.Bin, env.Config.Agents.Codex.Bin)
+	userPrompt := "Review the code changes on this branch."
+	return router.Execute(c.Context, systemPrompt, userPrompt, agent.Model(reviewModel))
 }

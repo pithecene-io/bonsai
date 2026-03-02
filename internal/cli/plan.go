@@ -16,7 +16,7 @@ func planCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "plan",
 		Usage:     "Start a planning session",
-		ArgsUsage: "[-- claude-args...]",
+		ArgsUsage: "[-- extra-args...]",
 		Action:    runPlan,
 	}
 }
@@ -52,7 +52,7 @@ func runPlan(c *cli.Context) error {
 	extraArgs = append(extraArgs, c.Args().Slice()...)
 
 	// Match shell: `claude ... || true` — ignore ctrl-C / session end.
-	_ = claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
+	_ = claudeAgent.Session(c.Context, systemPrompt, extraArgs)
 
 	// Post-session: detect plan.json
 	planPath := filepath.Join(outDir, "plan.json")

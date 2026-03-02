@@ -112,15 +112,15 @@ func TestMockAgent_Implements(_ *testing.T) {
 func TestMockAgent_RecordsModel(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: "ok",
+		EvaluateResponse: "ok",
 	}
 
-	_, _ = mock.NonInteractive(t.Context(), "sys", "user", agent.Model("haiku"))
+	_, _ = mock.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"))
 
 	if mock.CallCount() != 1 {
 		t.Fatalf("CallCount = %d, want 1", mock.CallCount())
 	}
-	if got := mock.NonInteractiveCalls[0].Model; got != "haiku" {
+	if got := mock.EvaluateCalls[0].Model; got != "haiku" {
 		t.Errorf("Model = %q, want haiku", got)
 	}
 }
@@ -128,24 +128,24 @@ func TestMockAgent_RecordsModel(t *testing.T) {
 func TestMockAgent_FuncOverridesResponse(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:                "test",
-		NonInteractiveResponse: "should not appear",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, model agent.Model) (string, error) {
+		EvaluateResponse: "should not appear",
+		EvaluateFunc: func(_ context.Context, _, _ string, model agent.Model) (string, error) {
 			return "model=" + string(model), nil
 		},
 	}
 
-	got, err := mock.NonInteractive(t.Context(), "sys", "user", agent.Model("opus"))
+	got, err := mock.Evaluate(t.Context(), "sys", "user", agent.Model("opus"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 	if got != "model=opus" {
 		t.Errorf("got %q, want model=opus", got)
 	}
 }
 
-// TestClaude_NonInteractive_ModelArg verifies the --model flag is passed to
+// TestClaude_Evaluate_ModelArg verifies the --model flag is passed to
 // the subprocess. Uses a shell script stub that echoes its arguments.
-func TestClaude_NonInteractive_ModelArg(t *testing.T) {
+func TestClaude_Evaluate_ModelArg(t *testing.T) {
 	// Create a fake "claude" binary that dumps its args to a file
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
@@ -161,9 +161,9 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	out, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	out, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 
 	// The fake binary echoes stdin, so output should contain the user prompt
@@ -191,9 +191,9 @@ cat
 	}
 }
 
-// TestClaude_NonInteractive_NoEffortForSonnet verifies --effort is NOT
+// TestClaude_Evaluate_NoEffortForSonnet verifies --effort is NOT
 // passed for non-haiku models.
-func TestClaude_NonInteractive_NoEffortForSonnet(t *testing.T) {
+func TestClaude_Evaluate_NoEffortForSonnet(t *testing.T) {
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
 	fakeBin := filepath.Join(dir, "fake-claude")
@@ -207,9 +207,9 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model("sonnet"))
+	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("sonnet"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 
 	argsData, err := os.ReadFile(argsFile)
@@ -291,9 +291,9 @@ cat
 	}
 
 	r := agent.NewRouter(fakeBin, "nonexistent-codex")
-	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 	if !strings.Contains(out, "user-input") {
 		t.Errorf("output = %q, expected user-input", out)
@@ -325,9 +325,9 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("codex"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 	if !strings.Contains(out, "user-input") {
 		t.Errorf("output = %q, expected user-input", out)
@@ -356,9 +356,9 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("codex-mini"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex-mini"))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 	if !strings.Contains(out, "user-input") {
 		t.Errorf("output = %q, expected user-input", out)
@@ -418,13 +418,13 @@ cat
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
 			NameVal:           "anthropic",
-			NonInteractiveErr: errors.New("401 authentication_error"),
+			EvaluateErr: errors.New("401 authentication_error"),
 		},
 	}
 
-	out, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err != nil {
-		t.Fatalf("NonInteractive should succeed via Claude CLI fallback: %v", err)
+		t.Fatalf("Evaluate should succeed via Claude CLI fallback: %v", err)
 	}
 	if !strings.Contains(out, "user-input") {
 		t.Errorf("output = %q, expected user-input from Claude CLI fallback", out)
@@ -446,7 +446,7 @@ cat
 	}
 }
 
-// TestClaude_NonInteractive_NoModelWhenEmpty verifies --model is omitted
+// TestClaude_Evaluate_NoModelWhenEmpty verifies --model is omitted
 // when model is empty.
 // TestRouter_NoFallbackOnContextCancel verifies that when the context is
 // already canceled, the router does NOT fall back to Claude CLI — a canceled
@@ -465,18 +465,18 @@ cat
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	cancel() // cancel before calling NonInteractive
+	cancel() // cancel before calling Evaluate
 
 	r := &agent.Router{
 		Claude: agent.NewClaude(fakeBin),
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
 			NameVal:           "anthropic",
-			NonInteractiveErr: context.Canceled,
+			EvaluateErr: context.Canceled,
 		},
 	}
 
-	_, err := r.NonInteractive(ctx, "sys", "user-input", agent.Model("haiku"))
+	_, err := r.Evaluate(ctx, "sys", "user-input", agent.Model("haiku"))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -517,11 +517,11 @@ exit 1
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
 			NameVal:           "anthropic",
-			NonInteractiveErr: errors.New("401 authentication_error"),
+			EvaluateErr: errors.New("401 authentication_error"),
 		},
 	}
 
-	_, err := r.NonInteractive(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	_, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
 	if err == nil {
 		t.Fatal("expected error when both backends fail, got nil")
 	}
@@ -535,7 +535,7 @@ exit 1
 	}
 }
 
-func TestClaude_NonInteractive_NoModelWhenEmpty(t *testing.T) {
+func TestClaude_Evaluate_NoModelWhenEmpty(t *testing.T) {
 	dir := t.TempDir()
 	argsFile := filepath.Join(dir, "args.txt")
 	fakeBin := filepath.Join(dir, "fake-claude")
@@ -549,9 +549,9 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.NonInteractive(t.Context(), "test-system", "test-user", agent.Model(""))
+	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model(""))
 	if err != nil {
-		t.Fatalf("NonInteractive: %v", err)
+		t.Fatalf("Evaluate: %v", err)
 	}
 
 	argsData, err := os.ReadFile(argsFile)
