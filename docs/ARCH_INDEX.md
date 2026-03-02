@@ -62,7 +62,7 @@ Embedded governance assets consumed at runtime:
 - `claude_validator.md` — trimmed governance preamble for validator mode
 - `governance.md` — governance framework reference
 - `review_architecture.md` — review-mode architecture doc
-- `roles/` — role definitions (architect, implementer, planner, reviewer, patcher, patch-architect)
+- `roles/` — role definitions (architect, implementer, planner, reviewer, patcher)
 - `skills/` — 43 governance skill definitions (SKILL.md + schemas)
 - `skills.yaml` — skill registry (bundles, modes, costs)
 - `templates/` — migration templates

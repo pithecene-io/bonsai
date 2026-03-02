@@ -79,7 +79,7 @@ func printBundles(reg *registry.Registry) {
 
 func printRoles() {
 	fmt.Println("Roles:")
-	roles := []string{"architect", "implementer", "planner", "reviewer", "patch-architect", "patcher"}
+	roles := []string{"architect", "implementer", "planner", "reviewer", "patcher"}
 	for _, r := range roles {
 		fmt.Printf("  %s\n", r)
 	}

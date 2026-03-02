@@ -370,21 +370,14 @@ Out of the box, bonsai assigns these models to each role and cost tier:
 
 | Role | Default model | Command |
 |------|---------------|---------|
-| implement | opus | `bonsai implement` |
-| plan | opus | `bonsai plan` |
-| review | codex | `bonsai review` |
-| patch | sonnet | `bonsai patch` |
+| implementer | opus | `bonsai implement` |
+| planner | opus | `bonsai plan` |
+| reviewer | codex | `bonsai review` |
+| patcher | sonnet | `bonsai patch` |
 | chat | sonnet | `bonsai chat` |
 
 Override any of these in `.bonsai.yaml` under `models.skills.*` or
 `models.roles.*`, or via environment variables.
-
-> **Roles vs. commands:** The model assignment table above maps
-> *commands* (verbs) to models. Each command uses a *prompt role*
-> (noun/actor) that defines the AI's persona — e.g. `bonsai plan` uses
-> the `planner` role, `bonsai implement` uses `implementer`, `bonsai
-> review` uses `reviewer`. Run `bonsai list --roles` to see all
-> available roles.
 
 ### Example `.bonsai.yaml`
 
@@ -395,10 +388,10 @@ models:
     moderate: sonnet
     heavy: sonnet
   roles:
-    implement: opus
-    plan: opus
-    review: codex
-    patch: sonnet
+    implementer: opus
+    planner: opus
+    reviewer: codex
+    patcher: sonnet
     chat: sonnet
 
 diff:
@@ -418,7 +411,7 @@ output:
 | `BONSAI_MODEL_SKILL_CHEAP` | `models.skills.cheap` |
 | `BONSAI_MODEL_SKILL_MODERATE` | `models.skills.moderate` |
 | `BONSAI_MODEL_SKILL_HEAVY` | `models.skills.heavy` |
-| `BONSAI_MODEL_ROLE_IMPLEMENT` | `models.roles.implement` |
+| `BONSAI_MODEL_ROLE_IMPLEMENTER` | `models.roles.implementer` |
 | `BONSAI_CHECK_JOBS` | `check.concurrency` |
 | `BONSAI_OUTPUT_DIR` | `output.dir` |
 

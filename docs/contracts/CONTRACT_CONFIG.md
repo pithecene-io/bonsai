@@ -115,24 +115,6 @@ Primary environment variable bindings:
 | `BONSAI_FIX_MAX_ITERATIONS` | `fix.max_iterations` |
 | `BONSAI_SKILLS_EXTRA_DIRS` | `skills.extra_dirs` (colon-separated) |
 
-## Legacy Environment Variables
-
-The following legacy names are accepted as fallbacks when the primary
-name is not set. They MAY be removed in a future version:
-
-| Legacy variable | Primary variable |
-|----------------|------------------|
-| `BONSAI_ANTHROPIC_API_KEY` | `BONSAI_PROVIDER_ANTHROPIC_API_KEY` |
-| `BONSAI_MODEL_CHECK_CHEAP` | `BONSAI_MODEL_SKILL_CHEAP` |
-| `BONSAI_MODEL_CHECK_MODERATE` | `BONSAI_MODEL_SKILL_MODERATE` |
-| `BONSAI_MODEL_CHECK_HEAVY` | `BONSAI_MODEL_SKILL_HEAVY` |
-| `BONSAI_MODEL_IMPLEMENT` | `BONSAI_MODEL_ROLE_IMPLEMENTER` |
-| `BONSAI_MODEL_PLAN` | `BONSAI_MODEL_ROLE_PLANNER` |
-| `BONSAI_MODEL_REVIEW` | `BONSAI_MODEL_ROLE_REVIEWER` |
-| `BONSAI_MODEL_PATCH` | `BONSAI_MODEL_ROLE_PATCHER` |
-| `BONSAI_MODEL_CHAT` | `BONSAI_MODEL_ROLE_CHAT` |
-| `BONSAI_MODEL_DEFAULT` | *(blanket fallback for all slots)* |
-
 ## Default Values
 
 All defaults are defined in `Default()` and compiled into the binary.
