@@ -11,10 +11,9 @@ resolution, and fallback behavior in `internal/agent/`.
 
 ## Invariants
 
-- The `Agent` interface MUST have exactly four methods:
-  `Interactive(ctx, system, extraArgs)`,
-  `NonInteractive(ctx, system, user, model)`,
-  `Autonomous(ctx, system, user, model)`, and `Name()`.
+- The `Agent` interface MUST have exactly two methods:
+  `NonInteractive(ctx, system, user, opts)` and
+  `Interactive(ctx, system, extraArgs)`.
 - Backend selection is determined by the model string, not the role
   or command.
 - Fallback from Anthropic direct API to Claude CLI MUST be automatic
@@ -26,9 +25,9 @@ resolution, and fallback behavior in `internal/agent/`.
 
 | Backend | Package | Transport | Capabilities |
 |---------|---------|-----------|--------------|
-| Anthropic direct API | `anthropic.go` | HTTPS (Go SDK) | Non-interactive only (no interactive or autonomous) |
-| Claude CLI | `claude.go` | Subprocess | Non-interactive, interactive, and autonomous |
-| Codex CLI | `codex.go` | Subprocess | Non-interactive, interactive, and autonomous |
+| Anthropic direct API | `anthropic.go` | HTTPS (Go SDK) | Non-interactive only |
+| Claude CLI | `claude.go` | Subprocess | Non-interactive and interactive |
+| Codex CLI | `codex.go` | Subprocess | Non-interactive and interactive |
 
 ## Dispatch Precedence (NonInteractive)
 
@@ -42,15 +41,6 @@ default                               → Claude CLI (universal fallback)
 
 Interactive mode always routes to Claude CLI, regardless of model.
 The Anthropic direct API does not support interactive sessions.
-
-## Dispatch Precedence (Autonomous)
-
-```
-Model.IsCodex()  → Codex CLI
-default           → Claude CLI
-```
-
-The Anthropic direct API does not support autonomous mode.
 
 ## Credential Resolution (Anthropic)
 
@@ -94,7 +84,6 @@ the same request via Claude CLI. The original error is logged to
 stderr when `BONSAI_DEBUG=1` is set. Only the Claude CLI result is
 returned to the caller.
 
-The fallback excludes context cancellation and deadline exceeded
-errors — when the caller is done, falling back would just add noise
-and latency. All other errors (auth failures, outages, network
-issues) trigger automatic fallback.
+The fallback is intentionally broad — it catches all errors including
+context cancellation. This trades occasional unnecessary retry
+attempts for simplicity.
