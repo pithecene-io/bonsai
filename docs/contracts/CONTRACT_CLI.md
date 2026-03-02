@@ -19,7 +19,6 @@ defined in `internal/cli/`.
   `hooks`, `completion`, `version`).
 - Exit code 0 means success; exit code 1 means governance failure or
   error.
-- Flag removal without a deprecation period is a breaking change.
 
 ## Command Surface
 
@@ -27,17 +26,26 @@ defined in `internal/cli/`.
 |---------|-----------|-------------|
 | `bonsai check` | *(none)* | Run governance skills against diff |
 | `bonsai fix` | *(none)* | Autonomously fix governance findings |
-| `bonsai plan` | `[-- claude-args...]` | Interactive planning session |
-| `bonsai implement` | `[-- claude-args...]` | Implementation with governance gating |
+| `bonsai plan` | `[-- extra-args...]` | Interactive planning session |
+| `bonsai implement` | `[-- extra-args...]` | Implementation with governance gating |
 | `bonsai review` | *(none)* | Autonomous code review |
 | `bonsai patch` | `<task-description>` | Three-phase patch surgery |
-| `bonsai chat` | `[role] [-- claude-args...]` | Interactive AI chat |
+| `bonsai chat` | `[role] [-- extra-args...]` | Interactive AI chat |
 | `bonsai skill` | `<name>` | Run a single governance skill |
 | `bonsai list` | *(none)* | List skills, bundles, or roles |
 | `bonsai migrate` | `[path]` | Scaffold governance into a repo |
 | `bonsai hooks` | `install\|remove` | Manage pre-push hook |
 | `bonsai completion` | `bash\|zsh\|fish` | Generate shell completions |
 | `bonsai version` | *(none)* | Print version |
+
+> **Prescriptive**: `bonsai review` currently launches an interactive
+> Session. A follow-up code PR MUST change it to call Execute for
+> autonomous review.
+
+> **Prescriptive**: `bonsai plan`, `bonsai implement`, and
+> `bonsai chat` currently use `[-- claude-args...]` in their
+> ArgsUsage. A follow-up code PR MUST rename these to the
+> provider-neutral `[-- extra-args...]`.
 
 ## Command-to-Role Mapping
 
