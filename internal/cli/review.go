@@ -12,7 +12,7 @@ import (
 func reviewCommand() *cli.Command {
 	return &cli.Command{
 		Name:   "review",
-		Usage:  "Start a code review session (uses codex)",
+		Usage:  "Autonomous code review",
 		Action: runReview,
 	}
 }

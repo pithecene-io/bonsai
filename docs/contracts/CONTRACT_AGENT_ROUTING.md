@@ -36,10 +36,6 @@ type Agent interface {
 }
 ```
 
-> **Prescriptive rename**: the current code uses `NonInteractive`,
-> `Autonomous`, `Interactive`. A follow-up code PR MUST rename these
-> to `Evaluate`, `Execute`, `Session` respectively.
-
 ## Invocation Modes
 
 ### Evaluate
@@ -57,19 +53,11 @@ Read-only, tools disabled, output captured and returned as a string.
 
 Read-write, tools enabled, output streamed to terminal.
 
-- **Use case**: Autonomous code modification (`bonsai fix`, and
-  prescriptively `bonsai review`).
+- **Use case**: Autonomous code modification (`bonsai fix`,
+  `bonsai review`).
 - **I/O**: stdin is a prompt string; stdout/stderr stream to terminal.
 - **Tools**: Enabled — model can edit files, run commands.
 - **Side effects**: Yes — the model modifies the working tree.
-
-> **Prescriptive**: `bonsai review` currently calls `Session` but
-> MUST change to call `Execute` in a follow-up code PR, making review
-> autonomous rather than interactive.
-
-> **Bug**: Codex CLI `Execute` currently passes `--sandbox read-only`,
-> which prevents file writes. A follow-up code PR MUST use a writable
-> sandbox for Execute mode.
 
 ### Session
 
