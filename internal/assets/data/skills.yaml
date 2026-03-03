@@ -221,7 +221,7 @@ registry:
     trigger: heavy
     requires_diff: false
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   - name: module-cohesion-anomaly-detector
     version: v1
@@ -233,7 +233,7 @@ registry:
     trigger: heavy
     requires_diff: false
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   # =========================
   # IV. API & CONTRACT STABILITY
@@ -364,7 +364,7 @@ registry:
     trigger: structural
     requires_diff: false
     run_when:
-      modes: [STRUCTURAL, HEAVY, AUDIT]
+      modes: [STRUCTURAL, AUDIT]
 
   - name: near-duplicate-file-detector
     version: v1
@@ -376,7 +376,7 @@ registry:
     trigger: heavy
     requires_diff: false
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   - name: abstraction-leak-detector
     version: v1
@@ -398,7 +398,7 @@ registry:
     mandatory: false
     trigger: heavy
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   - name: dead-module-detector
     version: v1
@@ -409,7 +409,7 @@ registry:
     mandatory: false
     trigger: heavy
     run_when:
-      modes: [STRUCTURAL, HEAVY, AUDIT]
+      modes: [STRUCTURAL, AUDIT]
 
   - name: orphan-test-detector
     version: v1
@@ -421,7 +421,7 @@ registry:
     trigger: heavy
     requires_diff: false
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   - name: test-coverage-regression-detector
     version: v1
@@ -432,7 +432,7 @@ registry:
     mandatory: false
     trigger: heavy
     run_when:
-      modes: [HEAVY, AUDIT]
+      modes: [AUDIT]
 
   # =========================
   # VII. REPO HYGIENE & OPERATIONAL SAFETY
@@ -603,7 +603,7 @@ bundles:
     - hardcoded-secret-pattern-detector
     - environment-variable-leak-detector
 
-  # Large features/refactors (maximal daily driver)
+  # Large features/refactors (near-maximal daily driver; excludes whole-codebase audits)
   heavy:
     - repo-convention-enforcer
     - arch-index-alignment
@@ -622,8 +622,6 @@ bundles:
     - unstable-dependency-detector
     - excessive-fan-in-detector
     - excessive-fan-out-detector
-    - god-module-detector
-    - module-cohesion-anomaly-detector
     - api-surface-drift
     - cli-contract-drift
     - config-contract-drift
@@ -634,13 +632,7 @@ bundles:
     - refactor-without-declaration-detector
     - large-diff-anomaly-detector
     - semantic-drift-detector
-    - responsibility-duplication-detector
-    - near-duplicate-file-detector
     - abstraction-leak-detector
-    - unused-public-symbol-detector
-    - dead-module-detector
-    - orphan-test-detector
-    - test-coverage-regression-detector
     - unsafe-config-pattern-detector
     - environment-variable-leak-detector
     - hardcoded-secret-pattern-detector

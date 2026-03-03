@@ -22,5 +22,8 @@ Thumbs.db
 ai/out/
 *.log
 
+# Claude Code session state
+.claude/
+
 # Task runner
 .task/
