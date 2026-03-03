@@ -111,3 +111,10 @@ func RefExists(dir, ref string) bool {
 	_, err := Run(dir, "rev-parse", "--verify", ref)
 	return err == nil
 }
+
+// CreateWorktree creates a new git worktree at path with a new branch.
+// Equivalent to: git worktree add <path> -b <branch>
+func CreateWorktree(dir, path, branch string) error {
+	_, err := Run(dir, "worktree", "add", path, "-b", branch)
+	return err
+}

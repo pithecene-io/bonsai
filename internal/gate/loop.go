@@ -57,21 +57,15 @@ func New(opts Opts) *Loop {
 }
 
 // Preflight runs the pre-loop checks:
-//   - Verify not on main/master branch
 //   - Warn if not in a worktree
 //   - Detect merge base
 //   - Consume plan.json if present
+//
+// Branch validation (main/master guard) is handled by the CLI layer
+// via ensureFeatureBranch, which auto-creates a worktree before the
+// gate loop is constructed.
 func (l *Loop) Preflight() error {
 	repoRoot := l.opts.RepoRoot
-
-	// Check branch — hard-fail on main/master
-	branch, err := gitutil.CurrentBranch(repoRoot)
-	if err != nil {
-		return fmt.Errorf("detect branch: %w", err)
-	}
-	if branch == "main" || branch == "master" {
-		return fmt.Errorf("refusing to implement on %s — create a feature branch or use: git worktree add", branch)
-	}
 
 	// Warn if not in a worktree (not fatal, just advisory)
 	info, err := repo.Detect(repoRoot)

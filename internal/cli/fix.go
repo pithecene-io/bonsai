@@ -41,7 +41,14 @@ func runFix(c *urfave.Context) error {
 	baseRef := c.String("base")
 	noProgress := c.Bool("no-progress")
 
-	env, err := bootstrap()
+	repoRoot := detectRepoRoot()
+	wt, err := ensureFeatureBranch(repoRoot, "fix")
+	if err != nil {
+		return err
+	}
+	defer printWorktreeReminder(wt)
+
+	env, err := bootstrapFrom(wt.RepoRoot)
 	if err != nil {
 		return err
 	}

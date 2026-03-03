@@ -18,6 +18,14 @@ func implementCommand() *cli.Command {
 
 func runImplement(c *cli.Context) error {
 	repoRoot := detectRepoRoot()
+
+	wt, err := ensureFeatureBranch(repoRoot, "implement")
+	if err != nil {
+		return err
+	}
+	defer printWorktreeReminder(wt)
+	repoRoot = wt.RepoRoot
+
 	env, err := bootstrapLight(repoRoot)
 	if err != nil {
 		return err

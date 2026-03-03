@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/urfave/cli/v2"
 
@@ -35,7 +37,13 @@ type cmdEnv struct {
 // bootstrap resolves the full command environment:
 // repo root → config → resolver → registry.
 func bootstrap() (cmdEnv, error) {
-	repoRoot := detectRepoRoot()
+	return bootstrapFrom(detectRepoRoot())
+}
+
+// bootstrapFrom resolves the full command environment from a given repo root.
+// Used by commands that resolve the repo root themselves (e.g. after
+// auto-creating a worktree).
+func bootstrapFrom(repoRoot string) (cmdEnv, error) {
 	env, err := bootstrapLight(repoRoot)
 	if err != nil {
 		return cmdEnv{}, err
@@ -112,4 +120,59 @@ func fileExists(path string) bool {
 func isDirectory(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+// worktreeResult holds the outcome of ensureFeatureBranch.
+type worktreeResult struct {
+	RepoRoot    string // effective repo root (may be a new worktree)
+	IsWorktree  bool   // true if a worktree was created
+	WorktreePath string // absolute path to the created worktree (empty if none)
+}
+
+// ensureFeatureBranch checks whether the repository is on main/master.
+// If so, it automatically creates a git worktree with a timestamped
+// branch so the user never has to manage git plumbing manually.
+// Returns the (possibly new) repo root and metadata about the worktree.
+//
+// If the directory is not a git repository, this is a no-op (returns
+// the original root unchanged).
+func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
+	branch, err := gitutil.CurrentBranch(repoRoot)
+	if err != nil {
+		// Not a git repo or detached HEAD — skip worktree logic.
+		return worktreeResult{RepoRoot: repoRoot}, nil
+	}
+
+	if branch != "main" && branch != "master" {
+		// Already on a feature branch — nothing to do.
+		return worktreeResult{RepoRoot: repoRoot}, nil
+	}
+
+	// Generate a timestamped worktree name:
+	//   ../bonsai-<command>-<YYYYMMDD-HHMMSS>
+	ts := time.Now().Format("20060102-150405")
+	repoName := filepath.Base(repoRoot)
+	wtDir := fmt.Sprintf("%s-%s-%s", repoName, command, ts)
+	wtPath := filepath.Join(filepath.Dir(repoRoot), wtDir)
+	branchName := fmt.Sprintf("bonsai/%s/%s", command, ts)
+
+	if err := gitutil.CreateWorktree(repoRoot, wtPath, branchName); err != nil {
+		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("create worktree: %w", err)
+	}
+
+	fmt.Printf("Created worktree: %s (branch: %s)\n", wtPath, branchName)
+
+	return worktreeResult{
+		RepoRoot:     wtPath,
+		IsWorktree:   true,
+		WorktreePath: wtPath,
+	}, nil
+}
+
+// printWorktreeReminder prints a post-session reminder if a worktree was created.
+func printWorktreeReminder(wt worktreeResult) {
+	if !wt.IsWorktree {
+		return
+	}
+	fmt.Printf("\nWorktree: %s — remember to clean up when done\n", wt.WorktreePath)
 }
