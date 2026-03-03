@@ -24,6 +24,7 @@ var roleModes = map[string]prompt.Mode{
 	"planner":     prompt.ModePlanner,
 	"implementer": prompt.ModeImplementer,
 	"reviewer":    prompt.ModeReviewer,
+	"patcher":     prompt.ModePatcher,
 }
 
 func runChat(c *cli.Context) error {
