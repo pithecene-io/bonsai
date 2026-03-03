@@ -118,3 +118,13 @@ func CreateWorktree(dir, path, branch string) error {
 	_, err := Run(dir, "worktree", "add", path, "-b", branch)
 	return err
 }
+
+// IsDirty returns true if the working tree has uncommitted changes
+// (staged or unstaged) or untracked files.
+func IsDirty(dir string) (bool, error) {
+	out, err := Run(dir, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	return out != "", nil
+}

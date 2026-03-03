@@ -131,21 +131,33 @@ type worktreeResult struct {
 
 // ensureFeatureBranch checks whether the repository is on main/master.
 // If so, it automatically creates a git worktree with a timestamped
-// branch so the user never has to manage git plumbing manually.
-// Returns the (possibly new) repo root and metadata about the worktree.
+// branch, changes process CWD to the new worktree, and returns the
+// updated repo root. Agent subprocesses inherit CWD, so this ensures
+// they execute in the correct directory.
 //
 // If the directory is not a git repository, this is a no-op (returns
 // the original root unchanged).
 func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
+	// Distinguish "not a git repo" (skip silently) from real git
+	// errors (surface to the user).
+	if !gitutil.IsInsideWorkTree(repoRoot) {
+		return worktreeResult{RepoRoot: repoRoot}, nil
+	}
+
 	branch, err := gitutil.CurrentBranch(repoRoot)
 	if err != nil {
-		// Not a git repo or detached HEAD — skip worktree logic.
-		return worktreeResult{RepoRoot: repoRoot}, nil
+		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("detect branch: %w", err)
 	}
 
 	if branch != "main" && branch != "master" {
 		// Already on a feature branch — nothing to do.
 		return worktreeResult{RepoRoot: repoRoot}, nil
+	}
+
+	// Warn if the working tree has uncommitted changes — those edits
+	// will NOT be present in the new worktree (it starts from HEAD).
+	if dirty, _ := gitutil.IsDirty(repoRoot); dirty {
+		fmt.Fprintln(os.Stderr, "warning: uncommitted changes on "+branch+" will not be present in the new worktree")
 	}
 
 	// Generate a timestamped worktree name:
@@ -158,6 +170,12 @@ func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
 
 	if err := gitutil.CreateWorktree(repoRoot, wtPath, branchName); err != nil {
 		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("create worktree: %w", err)
+	}
+
+	// Change process CWD so agent subprocesses (claude, codex) that
+	// inherit CWD execute in the worktree, not the original checkout.
+	if err := os.Chdir(wtPath); err != nil {
+		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("chdir to worktree: %w", err)
 	}
 
 	fmt.Printf("Created worktree: %s (branch: %s)\n", wtPath, branchName)

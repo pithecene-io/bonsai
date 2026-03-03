@@ -21,12 +21,23 @@ the fix loop (`internal/cli/fix.go`), and artifact persistence.
 preflight → [session → diff → profile → mode → gate → pass/fail/re-inject] × max_iterations
 ```
 
+### Branch Safety (CLI Layer)
+
+Before the gating loop is constructed, code-modifying CLI commands
+(`implement`, `patch`, `fix`) MUST ensure the process is not on
+`main` or `master`. If on a protected branch, the CLI layer
+auto-creates a git worktree with a timestamped branch and changes
+process CWD to the new worktree. This guarantees agent subprocesses
+execute in the correct directory.
+
+If the working tree has uncommitted changes, the CLI layer MUST warn
+that those edits will not be present in the new worktree.
+
 ### Preflight
 
-1. Verify not on `main` or `master` branch (hard fail)
-2. Warn if not in a git worktree (advisory)
-3. Detect merge base from configured candidates
-4. Consume `plan.json` if present (rename to `.consumed.json`)
+1. Warn if not in a git worktree (advisory)
+2. Detect merge base from configured candidates
+3. Consume `plan.json` if present (rename to `.consumed.json`)
 
 ### Iteration
 
