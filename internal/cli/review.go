@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/urfave/cli/v2"
@@ -12,7 +13,7 @@ import (
 func reviewCommand() *cli.Command {
 	return &cli.Command{
 		Name:   "review",
-		Usage:  "Start a code review session (uses codex)",
+		Usage:  "Autonomous code review",
 		Action: runReview,
 	}
 }
@@ -30,16 +31,22 @@ func runReview(c *cli.Context) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	// Route agent based on models.roles.reviewer config.
-	// Default is "codex"; any other value routes to claude with that model.
-	reviewModel := env.Config.Models.ModelForRole("reviewer")
-	if reviewModel == "codex" {
-		return agent.NewCodex(env.Config.Agents.Codex.Bin).Interactive(c.Context, systemPrompt, nil)
+	rs := &reviewRunner{
+		agent: agent.NewRouter(env.Config.Agents.Claude.Bin, env.Config.Agents.Codex.Bin),
+		model: agent.Model(env.Config.Models.ModelForRole("reviewer")),
 	}
-	claudeAgent := agent.NewClaude(env.Config.Agents.Claude.Bin)
-	var extraArgs []string
-	if reviewModel != "" {
-		extraArgs = append(extraArgs, "--model", reviewModel)
-	}
-	return claudeAgent.Interactive(c.Context, systemPrompt, extraArgs)
+	return rs.run(c.Context, systemPrompt)
+}
+
+// reviewRunner encapsulates the review dispatch so the agent is injectable
+// for testing.
+type reviewRunner struct {
+	agent agent.Agent
+	model agent.Model
+}
+
+// run invokes an autonomous review session via Execute.
+func (rr *reviewRunner) run(ctx context.Context, systemPrompt string) error {
+	userPrompt := "Review the code changes on this branch."
+	return rr.agent.Execute(ctx, systemPrompt, userPrompt, rr.model)
 }

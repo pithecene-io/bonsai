@@ -164,20 +164,20 @@ func (a *Anthropic) Name() string { return "anthropic" }
 // IsOAuth reports whether this backend is using a Claude CLI OAuth token.
 func (a *Anthropic) IsOAuth() bool { return a.oauth }
 
-// Interactive returns an error — the direct API backend cannot attach
+// Session returns an error — the direct API backend cannot attach
 // to a terminal for interactive sessions.
-func (a *Anthropic) Interactive(_ context.Context, _ string, _ []string) error {
+func (a *Anthropic) Session(_ context.Context, _ string, _ []string) error {
 	return errors.New("anthropic direct API does not support interactive sessions")
 }
 
-// Autonomous returns an error — the direct API backend does not
-// support tool-enabled autonomous mode.
-func (a *Anthropic) Autonomous(_ context.Context, _, _ string, _ Model) error {
-	return fmt.Errorf("anthropic: autonomous mode requires tool use (not supported)")
+// Execute returns an error — the direct API backend does not
+// support tool-enabled execute mode.
+func (a *Anthropic) Execute(_ context.Context, _, _ string, _ Model) error {
+	return fmt.Errorf("anthropic: execute mode requires tool use (not supported)")
 }
 
-// NonInteractive calls the Anthropic Messages API directly.
-func (a *Anthropic) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+// Evaluate calls the Anthropic Messages API directly.
+func (a *Anthropic) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	resolvedModel := resolveModel(string(model))
 	profile := profileFor(model.Tier())
 

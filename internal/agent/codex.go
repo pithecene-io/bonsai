@@ -26,9 +26,9 @@ func NewCodex(bin string) *Codex {
 // Name returns "codex".
 func (c *Codex) Name() string { return "codex" }
 
-// Interactive starts an interactive codex session.
+// Session starts an interactive codex session.
 // Matches: codex "$PROMPT"
-func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
+func (c *Codex) Session(ctx context.Context, systemPrompt string, extraArgs []string) error {
 	args := []string{systemPrompt}
 	args = append(args, extraArgs...)
 
@@ -40,10 +40,10 @@ func (c *Codex) Interactive(ctx context.Context, systemPrompt string, extraArgs 
 	return cmd.Run()
 }
 
-// NonInteractive runs codex in non-interactive mode via `codex exec`.
+// Evaluate runs codex in non-interactive mode via `codex exec`.
 // The system prompt and user prompt are combined into a single prompt
 // since codex doesn't have a separate system prompt concept.
-func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (c *Codex) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	// Combine system + user prompt (codex has no --system-prompt)
 	combinedPrompt := systemPrompt + "\n\n" + userPrompt
 
@@ -79,10 +79,11 @@ func (c *Codex) NonInteractive(ctx context.Context, systemPrompt, userPrompt str
 	return stdout.String(), nil
 }
 
-// Autonomous runs codex in non-interactive mode but streams stdout/stderr
-// to the terminal instead of capturing output.
-func (c *Codex) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
-	args := []string{"exec", "--ephemeral", "--sandbox", "read-only"}
+// Execute runs codex in non-interactive mode but streams stdout/stderr
+// to the terminal instead of capturing output. Unlike Evaluate, no
+// sandbox flag is passed — codex exec defaults to writable.
+func (c *Codex) Execute(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
+	args := []string{"exec", "--ephemeral"}
 	if model != "" && string(model) != "codex" {
 		args = append(args, "-m", string(model))
 	}

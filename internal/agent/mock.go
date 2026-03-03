@@ -5,21 +5,21 @@ import (
 	"sync"
 )
 
-// NonInteractiveCall records a call to NonInteractive.
-type NonInteractiveCall struct {
+// EvaluateCall records a call to Evaluate.
+type EvaluateCall struct {
 	SystemPrompt string
 	UserPrompt   string
 	Model        Model
 }
 
-// InteractiveCall records a call to Interactive.
-type InteractiveCall struct {
+// SessionCall records a call to Session.
+type SessionCall struct {
 	SystemPrompt string
 	ExtraArgs    []string
 }
 
-// AutonomousCall records a call to Autonomous.
-type AutonomousCall struct {
+// ExecuteCall records a call to Execute.
+type ExecuteCall struct {
 	SystemPrompt string
 	UserPrompt   string
 	Model        Model
@@ -29,51 +29,51 @@ type AutonomousCall struct {
 // It records calls and returns configurable responses.
 // All methods are safe for concurrent use.
 type MockAgent struct {
-	mu                     sync.Mutex
-	NameVal                string
-	NonInteractiveResponse string
-	NonInteractiveErr      error
-	NonInteractiveCalls    []NonInteractiveCall
-	InteractiveErr         error
-	InteractiveCalls       []InteractiveCall
-	AutonomousErr          error
-	AutonomousCalls        []AutonomousCall
+	mu               sync.Mutex
+	NameVal          string
+	EvaluateResponse string
+	EvaluateErr      error
+	EvaluateCalls    []EvaluateCall
+	SessionErr       error
+	SessionCalls     []SessionCall
+	ExecuteErr       error
+	ExecuteCalls     []ExecuteCall
 
-	// NonInteractiveFunc, when set, is called instead of returning
-	// the static NonInteractiveResponse/NonInteractiveErr. Useful for
+	// EvaluateFunc, when set, is called instead of returning
+	// the static EvaluateResponse/EvaluateErr. Useful for
 	// per-call mock responses in parallel tests.
-	NonInteractiveFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
+	EvaluateFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
 
-	// AutonomousFunc, when set, is called instead of returning the
-	// static AutonomousErr. Useful for per-call mock behavior.
-	AutonomousFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) error
+	// ExecuteFunc, when set, is called instead of returning the
+	// static ExecuteErr. Useful for per-call mock behavior.
+	ExecuteFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) error
 }
 
 // Name returns the configured name.
 func (m *MockAgent) Name() string { return m.NameVal }
 
-// Interactive records the call and returns the configured error.
-func (m *MockAgent) Interactive(_ context.Context, systemPrompt string, extraArgs []string) error {
+// Session records the call and returns the configured error.
+func (m *MockAgent) Session(_ context.Context, systemPrompt string, extraArgs []string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.InteractiveCalls = append(m.InteractiveCalls, InteractiveCall{
+	m.SessionCalls = append(m.SessionCalls, SessionCall{
 		SystemPrompt: systemPrompt,
 		ExtraArgs:    extraArgs,
 	})
-	return m.InteractiveErr
+	return m.SessionErr
 }
 
-// NonInteractive records the call and returns the configured response/error.
-func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+// Evaluate records the call and returns the configured response/error.
+func (m *MockAgent) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	m.mu.Lock()
-	m.NonInteractiveCalls = append(m.NonInteractiveCalls, NonInteractiveCall{
+	m.EvaluateCalls = append(m.EvaluateCalls, EvaluateCall{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		Model:        model,
 	})
-	fn := m.NonInteractiveFunc
-	resp := m.NonInteractiveResponse
-	err := m.NonInteractiveErr
+	fn := m.EvaluateFunc
+	resp := m.EvaluateResponse
+	err := m.EvaluateErr
 	m.mu.Unlock()
 
 	if fn != nil {
@@ -82,16 +82,16 @@ func (m *MockAgent) NonInteractive(ctx context.Context, systemPrompt, userPrompt
 	return resp, err
 }
 
-// Autonomous records the call and returns the configured error.
-func (m *MockAgent) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
+// Execute records the call and returns the configured error.
+func (m *MockAgent) Execute(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	m.mu.Lock()
-	m.AutonomousCalls = append(m.AutonomousCalls, AutonomousCall{
+	m.ExecuteCalls = append(m.ExecuteCalls, ExecuteCall{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		Model:        model,
 	})
-	fn := m.AutonomousFunc
-	err := m.AutonomousErr
+	fn := m.ExecuteFunc
+	err := m.ExecuteErr
 	m.mu.Unlock()
 
 	if fn != nil {
@@ -100,9 +100,9 @@ func (m *MockAgent) Autonomous(ctx context.Context, systemPrompt, userPrompt str
 	return err
 }
 
-// CallCount returns the number of NonInteractive calls recorded.
+// CallCount returns the number of Evaluate calls recorded.
 func (m *MockAgent) CallCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return len(m.NonInteractiveCalls)
+	return len(m.EvaluateCalls)
 }

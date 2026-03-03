@@ -26,9 +26,9 @@ func NewClaude(bin string) *Claude {
 // Name returns "claude".
 func (c *Claude) Name() string { return "claude" }
 
-// Interactive starts an interactive claude session.
+// Session starts an interactive claude session.
 // When model is non-empty, passes --model to the claude CLI.
-func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error {
+func (c *Claude) Session(ctx context.Context, systemPrompt string, extraArgs []string) error {
 	args := []string{"--system-prompt", systemPrompt}
 	args = append(args, extraArgs...)
 
@@ -40,10 +40,10 @@ func (c *Claude) Interactive(ctx context.Context, systemPrompt string, extraArgs
 	return cmd.Run()
 }
 
-// NonInteractive runs claude in non-interactive (print) mode.
+// Evaluate runs claude in non-interactive (print) mode.
 // The --model flag is placed early in the args to ensure the CLI
 // parses it before processing the system prompt.
-func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (c *Claude) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
 	var args []string
 
 	// --model MUST come before other flags to ensure correct parsing
@@ -93,11 +93,11 @@ func (c *Claude) NonInteractive(ctx context.Context, systemPrompt, userPrompt st
 	return stdout.String(), nil
 }
 
-// Autonomous runs claude in print mode with tools enabled.
-// Unlike NonInteractive, tools are not disabled — the model can
+// Execute runs claude in print mode with tools enabled.
+// Unlike Evaluate, tools are not disabled — the model can
 // autonomously edit files and run commands. Output streams directly
 // to stdout/stderr rather than being captured.
-func (c *Claude) Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
+func (c *Claude) Execute(ctx context.Context, systemPrompt, userPrompt string, model Model) error {
 	var args []string
 
 	if model != "" {
@@ -126,7 +126,7 @@ func (c *Claude) Autonomous(ctx context.Context, systemPrompt, userPrompt string
 				debugArgs[i+1] = fmt.Sprintf("[%d chars]", len(debugArgs[i+1]))
 			}
 		}
-		fmt.Fprintf(os.Stderr, "[bonsai:debug] claude autonomous %s\n", strings.Join(debugArgs, " "))
+		fmt.Fprintf(os.Stderr, "[bonsai:debug] claude execute %s\n", strings.Join(debugArgs, " "))
 	}
 
 	return cmd.Run()

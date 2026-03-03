@@ -55,20 +55,20 @@ func (m Model) IsLite() bool {
 
 // Agent is the interface for AI agent backends.
 type Agent interface {
-	// Interactive starts an interactive session with the given system prompt.
+	// Session starts an interactive session with the given system prompt.
 	// It connects stdin/stdout/stderr to the terminal.
 	// extraArgs are passed through to the agent CLI.
-	Interactive(ctx context.Context, systemPrompt string, extraArgs []string) error
+	Session(ctx context.Context, systemPrompt string, extraArgs []string) error
 
-	// NonInteractive runs a non-interactive query with the given system
+	// Evaluate runs a non-interactive query with the given system
 	// prompt and user prompt. Returns the agent's text response.
 	// model is optional; when zero-value it uses the agent's default model.
-	NonInteractive(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
+	Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
 
-	// Autonomous runs a non-interactive session with tools enabled.
+	// Execute runs a non-interactive session with tools enabled.
 	// The model receives the prompt, autonomously makes changes (file
 	// edits, commands), and exits. Output streams to stdout/stderr.
-	Autonomous(ctx context.Context, systemPrompt, userPrompt string, model Model) error
+	Execute(ctx context.Context, systemPrompt, userPrompt string, model Model) error
 
 	// Name returns the agent name (e.g., "claude", "codex").
 	Name() string

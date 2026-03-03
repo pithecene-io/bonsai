@@ -8,11 +8,11 @@ backend fails.
 
 ## Overview
 
-| Backend | Package | Transport | Interactive | Billing |
-|---------|---------|-----------|-------------|---------|
+| Backend | Package | Transport | Session | Billing |
+|---------|---------|-----------|---------|---------|
 | Anthropic direct API | `internal/agent/anthropic.go` | HTTPS (Go SDK) | No | API credits or Max/Pro subscription |
 | Claude CLI | `internal/agent/claude.go` | Subprocess (Node.js) | Yes | Via Claude CLI auth |
-| Codex CLI | `internal/agent/codex.go` | Subprocess | No | Via Codex CLI auth |
+| Codex CLI | `internal/agent/codex.go` | Subprocess | Yes | Via Codex CLI auth |
 
 ## Anthropic Direct API
 
@@ -79,9 +79,9 @@ fall back to the sonnet token profile (8192).
 
 ### Limitations
 
-- **No interactive mode** — `Interactive()` returns an error. The
-  direct API is request/response only; terminal attachment requires a
-  CLI subprocess.
+- **No Session or Execute mode** — `Session()` and `Execute()` return
+  errors. The direct API is request/response only (Evaluate); terminal
+  attachment and tool use require a CLI subprocess.
 
 ## Claude CLI
 
@@ -101,9 +101,9 @@ The `--model` flag **must precede** other flags to ensure the CLI
 parses it before processing the system prompt. This is a CLI quirk,
 not a general convention.
 
-### Non-interactive flags
+### Evaluate flags
 
-Full flag set for non-interactive (`-p`) mode:
+Full flag set for Evaluate (`-p`) mode:
 
 ```
 claude --model <model> \
@@ -127,11 +127,16 @@ on cheap evaluation passes.
 `CLAUDECODE` is stripped from the subprocess environment to prevent
 nested Claude Code invocations from interfering.
 
-### Interactive mode
+### Session mode
 
-Interactive mode connects stdin/stdout/stderr directly to the
-subprocess. Only `--system-prompt` and caller-provided extra args are
-passed.
+Session mode connects stdin/stdout/stderr directly to the subprocess.
+Only `--system-prompt` and caller-provided extra args are passed.
+
+### Execute mode
+
+Execute mode uses `-p` with tools enabled (no `--tools ""` flag).
+Output streams to stdout/stderr. The model can autonomously edit files
+and run commands.
 
 ## Codex CLI
 
@@ -144,7 +149,7 @@ Subprocess-based backend that shells out to the `codex` CLI.
 Codex has no `--system-prompt` flag. System and user prompts are
 concatenated into a single combined prompt, separated by two newlines.
 
-### Invocation
+### Evaluate invocation
 
 ```
 codex exec --ephemeral --sandbox read-only [-m <model>] -
@@ -153,13 +158,22 @@ codex exec --ephemeral --sandbox read-only [-m <model>] -
 - The `-m` flag is only added when the model is not the default
   `"codex"`.
 - The combined prompt is passed via stdin (the `-` argument).
+- `--sandbox read-only` ensures evaluation is side-effect-free.
 
-### Limitations
+### Execute invocation
 
-- **No interactive support** — `Interactive()` is implemented but
-  passes the system prompt as a positional argument (`codex "$PROMPT"`),
-  which is not the same as a true interactive session with separate
-  system/user prompt handling.
+```
+codex exec --ephemeral [-m <model>] -
+```
+
+No `--sandbox` flag — codex exec defaults to writable, allowing the
+model to modify files.
+
+### Session mode
+
+Session mode passes the system prompt as a positional argument
+(`codex "$PROMPT"`). This is not equivalent to Claude CLI's interactive
+session with separate system/user prompt handling.
 
 ## Router Dispatch
 
@@ -168,7 +182,7 @@ Source: `internal/agent/router.go`
 The Router implements the `Agent` interface and dispatches to backends
 based on the model string.
 
-### Dispatch precedence (NonInteractive)
+### Dispatch precedence (Evaluate)
 
 ```
 Model.IsCodex()                       → Codex CLI
@@ -176,21 +190,31 @@ Model.IsClaude() && Anthropic != nil  → Anthropic direct API
 default                               → Claude CLI (universal fallback)
 ```
 
-### Interactive routing
+### Execute routing
 
-Interactive mode always routes to Claude CLI, regardless of model.
+```
+Model.IsCodex()  → Codex CLI
+default           → Claude CLI
+```
+
+The Anthropic direct API does not support Execute.
+
+### Session routing
+
+Session always routes to Claude CLI, regardless of model.
 
 ### Automatic fallback
 
-When the Anthropic direct API fails (auth error, outage, network
-issue), the Router silently retries the same request via Claude CLI.
-The original error is logged to stderr when `BONSAI_DEBUG=1` is set,
-but only the Claude CLI result (or error) is returned to the caller.
+When the Anthropic direct API fails during Evaluate (auth error,
+outage, network issue), the Router silently retries the same request
+via Claude CLI. The original error is logged to stderr when
+`BONSAI_DEBUG=1` is set, but only the Claude CLI result (or error) is
+returned to the caller.
 
-> **Note**: The fallback is intentionally broad — it catches all
-> Anthropic errors, including context cancellation. This trades
-> occasional unnecessary retry attempts for simplicity. If the
-> context is already canceled, the Claude CLI attempt fails quickly.
+The fallback **excludes** `context.Canceled` and
+`context.DeadlineExceeded` — these are caller-initiated and retrying
+would add noise. Both are checked via `ctx.Err()` and `errors.Is()`
+on the error chain.
 
 ### Mock injection
 

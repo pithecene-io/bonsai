@@ -38,15 +38,6 @@ defined in `internal/cli/`.
 | `bonsai completion` | `bash\|zsh\|fish` | Generate shell completions |
 | `bonsai version` | *(none)* | Print version |
 
-> **Prescriptive**: `bonsai review` currently launches an interactive
-> Session. A follow-up code PR MUST change it to call Execute for
-> autonomous review.
-
-> **Prescriptive**: `bonsai plan`, `bonsai implement`, and
-> `bonsai chat` currently use `[-- claude-args...]` in their
-> ArgsUsage. A follow-up code PR MUST rename these to the
-> provider-neutral `[-- extra-args...]`.
-
 ## Command-to-Role Mapping
 
 Each interactive command uses a specific prompt role (see

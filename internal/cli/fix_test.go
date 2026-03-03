@@ -243,7 +243,7 @@ func TestFixLoop_InitialCheckPasses(t *testing.T) {
 	// All skills pass on initial check → "nothing to fix"
 	checkMock := &agent.MockAgent{
 		NameVal:                "check",
-		NonInteractiveResponse: skillJSON("pass", []string{}),
+		EvaluateResponse: skillJSON("pass", []string{}),
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
@@ -254,8 +254,8 @@ func TestFixLoop_InitialCheckPasses(t *testing.T) {
 	}
 
 	// Session agent should never have been called
-	if len(sessionMock.AutonomousCalls) != 0 {
-		t.Errorf("autonomous calls = %d, want 0", len(sessionMock.AutonomousCalls))
+	if len(sessionMock.ExecuteCalls) != 0 {
+		t.Errorf("execute calls = %d, want 0", len(sessionMock.ExecuteCalls))
 	}
 }
 
@@ -264,7 +264,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				// Initial check: fail
@@ -283,15 +283,15 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	}
 
 	// Session agent should have been called once (one failed skill)
-	if len(sessionMock.AutonomousCalls) != 1 {
-		t.Errorf("autonomous calls = %d, want 1", len(sessionMock.AutonomousCalls))
+	if len(sessionMock.ExecuteCalls) != 1 {
+		t.Errorf("execute calls = %d, want 1", len(sessionMock.ExecuteCalls))
 	}
 
 	// The autonomous prompt should contain the findings
-	if len(sessionMock.AutonomousCalls) > 0 {
-		userPrompt := sessionMock.AutonomousCalls[0].UserPrompt
+	if len(sessionMock.ExecuteCalls) > 0 {
+		userPrompt := sessionMock.ExecuteCalls[0].UserPrompt
 		if !strings.Contains(userPrompt, "critical issue") {
-			t.Error("autonomous user prompt should contain findings from initial check")
+			t.Error("execute user prompt should contain findings from initial check")
 		}
 	}
 
@@ -306,7 +306,7 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 	// Every check fails → exhausts max iterations → error
 	checkMock := &agent.MockAgent{
 		NameVal:                "check",
-		NonInteractiveResponse: skillJSON("fail", []string{"persistent issue"}),
+		EvaluateResponse: skillJSON("fail", []string{"persistent issue"}),
 	}
 	sessionMock := &agent.MockAgent{NameVal: "session"}
 
@@ -323,18 +323,18 @@ func TestFixLoop_MaxIterationsExhausted(t *testing.T) {
 
 	// Session agent should have been called maxIterations times
 	// (one failed skill per iteration)
-	if len(sessionMock.AutonomousCalls) != 2 {
-		t.Errorf("autonomous calls = %d, want 2", len(sessionMock.AutonomousCalls))
+	if len(sessionMock.ExecuteCalls) != 2 {
+		t.Errorf("execute calls = %d, want 2", len(sessionMock.ExecuteCalls))
 	}
 }
 
 func TestFixLoop_ContextCancellation(t *testing.T) {
-	// Initial check fails, then context is cancelled during autonomous session.
+	// Initial check fails, then context is cancelled during execute session.
 	ctx, cancel := context.WithCancel(t.Context())
 
 	checkMock := &agent.MockAgent{
 		NameVal:                "check",
-		NonInteractiveResponse: skillJSON("fail", []string{"issue"}),
+		EvaluateResponse: skillJSON("fail", []string{"issue"}),
 	}
 
 	sessionMock := &cancellingMockAgent{cancel: cancel}
@@ -349,7 +349,7 @@ func TestFixLoop_ContextCancellation(t *testing.T) {
 
 	// Verify autonomous was actually called
 	if sessionMock.calls == 0 {
-		t.Error("expected autonomous session to be called")
+		t.Error("expected execute session to be called")
 	}
 }
 
@@ -362,26 +362,26 @@ type cancellingMockAgent struct {
 
 func (m *cancellingMockAgent) Name() string { return "cancel-mock" }
 
-func (m *cancellingMockAgent) Interactive(_ context.Context, _ string, _ []string) error {
+func (m *cancellingMockAgent) Session(_ context.Context, _ string, _ []string) error {
 	return nil
 }
 
-func (m *cancellingMockAgent) NonInteractive(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+func (m *cancellingMockAgent) Evaluate(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 	return "", nil
 }
 
-func (m *cancellingMockAgent) Autonomous(_ context.Context, _, _ string, _ agent.Model) error {
+func (m *cancellingMockAgent) Execute(_ context.Context, _, _ string, _ agent.Model) error {
 	m.calls++
 	m.cancel()
 	return context.Canceled
 }
 
 func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
-	// Verify that per-skill findings appear in the autonomous user prompt
+	// Verify that per-skill findings appear in the execute user prompt
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				return skillJSON("fail", []string{"missing CLAUDE.md §4 entry"}), nil
@@ -397,21 +397,21 @@ func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
 		t.Fatalf("fixLoop: %v", err)
 	}
 
-	if len(sessionMock.AutonomousCalls) != 1 {
-		t.Fatalf("autonomous calls = %d, want 1", len(sessionMock.AutonomousCalls))
+	if len(sessionMock.ExecuteCalls) != 1 {
+		t.Fatalf("execute calls = %d, want 1", len(sessionMock.ExecuteCalls))
 	}
 
-	userPrompt := sessionMock.AutonomousCalls[0].UserPrompt
+	userPrompt := sessionMock.ExecuteCalls[0].UserPrompt
 	if !strings.Contains(userPrompt, "missing CLAUDE.md §4 entry") {
-		t.Error("autonomous user prompt missing detailed finding text")
+		t.Error("execute user prompt missing detailed finding text")
 	}
 	if !strings.Contains(userPrompt, "repo-convention-enforcer") {
-		t.Error("autonomous user prompt missing skill name")
+		t.Error("execute user prompt missing skill name")
 	}
 }
 
 func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
-	// Two skills fail — verify per-skill autonomous calls in order.
+	// Two skills fail — verify per-skill execute calls in order.
 	skills := []registry.Skill{
 		{
 			Name:         "repo-convention-enforcer",
@@ -459,7 +459,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 	var checkCallCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		NonInteractiveFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
 			n := checkCallCount.Add(1)
 			// First check run (2 skills): both fail
 			if n <= 2 {
@@ -488,21 +488,21 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 		t.Fatalf("fixLoop: %v", err)
 	}
 
-	// Should have 2 autonomous calls (one per failed skill)
-	if len(sessionMock.AutonomousCalls) != 2 {
-		t.Fatalf("autonomous calls = %d, want 2", len(sessionMock.AutonomousCalls))
+	// Should have 2 execute calls (one per failed skill)
+	if len(sessionMock.ExecuteCalls) != 2 {
+		t.Fatalf("execute calls = %d, want 2", len(sessionMock.ExecuteCalls))
 	}
 
 	// Each call should reference a different skill name in the user prompt
-	firstPrompt := sessionMock.AutonomousCalls[0].UserPrompt
-	secondPrompt := sessionMock.AutonomousCalls[1].UserPrompt
+	firstPrompt := sessionMock.ExecuteCalls[0].UserPrompt
+	secondPrompt := sessionMock.ExecuteCalls[1].UserPrompt
 	hasRCE := strings.Contains(firstPrompt, "repo-convention-enforcer") || strings.Contains(secondPrompt, "repo-convention-enforcer")
 	hasAIA := strings.Contains(firstPrompt, "arch-index-alignment") || strings.Contains(secondPrompt, "arch-index-alignment")
 	if !hasRCE {
-		t.Error("expected 'repo-convention-enforcer' in one of the autonomous prompts")
+		t.Error("expected 'repo-convention-enforcer' in one of the execute prompts")
 	}
 	if !hasAIA {
-		t.Error("expected 'arch-index-alignment' in one of the autonomous prompts")
+		t.Error("expected 'arch-index-alignment' in one of the execute prompts")
 	}
 }
 

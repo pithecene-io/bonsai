@@ -189,7 +189,7 @@ func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 	}
 
 	// Match shell: `claude ... || true` — ignore exit from ctrl-C or session end.
-	_ = l.opts.Agent.Interactive(ctx, systemPrompt, extraArgs)
+	_ = l.opts.Agent.Session(ctx, systemPrompt, extraArgs)
 	return nil
 }
 
