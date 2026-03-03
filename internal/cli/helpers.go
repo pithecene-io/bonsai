@@ -138,20 +138,26 @@ type worktreeResult struct {
 // If the directory is not a git repository, this is a no-op (returns
 // the original root unchanged).
 func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
+	noOp := worktreeResult{RepoRoot: repoRoot}
+
 	// Distinguish "not a git repo" (skip silently) from real git
-	// errors (surface to the user).
-	if !gitutil.IsInsideWorkTree(repoRoot) {
-		return worktreeResult{RepoRoot: repoRoot}, nil
+	// errors like permissions or corruption (surface to the user).
+	inside, err := gitutil.CheckInsideWorkTree(repoRoot)
+	if err != nil {
+		return noOp, fmt.Errorf("detect git repo: %w", err)
+	}
+	if !inside {
+		return noOp, nil
 	}
 
 	branch, err := gitutil.CurrentBranch(repoRoot)
 	if err != nil {
-		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("detect branch: %w", err)
+		return noOp, fmt.Errorf("detect branch: %w", err)
 	}
 
 	if branch != "main" && branch != "master" {
 		// Already on a feature branch — nothing to do.
-		return worktreeResult{RepoRoot: repoRoot}, nil
+		return noOp, nil
 	}
 
 	// Warn if the working tree has uncommitted changes — those edits
@@ -169,13 +175,15 @@ func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
 	branchName := fmt.Sprintf("bonsai/%s/%s", command, ts)
 
 	if err := gitutil.CreateWorktree(repoRoot, wtPath, branchName); err != nil {
-		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("create worktree: %w", err)
+		return noOp, fmt.Errorf("create worktree: %w", err)
 	}
 
 	// Change process CWD so agent subprocesses (claude, codex) that
 	// inherit CWD execute in the worktree, not the original checkout.
 	if err := os.Chdir(wtPath); err != nil {
-		return worktreeResult{RepoRoot: repoRoot}, fmt.Errorf("chdir to worktree: %w", err)
+		// Clean up the worktree we just created to avoid orphans.
+		_ = gitutil.RemoveWorktree(repoRoot, wtPath)
+		return noOp, fmt.Errorf("chdir to worktree: %w", err)
 	}
 
 	fmt.Printf("Created worktree: %s (branch: %s)\n", wtPath, branchName)

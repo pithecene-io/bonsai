@@ -82,8 +82,31 @@ func UntrackedFiles(dir string) ([]string, error) {
 
 // IsInsideWorkTree returns true if the directory is inside a git work tree.
 func IsInsideWorkTree(dir string) bool {
+	inside, _ := CheckInsideWorkTree(dir)
+	return inside
+}
+
+// CheckInsideWorkTree reports whether dir is inside a git work tree
+// and returns the underlying error when git fails for reasons other
+// than "not a repository" (e.g. permissions, corruption).
+func CheckInsideWorkTree(dir string) (bool, error) {
 	out, err := RevParse(dir, "--is-inside-work-tree")
-	return err == nil && out == "true"
+	if err == nil && out == "true" {
+		return true, nil
+	}
+	if err == nil {
+		// git answered "false" — inside .git dir but not a work tree.
+		return false, nil
+	}
+	// Distinguish "not a git repo" (exit 128) from other failures.
+	// git rev-parse exits 128 when outside a repo. Any other non-zero
+	// exit or unexpected error may indicate corruption or permission
+	// issues and should be surfaced.
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "not a git repository") {
+		return false, nil
+	}
+	return false, err
 }
 
 // ShowToplevel returns the repository root directory.
@@ -116,6 +139,13 @@ func RefExists(dir, ref string) bool {
 // Equivalent to: git worktree add <path> -b <branch>
 func CreateWorktree(dir, path, branch string) error {
 	_, err := Run(dir, "worktree", "add", path, "-b", branch)
+	return err
+}
+
+// RemoveWorktree removes a git worktree and its associated branch.
+// Uses --force to handle the case where the worktree may be dirty.
+func RemoveWorktree(dir, path string) error {
+	_, err := Run(dir, "worktree", "remove", "--force", path)
 	return err
 }
 
