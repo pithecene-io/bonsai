@@ -181,8 +181,9 @@ func ensureFeatureBranch(repoRoot, command string) (worktreeResult, error) {
 	// Change process CWD so agent subprocesses (claude, codex) that
 	// inherit CWD execute in the worktree, not the original checkout.
 	if err := os.Chdir(wtPath); err != nil {
-		// Clean up the worktree we just created to avoid orphans.
+		// Clean up the worktree and branch to avoid orphans.
 		_ = gitutil.RemoveWorktree(repoRoot, wtPath)
+		_ = gitutil.DeleteBranch(repoRoot, branchName)
 		return noOp, fmt.Errorf("chdir to worktree: %w", err)
 	}
 

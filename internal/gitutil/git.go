@@ -142,10 +142,18 @@ func CreateWorktree(dir, path, branch string) error {
 	return err
 }
 
-// RemoveWorktree removes a git worktree and its associated branch.
+// RemoveWorktree removes a git worktree directory.
 // Uses --force to handle the case where the worktree may be dirty.
+// Does not delete the associated branch — use DeleteBranch separately.
 func RemoveWorktree(dir, path string) error {
 	_, err := Run(dir, "worktree", "remove", "--force", path)
+	return err
+}
+
+// DeleteBranch deletes a local branch.
+// Uses -D (force) so it works on unmerged branches.
+func DeleteBranch(dir, branch string) error {
+	_, err := Run(dir, "branch", "-D", branch)
 	return err
 }
 

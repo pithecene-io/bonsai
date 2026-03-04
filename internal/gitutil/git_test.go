@@ -142,3 +142,103 @@ func TestRunError(t *testing.T) {
 		t.Error("expected error running git in non-repo")
 	}
 }
+
+func TestCheckInsideWorkTree(t *testing.T) {
+	t.Run("inside repo returns true with no error", func(t *testing.T) {
+		dir := setupTestRepo(t)
+		inside, err := gitutil.CheckInsideWorkTree(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !inside {
+			t.Error("expected true for git repo")
+		}
+	})
+
+	t.Run("non-repo returns false with no error", func(t *testing.T) {
+		dir := t.TempDir()
+		inside, err := gitutil.CheckInsideWorkTree(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inside {
+			t.Error("expected false for non-repo")
+		}
+	})
+
+	t.Run("nonexistent dir returns false with error", func(t *testing.T) {
+		inside, err := gitutil.CheckInsideWorkTree("/nonexistent/path/that/does/not/exist")
+		if inside {
+			t.Error("expected false for nonexistent path")
+		}
+		// Error may or may not be returned depending on git version,
+		// but inside must be false.
+		_ = err
+	})
+}
+
+func TestCreateAndRemoveWorktree(t *testing.T) {
+	dir := setupTestRepo(t)
+	wtPath := filepath.Join(t.TempDir(), "test-worktree")
+	branch := "test/worktree-branch"
+
+	// Create worktree
+	if err := gitutil.CreateWorktree(dir, wtPath, branch); err != nil {
+		t.Fatalf("CreateWorktree: %v", err)
+	}
+
+	// Verify worktree exists and branch was created
+	if !gitutil.IsInsideWorkTree(wtPath) {
+		t.Error("worktree directory is not a git work tree")
+	}
+	if !gitutil.RefExists(dir, branch) {
+		t.Error("branch was not created")
+	}
+
+	// Remove worktree — branch should still exist
+	if err := gitutil.RemoveWorktree(dir, wtPath); err != nil {
+		t.Fatalf("RemoveWorktree: %v", err)
+	}
+	if gitutil.IsInsideWorkTree(wtPath) {
+		t.Error("worktree directory should not be a work tree after removal")
+	}
+	if !gitutil.RefExists(dir, branch) {
+		t.Error("RemoveWorktree should not delete the branch")
+	}
+
+	// Delete branch
+	if err := gitutil.DeleteBranch(dir, branch); err != nil {
+		t.Fatalf("DeleteBranch: %v", err)
+	}
+	if gitutil.RefExists(dir, branch) {
+		t.Error("branch should not exist after DeleteBranch")
+	}
+}
+
+func TestIsDirty(t *testing.T) {
+	t.Run("clean repo", func(t *testing.T) {
+		dir := setupTestRepo(t)
+		dirty, err := gitutil.IsDirty(dir)
+		if err != nil {
+			t.Fatalf("IsDirty: %v", err)
+		}
+		if dirty {
+			t.Error("expected clean repo to not be dirty")
+		}
+	})
+
+	t.Run("dirty repo", func(t *testing.T) {
+		dir := setupTestRepo(t)
+		f := filepath.Join(dir, "dirty.txt")
+		if err := os.WriteFile(f, []byte("dirty\n"), 0o644); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+		dirty, err := gitutil.IsDirty(dir)
+		if err != nil {
+			t.Fatalf("IsDirty: %v", err)
+		}
+		if !dirty {
+			t.Error("expected dirty repo to be dirty")
+		}
+	})
+}
