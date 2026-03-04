@@ -166,14 +166,22 @@ func TestCheckInsideWorkTree(t *testing.T) {
 		}
 	})
 
-	t.Run("nonexistent dir returns false with error", func(t *testing.T) {
-		inside, err := gitutil.CheckInsideWorkTree("/nonexistent/path/that/does/not/exist")
-		if inside {
-			t.Error("expected false for nonexistent path")
+	t.Run("real git failure surfaces error", func(t *testing.T) {
+		// Create a directory with a corrupt .git entry to provoke a
+		// git error that is NOT "not a git repository".
+		dir := t.TempDir()
+		// Writing invalid content to .git makes git fail with a
+		// different error than "not a git repository".
+		if err := os.WriteFile(filepath.Join(dir, ".git"), []byte("garbage"), 0o644); err != nil {
+			t.Fatalf("write .git: %v", err)
 		}
-		// Error may or may not be returned depending on git version,
-		// but inside must be false.
-		_ = err
+		inside, err := gitutil.CheckInsideWorkTree(dir)
+		if inside {
+			t.Error("expected false for corrupt .git")
+		}
+		if err == nil {
+			t.Error("expected error for corrupt .git, got nil")
+		}
 	})
 }
 
