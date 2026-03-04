@@ -40,7 +40,14 @@ func runPatch(c *cli.Context) error {
 		return fmt.Errorf("usage: bonsai patch \"<task description>\"")
 	}
 
-	env, err := bootstrap()
+	repoRoot := detectRepoRoot()
+	wt, err := ensureFeatureBranch(repoRoot, "patch")
+	if err != nil {
+		return err
+	}
+	defer printWorktreeReminder(wt)
+
+	env, err := bootstrapFrom(wt.RepoRoot)
 	if err != nil {
 		return err
 	}
