@@ -3,7 +3,8 @@
 **AI governance toolkit for software repositories.**
 
 Bonsai is a CLI that runs AI-powered governance checks against your
-codebase, reports structured findings, and can autonomously fix them.
+codebase, reports structured findings, and can fix them with AI-assisted
+automation.
 Think of it as a programmable code review layer: you define rules in
 governance documents checked into your repo, and bonsai enforces them
 on every change — in CI, as a pre-push hook, or on demand.
@@ -30,10 +31,10 @@ on every change — in CI, as a pre-push hook, or on demand.
 
 ## Capabilities
 
-- **Skill-based validation** — 43 built-in governance skills run in
+- **Skill-based validation** — 44 built-in governance skills run in
   parallel, each producing structured JSON findings with severity levels
-- **Autonomous fixing** — iterative check-fix loops that resolve
-  findings without manual intervention
+- **AI-assisted fixing** — iterative check-fix loops that resolve
+  governance findings
 - **Merge gating** — blocks merges when blocking findings are present
   (CI integration or pre-push git hook)
 - **Interactive sessions** — AI-assisted planning, implementation with
@@ -63,11 +64,11 @@ claude login                         # Claude CLI (OAuth)
 cd your-repo
 bonsai check
 
-# Autonomously fix findings
+# Fix findings with AI
 bonsai fix
 ```
 
-`bonsai check` runs the default skill bundle (15 skills) against your
+`bonsai check` runs the default skill bundle (16 skills) against your
 diff and prints a summary of findings. `bonsai fix` picks up any
 blocking findings and launches AI sessions to resolve them.
 
@@ -79,8 +80,8 @@ blocking findings and launches AI sessions to resolve them.
   CLI (see [Agent Backends](#agent-backends) for details)
 - **Claude CLI** required for interactive sessions (`plan`, `implement`,
   `chat`)
-- **Codex CLI** required for code review (`review`) and autonomous fixes
-  (`fix`)
+- **Codex CLI** required for code review (`review`); `fix` uses skill
+  cost tiers (default model: haiku, routed by configured backend)
 - **Governance documents** in your repo — at minimum a `CLAUDE.md` at
   the repo root (use `bonsai migrate` to scaffold these; see
   [Repository Onboarding](#repository-onboarding) for what gets created)
@@ -113,7 +114,7 @@ Repository Governance Docs
   (preamble → mode → docs → role)
               ↓
     Skill Invocations (parallel)
-  (43 skills × cost tiers × AI backends)
+  (44 skills × cost tiers × AI backends)
               ↓
     Structured JSON Findings
   (blocking / major / warning / info)
@@ -132,10 +133,10 @@ grouped into bundles and routed by governance mode.
 | Command | Description |
 |---------|-------------|
 | `bonsai check` | Run governance skills against your diff (bundle or mode-based) |
-| `bonsai fix` | Autonomously fix governance findings |
+| `bonsai fix` | Fix governance findings with AI |
 | `bonsai plan` | Start an interactive planning session |
 | `bonsai implement` | Interactive implementation with governance gating loop |
-| `bonsai review` | Autonomous code review session |
+| `bonsai review` | AI-assisted code review session |
 | `bonsai patch "<task>"` | Three-phase patch surgery: plan → emit → validate |
 | `bonsai chat [role]` | Interactive AI chat session with a given role (default: architect) |
 | `bonsai skill <name>` | Run a single governance skill |
@@ -192,14 +193,14 @@ bonsai implement   # code with AI + automatic governance checks
 
 ### Patch Surgery
 
-Three-phase autonomous patching for targeted tasks:
+Three-phase AI-assisted patching for targeted tasks:
 
 ```bash
 bonsai patch "fix the off-by-one error in pagination"
 ```
 
 Phase 1: architecture planning → Phase 2: code emission → Phase 3:
-governance validation. No human interaction required.
+governance validation.
 
 ### Single Skill
 
@@ -235,7 +236,7 @@ overrides and runs initial validation.
 
 ## Skills System
 
-Bonsai ships with **43 governance skills** organized by cost tier and
+Bonsai ships with **44 governance skills** organized by cost tier and
 domain.
 
 ### Cost Tiers
@@ -256,11 +257,11 @@ domain.
 | Bundle | Skills | Use case |
 |--------|--------|----------|
 | `patch` | 7 | Small changes (≤3 files) |
-| `default` | 15 | Standard governance |
+| `default` | 16 | Standard governance |
 | `structural-change` | 17 | Top-level directory changes |
 | `api-change` | 13 | Public surface modifications |
-| `heavy` | 43 | Full validation |
-| `audit-full` | 43 | Complete audit |
+| `heavy` | 36 | Large features / refactors |
+| `audit-full` | 44 | Complete audit |
 
 ```bash
 bonsai list --skills    # all skills with cost/domain
@@ -431,7 +432,7 @@ output:
 - **Diff context requires `--base`** — many skills need diff context.
   Without `--base`, they skip. Use `--base main` for branch-based checks.
 - **`fix` only runs cheap skills** — `bonsai fix` targets deterministic,
-  cheap skills that can be resolved autonomously.
+  cheap skills that can be resolved with AI.
 
 ---
 

@@ -63,7 +63,7 @@ Embedded governance assets consumed at runtime:
 - `governance.md` — governance framework reference
 - `review_architecture.md` — review-mode architecture doc
 - `roles/` — role definitions (architect, implementer, planner, reviewer, patcher)
-- `skills/` — 43 governance skill definitions (SKILL.md + schemas)
+- `skills/` — 44 governance skill definitions (SKILL.md + schemas)
 - `skills.yaml` — skill registry (bundles, modes, costs)
 - `templates/` — migration templates
 
