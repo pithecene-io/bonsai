@@ -124,8 +124,8 @@ func isDirectory(path string) bool {
 
 // worktreeResult holds the outcome of ensureFeatureBranch.
 type worktreeResult struct {
-	RepoRoot    string // effective repo root (may be a new worktree)
-	IsWorktree  bool   // true if a worktree was created
+	RepoRoot     string // effective repo root (may be a new worktree)
+	IsWorktree   bool   // true if a worktree was created
 	WorktreePath string // absolute path to the created worktree (empty if none)
 }
 
