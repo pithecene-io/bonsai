@@ -28,11 +28,11 @@ Six modes control which skills execute during a governance check.
 | Mode | Skills | Use |
 |------|--------|-----|
 | PATCH | 7 | Surgical edits (≤3 files, no new files) |
-| NORMAL | 15 | Standard feature work |
+| NORMAL | 16 | Standard feature work |
 | STRUCTURAL | 17 | Directory / module boundary changes |
 | API | 13 | Public surface / contract changes |
-| HEAVY | 43 | Large features / refactors |
-| AUDIT | 43 | Full-spectrum audit |
+| HEAVY | 36 | Large features / refactors |
+| AUDIT | 44 | Full-spectrum audit |
 
 Modes correspond to bundles in `skills.yaml`:
 
@@ -104,8 +104,7 @@ SESSION → CAPTURE_DIFF → PROFILE → MODE → GATE
 ```
 
 Preflight checks (before first session):
-- Hard-fail if current branch is `main` or `master`
-- Warn if not a git worktree
+- Auto-create git worktree if on `main` or `master` (CLI layer)
 - Detect and record merge base
 
 ---
