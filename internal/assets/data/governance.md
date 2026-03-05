@@ -105,6 +105,7 @@ SESSION → CAPTURE_DIFF → PROFILE → MODE → GATE
 
 Preflight checks (before first session):
 - Auto-create git worktree if on `main` or `master` (CLI layer)
+- Warn if not in a git worktree (advisory, not fatal)
 - Detect and record merge base
 
 ---
