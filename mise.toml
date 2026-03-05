@@ -1,4 +1,5 @@
 [tools]
 "aqua:go-task/task" = "3.48.0"
 "aqua:golangci/golangci-lint" = "2.10.1"
+"aqua:goreleaser/goreleaser" = "2.14.1"
 go = "1.25.6"
