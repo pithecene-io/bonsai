@@ -37,6 +37,10 @@ func (c *Claude) Session(ctx context.Context, systemPrompt string, extraArgs []s
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	// Remove CLAUDECODE from env so nested invocations work
+	// (matches Evaluate/Execute behavior).
+	cmd.Env = filterEnv(os.Environ(), "CLAUDECODE")
+
 	return cmd.Run()
 }
 

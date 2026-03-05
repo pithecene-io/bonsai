@@ -252,6 +252,66 @@ func TestPlanInfo_JSONRoundtrip(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_WithPlan(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "refactor auth module",
+			Constraints: json.RawMessage(`{"max_files":3}`),
+		},
+	}
+
+	got := l.buildPlanPrompt("")
+	if got == "" {
+		t.Fatal("expected non-empty prompt when plan is present")
+	}
+	if !strings.Contains(got, "refactor auth module") {
+		t.Error("expected intent in prompt")
+	}
+	if !strings.Contains(got, `"max_files":3`) {
+		t.Error("expected constraints in prompt")
+	}
+}
+
+func TestBuildPlanPrompt_WithFindings(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "add feature X",
+			Constraints: json.RawMessage(`{}`),
+		},
+	}
+
+	got := l.buildPlanPrompt("SKILL: lint | blocking: 2 | major: 0 | warning: 0")
+	if !strings.Contains(got, "add feature X") {
+		t.Error("expected intent in prompt")
+	}
+	if !strings.Contains(got, "SKILL: lint") {
+		t.Error("expected findings in prompt")
+	}
+	// Empty constraints ({}) should not appear
+	if strings.Contains(got, "Constraints:") {
+		t.Error("empty constraints should be omitted")
+	}
+}
+
+func TestBuildPlanPrompt_NoPlan(t *testing.T) {
+	l := &Loop{planInfo: nil}
+	if got := l.buildPlanPrompt(""); got != "" {
+		t.Errorf("expected empty prompt without plan, got %q", got)
+	}
+}
+
+func TestBuildPlanPrompt_EmptyIntent(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "",
+			Constraints: json.RawMessage(`{"max_files":3}`),
+		},
+	}
+	if got := l.buildPlanPrompt(""); got != "" {
+		t.Errorf("expected empty prompt for empty intent, got %q", got)
+	}
+}
+
 func TestNew(t *testing.T) {
 	cfg := config.Default()
 	opts := Opts{
