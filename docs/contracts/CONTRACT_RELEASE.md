@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 1. Every tagged release MUST have a corresponding CHANGELOG entry
 2. The `[Unreleased]` section MUST exist and accumulate changes between releases
-3. Entries MUST include PR references as markdown links: `([#N](url))`
+3. Entries MUST include provenance as markdown links: PR references `([#N](url))` or commit links `([sha](url))` when no PR exists
 4. Entries MUST use bold lead text for the component or area, followed by a colon and description
 5. Section ordering: Added → Changed → Fixed → Upgrade Notes → Known Limitations → References
 6. Omit empty sections

@@ -81,7 +81,7 @@ blocking findings and launches AI sessions to resolve them.
 - **Claude CLI** required for interactive sessions (`plan`, `implement`,
   `chat`)
 - **Codex CLI** required for code review (`review`); `fix` uses skill
-  cost tiers (default: haiku via Anthropic API)
+  cost tiers (default model: haiku, routed by configured backend)
 - **Governance documents** in your repo — at minimum a `CLAUDE.md` at
   the repo root (use `bonsai migrate` to scaffold these; see
   [Repository Onboarding](#repository-onboarding) for what gets created)
