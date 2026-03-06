@@ -421,13 +421,13 @@ func TestRunSession_WithPlan_CallsExecute(t *testing.T) {
 		t.Fatalf("runSession: %v", err)
 	}
 
-	// Execute should have been called (one-shot mode)
+	// Execute should be called (one-shot mode per CONTRACT_GATING)
 	if len(mock.ExecuteCalls) != 1 {
 		t.Fatalf("ExecuteCalls = %d, want 1", len(mock.ExecuteCalls))
 	}
-	// Session should NOT have been called
+	// Session should NOT be called when plan is present
 	if len(mock.SessionCalls) != 0 {
-		t.Errorf("SessionCalls = %d, want 0 (plan present → Execute, not Session)", len(mock.SessionCalls))
+		t.Errorf("SessionCalls = %d, want 0 (plan present → Execute)", len(mock.SessionCalls))
 	}
 
 	// The user prompt must contain the plan intent
@@ -515,6 +515,27 @@ func TestRunSession_EmptyIntent_CallsSession(t *testing.T) {
 	}
 	if len(mock.ExecuteCalls) != 0 {
 		t.Errorf("ExecuteCalls = %d, want 0 (empty intent → interactive)", len(mock.ExecuteCalls))
+	}
+}
+
+func TestRunSession_WithPlan_ExecuteDoesNotUseExtraArgs(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	plan := &PlanInfo{Intent: "do something"}
+	l := newTestLoop(t, mock, plan)
+
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	// Execute mode uses model from config, not extra CLI args.
+	// Extra args (-- extra-args...) apply to Session mode only.
+	// This is by design: Execute takes (systemPrompt, userPrompt, model).
+	if len(mock.ExecuteCalls) != 1 {
+		t.Fatalf("ExecuteCalls = %d, want 1", len(mock.ExecuteCalls))
+	}
+	if len(mock.SessionCalls) != 0 {
+		t.Errorf("SessionCalls = %d, want 0 (plan present → Execute)", len(mock.SessionCalls))
 	}
 }
 

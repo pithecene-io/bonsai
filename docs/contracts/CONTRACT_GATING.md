@@ -41,7 +41,14 @@ that those edits will not be present in the new worktree.
 
 ### Iteration
 
-1. **Session** — build system prompt, invoke agent interactively
+1. **Session** — build system prompt, invoke agent. Mode depends on
+   input:
+   - **Plan present** (`plan.json` consumed in preflight) → Execute
+     (one-shot autonomous). The plan intent and constraints are sent
+     as the user prompt. Extra CLI args (`-- extra-args...`) do not
+     apply in this mode.
+   - **No plan** → Session (interactive). Extra CLI args are forwarded
+     to the agent backend.
 2. **Diff** — check for changes relative to merge base
 3. **Profile** — compute diff profile (lines, files, new files,
    renames, scopes)

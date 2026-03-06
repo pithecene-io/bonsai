@@ -164,8 +164,15 @@ func (l *Loop) runGateIteration(ctx context.Context, iteration, maxIter int) (*i
 }
 
 // runSession builds the system prompt and invokes the agent.
-// When a plan is present, runs one-shot via Execute with the plan as the
-// user prompt. Otherwise falls back to an interactive Session.
+//
+// Mode selection (per CONTRACT_GATING §Iteration):
+//   - Plan present → Execute (one-shot autonomous): the agent receives
+//     the plan as its user prompt and implements it without interaction.
+//   - No plan → Session (interactive): the user drives the session.
+//
+// Extra args (-- extra-args...) are forwarded to Session mode only.
+// In Execute mode, the model is resolved from config; extra CLI flags
+// do not apply.
 func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 	builder := prompt.NewBuilder(l.opts.Resolver, l.opts.RepoRoot)
 	systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
