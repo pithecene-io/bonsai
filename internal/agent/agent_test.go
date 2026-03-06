@@ -111,7 +111,7 @@ func TestMockAgent_Implements(_ *testing.T) {
 
 func TestMockAgent_RecordsModel(t *testing.T) {
 	mock := &agent.MockAgent{
-		NameVal:                "test",
+		NameVal:          "test",
 		EvaluateResponse: "ok",
 	}
 
@@ -127,7 +127,7 @@ func TestMockAgent_RecordsModel(t *testing.T) {
 
 func TestMockAgent_FuncOverridesResponse(t *testing.T) {
 	mock := &agent.MockAgent{
-		NameVal:                "test",
+		NameVal:          "test",
 		EvaluateResponse: "should not appear",
 		EvaluateFunc: func(_ context.Context, _, _ string, model agent.Model) (string, error) {
 			return "model=" + string(model), nil
@@ -417,7 +417,7 @@ cat
 		Claude: agent.NewClaude(fakeBin),
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
-			NameVal:           "anthropic",
+			NameVal:     "anthropic",
 			EvaluateErr: errors.New("401 authentication_error"),
 		},
 	}
@@ -471,7 +471,7 @@ cat
 		Claude: agent.NewClaude(fakeBin),
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
-			NameVal:           "anthropic",
+			NameVal:     "anthropic",
 			EvaluateErr: context.Canceled,
 		},
 	}
@@ -516,7 +516,7 @@ exit 1
 		Claude: agent.NewClaude(fakeBin),
 		Codex:  agent.NewCodex("nonexistent-codex"),
 		Anthropic: &agent.MockAgent{
-			NameVal:           "anthropic",
+			NameVal:     "anthropic",
 			EvaluateErr: errors.New("401 authentication_error"),
 		},
 	}
@@ -626,8 +626,8 @@ cat >/dev/null
 func TestRouter_Session_AlwaysRoutesClaude(t *testing.T) {
 	mock := &agent.MockAgent{NameVal: "test-claude"}
 	r := &agent.Router{
-		Claude:    agent.NewClaude("nonexistent"),
-		Codex:     agent.NewCodex("nonexistent"),
+		Claude: agent.NewClaude("nonexistent"),
+		Codex:  agent.NewCodex("nonexistent"),
 	}
 	// Replace Claude with a mock to avoid exec
 	// We can't directly, but we can use MockAgent through the Router
