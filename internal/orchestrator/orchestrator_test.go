@@ -264,6 +264,38 @@ func TestRun_NonMandatoryFailure(t *testing.T) {
 	}
 }
 
+func TestRun_ContextCancel_StopsPromptly(t *testing.T) {
+	// Slow mock that blocks until context is canceled.
+	// Verifies orchestrator workers respect cancellation —
+	// regression guard for the CTRL-C hang during post-implement checks.
+	mock := &agent.MockAgent{
+		NameVal: "test",
+		EvaluateFunc: func(ctx context.Context, _, _ string, _ agent.Model) (string, error) {
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+	}
+
+	orch := newTestOrch(t, mock)
+	skills := []registry.Skill{
+		passSkill("repo-convention-enforcer", true),
+		passSkill("arch-index-alignment", true),
+	}
+
+	// Pre-cancel: workers should observe cancellation and exit.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// With a pre-canceled context, Run must return promptly.
+	// If it hangs, the test timeout (default 30s) will catch it,
+	// but a well-behaved implementation returns in milliseconds.
+	report, _ := orch.Run(ctx, defaultOpts(skills, t.TempDir()), nil)
+
+	if report != nil && report.Passed == len(skills) {
+		t.Error("expected skills to NOT all pass with canceled context")
+	}
+}
+
 func TestReport_ShouldFail(t *testing.T) {
 	tests := []struct {
 		name   string

@@ -27,7 +27,7 @@ defined in `internal/cli/`.
 | `bonsai check` | *(none)* | Run governance skills against diff |
 | `bonsai fix` | *(none)* | Autonomously fix governance findings |
 | `bonsai plan` | `[-- extra-args...]` | Interactive planning session |
-| `bonsai implement` | `[-- extra-args...]` | Implementation with governance gating |
+| `bonsai implement` | `[-- extra-args...]` | Implementation with governance gating (Execute with plan, Session without) |
 | `bonsai review` | *(none)* | Autonomous code review |
 | `bonsai patch` | `<task-description>` | Three-phase patch surgery |
 | `bonsai chat` | `[role] [-- extra-args...]` | Interactive AI chat |

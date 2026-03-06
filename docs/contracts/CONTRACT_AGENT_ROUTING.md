@@ -54,7 +54,7 @@ Read-only, tools disabled, output captured and returned as a string.
 Read-write, tools enabled, output streamed to terminal.
 
 - **Use case**: Autonomous code modification (`bonsai fix`,
-  `bonsai review`).
+  `bonsai review`, `bonsai implement` with plan).
 - **I/O**: stdin is a prompt string; stdout/stderr stream to terminal.
 - **Tools**: Enabled — model can edit files, run commands.
 - **Side effects**: Yes — the model modifies the working tree.
@@ -64,7 +64,7 @@ Read-write, tools enabled, output streamed to terminal.
 Interactive terminal session, stdin/stdout/stderr attached.
 
 - **Use case**: `bonsai chat`, `bonsai plan`, `bonsai implement`
-  (interactive implementation loop).
+  (without plan — interactive implementation loop).
 - **I/O**: All three streams attached to the terminal.
 - **Tools**: Controlled by the backend CLI (typically enabled).
 - **Side effects**: User-driven.

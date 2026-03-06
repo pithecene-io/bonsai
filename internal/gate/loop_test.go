@@ -2,11 +2,14 @@ package gate
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/pithecene-io/bonsai/internal/agent"
+	"github.com/pithecene-io/bonsai/internal/assets"
 	"github.com/pithecene-io/bonsai/internal/config"
 	"github.com/pithecene-io/bonsai/internal/orchestrator"
 )
@@ -252,6 +255,66 @@ func TestPlanInfo_JSONRoundtrip(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_WithPlan(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "refactor auth module",
+			Constraints: json.RawMessage(`{"max_files":3}`),
+		},
+	}
+
+	got := l.buildPlanPrompt("")
+	if got == "" {
+		t.Fatal("expected non-empty prompt when plan is present")
+	}
+	if !strings.Contains(got, "refactor auth module") {
+		t.Error("expected intent in prompt")
+	}
+	if !strings.Contains(got, `"max_files":3`) {
+		t.Error("expected constraints in prompt")
+	}
+}
+
+func TestBuildPlanPrompt_WithFindings(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "add feature X",
+			Constraints: json.RawMessage(`{}`),
+		},
+	}
+
+	got := l.buildPlanPrompt("SKILL: lint | blocking: 2 | major: 0 | warning: 0")
+	if !strings.Contains(got, "add feature X") {
+		t.Error("expected intent in prompt")
+	}
+	if !strings.Contains(got, "SKILL: lint") {
+		t.Error("expected findings in prompt")
+	}
+	// Empty constraints ({}) should not appear
+	if strings.Contains(got, "Constraints:") {
+		t.Error("empty constraints should be omitted")
+	}
+}
+
+func TestBuildPlanPrompt_NoPlan(t *testing.T) {
+	l := &Loop{planInfo: nil}
+	if got := l.buildPlanPrompt(""); got != "" {
+		t.Errorf("expected empty prompt without plan, got %q", got)
+	}
+}
+
+func TestBuildPlanPrompt_EmptyIntent(t *testing.T) {
+	l := &Loop{
+		planInfo: &PlanInfo{
+			Intent:      "",
+			Constraints: json.RawMessage(`{"max_files":3}`),
+		},
+	}
+	if got := l.buildPlanPrompt(""); got != "" {
+		t.Errorf("expected empty prompt for empty intent, got %q", got)
+	}
+}
+
 func TestNew(t *testing.T) {
 	cfg := config.Default()
 	opts := Opts{
@@ -324,5 +387,183 @@ func TestSaveArtifacts_CreatesOutputDir(t *testing.T) {
 	}
 	if saved.Source != "test" {
 		t.Errorf("saved report Source = %q, want test", saved.Source)
+	}
+}
+
+// --- runSession integration tests (mock agent) ---
+
+// newTestLoop creates a Loop with a mock agent and embedded resolver,
+// suitable for testing runSession dispatch without a real git repo.
+func newTestLoop(t *testing.T, mock *agent.MockAgent, plan *PlanInfo) *Loop {
+	t.Helper()
+	return &Loop{
+		opts: Opts{
+			RepoRoot:  t.TempDir(),
+			Config:    config.Default(),
+			Agent:     mock,
+			Resolver:  assets.NewResolver(""),
+			ExtraArgs: []string{"--extra"},
+		},
+		planInfo: plan,
+	}
+}
+
+func TestRunSession_WithPlan_CallsExecute(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	plan := &PlanInfo{
+		Intent:      "add feature X",
+		Constraints: json.RawMessage(`{"max_files":5}`),
+	}
+	l := newTestLoop(t, mock, plan)
+
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	// Execute should be called (one-shot mode per CONTRACT_GATING)
+	if len(mock.ExecuteCalls) != 1 {
+		t.Fatalf("ExecuteCalls = %d, want 1", len(mock.ExecuteCalls))
+	}
+	// Session should NOT be called when plan is present
+	if len(mock.SessionCalls) != 0 {
+		t.Errorf("SessionCalls = %d, want 0 (plan present → Execute)", len(mock.SessionCalls))
+	}
+
+	// The user prompt must contain the plan intent
+	userPrompt := mock.ExecuteCalls[0].UserPrompt
+	if !strings.Contains(userPrompt, "add feature X") {
+		t.Errorf("Execute user prompt missing intent: %q", userPrompt)
+	}
+	if !strings.Contains(userPrompt, `"max_files":5`) {
+		t.Errorf("Execute user prompt missing constraints: %q", userPrompt)
+	}
+}
+
+func TestRunSession_WithPlan_IncludesFindings(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	plan := &PlanInfo{
+		Intent:      "fix auth",
+		Constraints: json.RawMessage(`{}`),
+	}
+	l := newTestLoop(t, mock, plan)
+
+	findings := "SKILL: lint | blocking: 1 | major: 0 | warning: 0"
+	err := l.runSession(t.Context(), findings)
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	if len(mock.ExecuteCalls) != 1 {
+		t.Fatalf("ExecuteCalls = %d, want 1", len(mock.ExecuteCalls))
+	}
+
+	userPrompt := mock.ExecuteCalls[0].UserPrompt
+	if !strings.Contains(userPrompt, "SKILL: lint") {
+		t.Errorf("Execute user prompt missing findings context: %q", userPrompt)
+	}
+}
+
+func TestRunSession_NoPlan_CallsSession(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	l := newTestLoop(t, mock, nil) // no plan
+
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	// Session should have been called (interactive mode)
+	if len(mock.SessionCalls) != 1 {
+		t.Fatalf("SessionCalls = %d, want 1", len(mock.SessionCalls))
+	}
+	// Execute should NOT have been called
+	if len(mock.ExecuteCalls) != 0 {
+		t.Errorf("ExecuteCalls = %d, want 0 (no plan → Session, not Execute)", len(mock.ExecuteCalls))
+	}
+
+	// ExtraArgs should be passed through to Session
+	args := mock.SessionCalls[0].ExtraArgs
+	found := false
+	for _, a := range args {
+		if a == "--extra" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Session extra args missing --extra: %v", args)
+	}
+}
+
+func TestRunSession_EmptyIntent_CallsSession(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	plan := &PlanInfo{
+		Intent:      "",
+		Constraints: json.RawMessage(`{"max_files":3}`),
+	}
+	l := newTestLoop(t, mock, plan)
+
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	// Empty intent → interactive session, not execute
+	if len(mock.SessionCalls) != 1 {
+		t.Errorf("SessionCalls = %d, want 1 (empty intent → interactive)", len(mock.SessionCalls))
+	}
+	if len(mock.ExecuteCalls) != 0 {
+		t.Errorf("ExecuteCalls = %d, want 0 (empty intent → interactive)", len(mock.ExecuteCalls))
+	}
+}
+
+func TestRunSession_WithPlan_ExecuteDoesNotUseExtraArgs(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	plan := &PlanInfo{Intent: "do something"}
+	l := newTestLoop(t, mock, plan)
+
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Fatalf("runSession: %v", err)
+	}
+
+	// Execute mode uses model from config, not extra CLI args.
+	// Extra args (-- extra-args...) apply to Session mode only.
+	// This is by design: Execute takes (systemPrompt, userPrompt, model).
+	if len(mock.ExecuteCalls) != 1 {
+		t.Fatalf("ExecuteCalls = %d, want 1", len(mock.ExecuteCalls))
+	}
+	if len(mock.SessionCalls) != 0 {
+		t.Errorf("SessionCalls = %d, want 0 (plan present → Execute)", len(mock.SessionCalls))
+	}
+}
+
+func TestRunSession_ExecuteError_NotFatal(t *testing.T) {
+	mock := &agent.MockAgent{
+		NameVal:    "test",
+		ExecuteErr: errors.New("agent crashed"),
+	}
+	plan := &PlanInfo{Intent: "do something"}
+	l := newTestLoop(t, mock, plan)
+
+	// Execute errors should be swallowed (match shell `claude ... || true`)
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Errorf("runSession should not propagate Execute errors, got: %v", err)
+	}
+}
+
+func TestRunSession_SessionError_NotFatal(t *testing.T) {
+	mock := &agent.MockAgent{
+		NameVal:    "test",
+		SessionErr: errors.New("session crashed"),
+	}
+	l := newTestLoop(t, mock, nil) // no plan → session
+
+	// Session errors should be swallowed (match shell `claude ... || true`)
+	err := l.runSession(t.Context(), "")
+	if err != nil {
+		t.Errorf("runSession should not propagate Session errors, got: %v", err)
 	}
 }

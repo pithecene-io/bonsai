@@ -163,7 +163,16 @@ func (l *Loop) runGateIteration(ctx context.Context, iteration, maxIter int) (*i
 	return &iterState{findings: report.FindingSummary()}, nil
 }
 
-// runSession builds the system prompt and invokes claude interactively.
+// runSession builds the system prompt and invokes the agent.
+//
+// Mode selection (per CONTRACT_GATING §Iteration):
+//   - Plan present → Execute (one-shot autonomous): the agent receives
+//     the plan as its user prompt and implements it without interaction.
+//   - No plan → Session (interactive): the user drives the session.
+//
+// Extra args (-- extra-args...) are forwarded to Session mode only.
+// In Execute mode, the model is resolved from config; extra CLI flags
+// do not apply.
 func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 	builder := prompt.NewBuilder(l.opts.Resolver, l.opts.RepoRoot)
 	systemPrompt, err := builder.BuildInteractive(prompt.InteractiveOpts{
@@ -175,16 +184,58 @@ func (l *Loop) runSession(ctx context.Context, findingsContext string) error {
 		return fmt.Errorf("build prompt: %w", err)
 	}
 
-	extraArgs := l.opts.ExtraArgs
+	// Resolve the implementer model from config.
+	var implModel agent.Model
 	if l.opts.Config != nil {
-		if implModel := l.opts.Config.Models.ModelForRole("implementer"); implModel != "" {
-			extraArgs = append([]string{"--model", implModel}, extraArgs...)
-		}
+		implModel = agent.Model(l.opts.Config.Models.ModelForRole("implementer"))
+	}
+
+	// When a plan is present, run one-shot (Execute) — the agent gets
+	// the plan as its user prompt and autonomously implements it.
+	if userPrompt := l.buildPlanPrompt(findingsContext); userPrompt != "" {
+		fmt.Println("Executing plan (one-shot mode)…")
+		// Execute errors are not fatal — match shell `claude ... || true`.
+		_ = l.opts.Agent.Execute(ctx, systemPrompt, userPrompt, implModel)
+		return nil
+	}
+
+	// No plan — fall back to interactive session.
+	extraArgs := l.opts.ExtraArgs
+	if implModel != "" {
+		extraArgs = append([]string{"--model", string(implModel)}, extraArgs...)
 	}
 
 	// Match shell: `claude ... || true` — ignore exit from ctrl-C or session end.
 	_ = l.opts.Agent.Session(ctx, systemPrompt, extraArgs)
 	return nil
+}
+
+// buildPlanPrompt constructs a user prompt from the consumed plan.
+// Returns "" when no plan is present, signalling interactive mode.
+func (l *Loop) buildPlanPrompt(findingsContext string) string {
+	if l.planInfo == nil || l.planInfo.Intent == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Implement the following plan:\n\n")
+	b.WriteString("Intent: ")
+	b.WriteString(l.planInfo.Intent)
+	b.WriteString("\n")
+
+	if len(l.planInfo.Constraints) > 0 && string(l.planInfo.Constraints) != "{}" {
+		b.WriteString("Constraints: ")
+		b.Write(l.planInfo.Constraints)
+		b.WriteString("\n")
+	}
+
+	if findingsContext != "" {
+		b.WriteString("\nPrevious governance findings to address:\n")
+		b.WriteString(findingsContext)
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
 
 // gateOutcome holds the result of a capture-and-gate cycle.

@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"os"
+	"os/signal"
+
 	"github.com/urfave/cli/v2"
 
-	"github.com/pithecene-io/bonsai/internal/agent"
 	"github.com/pithecene-io/bonsai/internal/gate"
 )
 
@@ -31,10 +33,15 @@ func runImplement(c *cli.Context) error {
 		return err
 	}
 
+	// Wire up OS signal handling so CTRL-C during post-implement
+	// governance checks actually cancels the orchestrator.
+	ctx, stop := signal.NotifyContext(c.Context, os.Interrupt)
+	defer stop()
+
 	loop := gate.New(gate.Opts{
 		RepoRoot:  repoRoot,
 		Config:    env.Config,
-		Agent:     agent.NewClaude(env.Config.Agents.Claude.Bin),
+		Agent:     newAgentRouter(env.Config),
 		Resolver:  env.Resolver,
 		ExtraArgs: c.Args().Slice(),
 	})
@@ -43,5 +50,5 @@ func runImplement(c *cli.Context) error {
 		return err
 	}
 
-	return loop.Run(c.Context)
+	return loop.Run(ctx)
 }

@@ -564,3 +564,123 @@ cat
 		t.Errorf("args should not contain --model when model is empty:\n%s", args)
 	}
 }
+
+// --- Router.Execute dispatch tests ---
+
+func TestRouter_Execute_RoutesToClaude(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	t.Setenv("HOME", t.TempDir())
+
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "claude-called")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+echo "claude-executed" > "` + markerFile + `"
+cat >/dev/null
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := agent.NewRouter(fakeBin, "nonexistent-codex")
+	err := r.Execute(t.Context(), "sys", "do stuff", agent.Model("sonnet"))
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if _, err := os.Stat(markerFile); err != nil {
+		t.Error("Claude CLI was not called for sonnet model via Execute")
+	}
+}
+
+func TestRouter_Execute_RoutesToCodex(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "codex-called")
+	fakeCodex := filepath.Join(dir, "fake-codex")
+
+	script := `#!/bin/sh
+echo "codex-executed" > "` + markerFile + `"
+cat >/dev/null
+`
+	if err := os.WriteFile(fakeCodex, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := agent.NewRouter("nonexistent-claude", fakeCodex)
+	err := r.Execute(t.Context(), "sys", "do stuff", agent.Model("codex-mini"))
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if _, err := os.Stat(markerFile); err != nil {
+		t.Error("Codex CLI was not called for codex-mini model via Execute")
+	}
+}
+
+// TestRouter_Session_AlwaysRoutesClaude verifies Session always goes to
+// Claude CLI regardless of Router configuration (Codex doesn't have the
+// same interactive session UX).
+func TestRouter_Session_AlwaysRoutesClaude(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test-claude"}
+	r := &agent.Router{
+		Claude:    agent.NewClaude("nonexistent"),
+		Codex:     agent.NewCodex("nonexistent"),
+	}
+	// Replace Claude with a mock to avoid exec
+	// We can't directly, but we can use MockAgent through the Router
+	// by constructing with MockAgent. Router.Session delegates to Claude.
+	// Use a fake binary approach instead.
+	dir := t.TempDir()
+	markerFile := filepath.Join(dir, "claude-called")
+	fakeBin := filepath.Join(dir, "fake-claude")
+
+	script := `#!/bin/sh
+echo "session-started" > "` + markerFile + `"
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	_ = mock // unused, using fake binary instead
+	r.Claude = agent.NewClaude(fakeBin)
+
+	err := r.Session(t.Context(), "system prompt", nil)
+	if err != nil {
+		t.Fatalf("Session: %v", err)
+	}
+
+	if _, err := os.Stat(markerFile); err != nil {
+		t.Error("Claude CLI was not called for Session")
+	}
+}
+
+// TestModel_ExecuteDispatchContract verifies the model classification
+// contract that Router.Execute relies on for dispatch. This is a
+// regression guard: if a model string doesn't classify correctly,
+// it will route to the wrong backend.
+func TestModel_ExecuteDispatchContract(t *testing.T) {
+	tests := []struct {
+		model     string
+		wantCodex bool
+	}{
+		{"sonnet", false},
+		{"haiku", false},
+		{"opus", false},
+		{"claude-3-5-haiku-latest", false},
+		{"claude-sonnet-4-6", false},
+		{"codex", true},
+		{"codex-mini", true},
+		{"Codex-4o", true},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		m := agent.Model(tt.model)
+		if got := m.IsCodex(); got != tt.wantCodex {
+			t.Errorf("Model(%q).IsCodex() = %v, want %v (affects Execute dispatch)", tt.model, got, tt.wantCodex)
+		}
+	}
+}
