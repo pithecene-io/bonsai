@@ -145,7 +145,12 @@ func (ps *patchSession) emit(ctx context.Context, plan string) error {
 
 	combinedPrompt := patcherPrompt + "\n\nArchitect plan:\n" + plan + "\n\nTask: " + ps.task + "\n\nExecute the architect plan above. Emit only unified diffs for the listed files."
 
-	_ = ps.agent.Session(ctx, combinedPrompt, nil)
+	var extraArgs []string
+	if patcherModel := ps.env.Config.Models.ModelForRole("patcher"); patcherModel != "" {
+		extraArgs = append(extraArgs, "--model", patcherModel)
+	}
+
+	_ = ps.agent.Session(ctx, combinedPrompt, extraArgs)
 	return nil
 }
 

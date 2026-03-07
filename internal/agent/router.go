@@ -16,7 +16,8 @@ import (
 //	IsClaude() && Anthropic != nil → Anthropic direct API
 //	default                        → Claude CLI (fallback)
 //
-// Session always routes to Claude CLI.
+// Session currently routes to Claude CLI; model-based dispatch is
+// planned (see CONTRACT_AGENT_ROUTING.md).
 type Router struct {
 	Claude    *Claude
 	Codex     *Codex
@@ -43,7 +44,8 @@ func NewRouter(claudeBin, codexBin string, opts ...AnthropicOption) *Router {
 // Name returns "router".
 func (r *Router) Name() string { return "router" }
 
-// Session starts an interactive session. Always routes to Claude CLI.
+// Session starts an interactive session. Currently routes to Claude CLI;
+// model-based dispatch is planned.
 func (r *Router) Session(ctx context.Context, systemPrompt string, extraArgs []string) error {
 	return r.Claude.Session(ctx, systemPrompt, extraArgs)
 }

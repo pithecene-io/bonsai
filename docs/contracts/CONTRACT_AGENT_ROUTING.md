@@ -123,7 +123,11 @@ The Anthropic direct API does not support Execute.
 
 ### Session
 
-Session always routes to Claude CLI, regardless of model.
+Session currently routes to Claude CLI. The model is passed via
+`extraArgs` (e.g., `--model sonnet`) and forwarded to the backend.
+Future iterations should dispatch Session based on model
+classification (matching Evaluate/Execute behavior) so that backends
+are fully hotswappable.
 
 ## Fallback Behavior
 
