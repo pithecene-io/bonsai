@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/pithecene-io/bonsai/internal/cli"
 )
@@ -13,7 +14,9 @@ import (
 func main() {
 	// Install OS signal handling once at the top level so all
 	// subcommands receive a cancellable context via c.Context.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// SIGINT covers interactive CTRL-C; SIGTERM covers container
+	// and service manager shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	app := cli.NewApp()
