@@ -35,6 +35,7 @@ changelog:
   disable: true
 
 release:
+  draft: true
   github:
     owner: pithecene-io
     name: bonsai
