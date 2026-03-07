@@ -33,6 +33,7 @@ type migration struct {
 	target   string
 	config   *config.Config
 	resolver *assets.Resolver
+	agent    agent.Agent
 	scan     scanResult
 }
 
@@ -74,6 +75,7 @@ func runMigrate(c *urfave.Context) error {
 		target:   target,
 		config:   cfg,
 		resolver: assets.NewResolver(target),
+		agent:    newAgentRouter(cfg),
 	}
 
 	m.scanRepo()
@@ -176,9 +178,8 @@ func (m *migration) ensureArchIndex(c *urfave.Context) {
 		fmt.Printf("  Found: %s\n", path)
 		fmt.Println()
 		if confirmPrompt("  Review/upgrade ARCH_INDEX.md? [y/N] ", false) {
-			claudeAgent := agent.NewClaude(m.config.Agents.Claude.Bin)
 			archPrompt := fmt.Sprintf("You are an architect assistant. Review the ARCH_INDEX.md at %s against the actual repository structure at %s. Suggest improvements.", path, m.target)
-			_ = claudeAgent.Session(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
+			_ = m.agent.Session(c.Context, archPrompt, []string{"-p", "Review and suggest improvements to ARCH_INDEX.md"})
 		}
 	} else {
 		fmt.Println("  No ARCH_INDEX.md found")
@@ -209,12 +210,11 @@ func (m *migration) createArchIndex(ctx context.Context) {
 		return
 	}
 
-	claudeAgent := agent.NewClaude(m.config.Agents.Claude.Bin)
 	archPrompt := fmt.Sprintf("You are an architect assistant. Examine the repository at %s and create a docs/ARCH_INDEX.md file. The file should be a fast lookup table for agents, summarizing what exists and where.", m.target)
 
 	fmt.Println("  Launching architect session to create ARCH_INDEX.md...")
 	fmt.Println()
-	_ = claudeAgent.Session(ctx, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
+	_ = m.agent.Session(ctx, archPrompt, []string{"-p", "Create docs/ARCH_INDEX.md for this repository. Examine the directory structure and create a navigation index."})
 
 	if !m.fileExists("docs/ARCH_INDEX.md") {
 		m.scaffoldMinimalArchIndex()
@@ -400,8 +400,7 @@ func (m *migration) validate(c *urfave.Context) {
 		return
 	}
 
-	checkRouter := agent.NewRouter(m.config.Agents.Claude.Bin, m.config.Agents.Codex.Bin)
-	orch := orchestrator.New(checkRouter, m.resolver)
+	orch := orchestrator.New(m.agent, m.resolver)
 
 	valCtx, cancel := context.WithTimeout(c.Context, 2*time.Minute)
 	defer cancel()

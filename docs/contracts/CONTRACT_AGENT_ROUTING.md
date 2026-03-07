@@ -123,7 +123,15 @@ The Anthropic direct API does not support Execute.
 
 ### Session
 
-Session always routes to Claude CLI, regardless of model.
+```
+Model extracted from extraArgs (--model / -m)
+Model.IsCodex()  → Codex CLI
+default           → Claude CLI
+```
+
+The model is passed via `extraArgs` (e.g., `--model codex`) and
+forwarded to the backend CLI. The Router extracts the model flag
+from extraArgs to determine dispatch, matching Execute behavior.
 
 ## Fallback Behavior
 

@@ -620,40 +620,71 @@ cat >/dev/null
 	}
 }
 
-// TestRouter_Session_AlwaysRoutesClaude verifies Session always goes to
-// Claude CLI regardless of Router configuration (Codex doesn't have the
-// same interactive session UX).
-func TestRouter_Session_AlwaysRoutesClaude(t *testing.T) {
-	mock := &agent.MockAgent{NameVal: "test-claude"}
-	r := &agent.Router{
-		Claude: agent.NewClaude("nonexistent"),
-		Codex:  agent.NewCodex("nonexistent"),
-	}
-	// Replace Claude with a mock to avoid exec
-	// We can't directly, but we can use MockAgent through the Router
-	// by constructing with MockAgent. Router.Session delegates to Claude.
-	// Use a fake binary approach instead.
+// TestRouter_Session_RoutesToClaude verifies Session routes to Claude CLI
+// when no model or a Claude-family model is specified.
+func TestRouter_Session_RoutesToClaude(t *testing.T) {
 	dir := t.TempDir()
-	markerFile := filepath.Join(dir, "claude-called")
-	fakeBin := filepath.Join(dir, "fake-claude")
+	claudeMarker := filepath.Join(dir, "claude-called")
+	fakeClaude := filepath.Join(dir, "fake-claude")
 
 	script := `#!/bin/sh
-echo "session-started" > "` + markerFile + `"
+echo "session-started" > "` + claudeMarker + `"
 `
-	if err := os.WriteFile(fakeBin, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(fakeClaude, []byte(script), 0o755); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
-	_ = mock // unused, using fake binary instead
-	r.Claude = agent.NewClaude(fakeBin)
+	r := &agent.Router{
+		Claude: agent.NewClaude(fakeClaude),
+		Codex:  agent.NewCodex("nonexistent-codex"),
+	}
 
+	// No model → Claude
 	err := r.Session(t.Context(), "system prompt", nil)
 	if err != nil {
 		t.Fatalf("Session: %v", err)
 	}
+	if _, err := os.Stat(claudeMarker); err != nil {
+		t.Error("Claude CLI was not called for Session without model")
+	}
 
-	if _, err := os.Stat(markerFile); err != nil {
-		t.Error("Claude CLI was not called for Session")
+	// Explicit Claude model → Claude
+	_ = os.Remove(claudeMarker)
+	err = r.Session(t.Context(), "system prompt", []string{"--model", "sonnet"})
+	if err != nil {
+		t.Fatalf("Session with sonnet: %v", err)
+	}
+	if _, err := os.Stat(claudeMarker); err != nil {
+		t.Error("Claude CLI was not called for Session with --model sonnet")
+	}
+}
+
+// TestRouter_Session_RoutesToCodex verifies Session routes to Codex CLI
+// when a codex model is specified via --model in extraArgs.
+func TestRouter_Session_RoutesToCodex(t *testing.T) {
+	dir := t.TempDir()
+	codexMarker := filepath.Join(dir, "codex-called")
+	fakeCodex := filepath.Join(dir, "fake-codex")
+
+	script := `#!/bin/sh
+echo "session-started" > "` + codexMarker + `"
+`
+	if err := os.WriteFile(fakeCodex, []byte(script), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	r := &agent.Router{
+		Claude: agent.NewClaude("nonexistent-claude"),
+		Codex:  agent.NewCodex(fakeCodex),
+	}
+
+	err := r.Session(t.Context(), "system prompt", []string{"--model", "codex"})
+	if err != nil {
+		t.Fatalf("Session: %v", err)
+	}
+
+	if _, err := os.Stat(codexMarker); err != nil {
+		t.Error("Codex CLI was not called for Session with --model codex")
 	}
 }
 

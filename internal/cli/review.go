@@ -32,7 +32,7 @@ func runReview(c *cli.Context) error {
 	}
 
 	rs := &reviewRunner{
-		agent: agent.NewRouter(env.Config.Agents.Claude.Bin, env.Config.Agents.Codex.Bin),
+		agent: newAgentRouter(env.Config),
 		model: agent.Model(env.Config.Models.ModelForRole("reviewer")),
 	}
 	return rs.run(c.Context, systemPrompt)
