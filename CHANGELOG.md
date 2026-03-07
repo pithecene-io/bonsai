@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.0] - 2026-03-05
+## [0.1.0] - 2026-03-07
 
 Initial release. Bonsai is a Go CLI that provides AI-powered governance
 checks for software repositories — 44 built-in skills, structured JSON
@@ -60,10 +60,15 @@ gating.
 - **Migrate timeout**: migration phases no longer time out prematurely ([#3](https://github.com/pithecene-io/bonsai/pull/3))
 - **golangci-lint v2**: migrated linter config to v2 schema ([e873fe0](https://github.com/pithecene-io/bonsai/commit/e873fe0))
 - **gofumpt alignment**: struct field alignment in worktreeResult ([#32](https://github.com/pithecene-io/bonsai/pull/32))
+- **Implement plan consumption**: plan.json now consumed and fed to agent via Execute mode; Session used when no plan present ([#34](https://github.com/pithecene-io/bonsai/pull/34))
+- **Signal handling**: app-level SIGINT/SIGTERM propagation via `RunContext` — all commands now respond to CTRL-C ([#34](https://github.com/pithecene-io/bonsai/pull/34), [#36](https://github.com/pithecene-io/bonsai/pull/36))
+- **Agent routing**: bare `NewClaude`/`NewRouter` calls replaced with `newAgentRouter` across review, patch, and migrate commands — Anthropic direct API now reachable from all commands ([#36](https://github.com/pithecene-io/bonsai/pull/36))
+- **Session dispatch**: `Router.Session` now dispatches based on `--model` in extraArgs, matching Execute behavior — backends fully hotswappable ([#36](https://github.com/pithecene-io/bonsai/pull/36))
+- **CLAUDECODE env filtering**: added to `Codex.Session` for consistency with `Claude.Session` ([#36](https://github.com/pithecene-io/bonsai/pull/36))
+- **Release pipeline**: GoReleaser now creates draft releases; hand-curated notes added before publishing ([#37](https://github.com/pithecene-io/bonsai/pull/37))
 
 ### Known Limitations
 
 - The generate-then-validate gating loop is probabilistic; it may exhaust its 3-iteration budget without resolving all findings
-- Claude CLI required for interactive sessions (`plan`, `implement`, `chat`)
-- Codex CLI required for code review (`review`); `fix` uses skill cost tiers (default model: haiku, routed by configured backend)
+- At least one agent backend (Claude CLI, Codex CLI, or Anthropic API key) is required; backends are hotswappable via model configuration
 - Repo-local skills override the embedded version entirely, including the output schema
