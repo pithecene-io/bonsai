@@ -16,8 +16,8 @@ import (
 //	IsClaude() && Anthropic != nil → Anthropic direct API
 //	default                        → Claude CLI (fallback)
 //
-// Session currently routes to Claude CLI; model-based dispatch is
-// planned (see CONTRACT_AGENT_ROUTING.md).
+// Session dispatches based on --model in extraArgs (Codex → Codex CLI,
+// default → Claude CLI).
 type Router struct {
 	Claude    *Claude
 	Codex     *Codex
@@ -44,10 +44,25 @@ func NewRouter(claudeBin, codexBin string, opts ...AnthropicOption) *Router {
 // Name returns "router".
 func (r *Router) Name() string { return "router" }
 
-// Session starts an interactive session. Currently routes to Claude CLI;
-// model-based dispatch is planned.
+// Session starts an interactive session. Dispatches based on the model
+// extracted from extraArgs (--model / -m flag), matching Execute behavior.
+// Codex models route to Codex CLI; all others route to Claude CLI.
 func (r *Router) Session(ctx context.Context, systemPrompt string, extraArgs []string) error {
+	if model := extractModelArg(extraArgs); Model(model).IsCodex() {
+		return r.Codex.Session(ctx, systemPrompt, extraArgs)
+	}
 	return r.Claude.Session(ctx, systemPrompt, extraArgs)
+}
+
+// extractModelArg scans a CLI arg slice for --model or -m and returns
+// the following value. Returns "" when no model flag is present.
+func extractModelArg(args []string) string {
+	for i, a := range args {
+		if (a == "--model" || a == "-m") && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
 }
 
 // Evaluate dispatches based on the model string.
