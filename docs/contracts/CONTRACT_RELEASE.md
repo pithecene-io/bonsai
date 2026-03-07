@@ -103,15 +103,19 @@ GoReleaser auto-generated changelogs MUST be disabled.
 
 ## GoReleaser Configuration
 
-The `.goreleaser.yml` MUST disable auto-generated changelogs:
+The `.goreleaser.yml` MUST disable auto-generated changelogs and
+create releases as drafts:
 
 ```yaml
 changelog:
   disable: true
+
+release:
+  draft: true
 ```
 
-Release notes are provided via `gh release edit` or the `--release-notes`
-flag after GoReleaser creates the release with artifacts.
+Release notes are added to the draft via `gh release edit` or the
+GitHub web UI before publishing.
 
 ---
 
@@ -121,9 +125,10 @@ flag after GoReleaser creates the release with artifacts.
 2. Commit: `chore(release): 🔖 prepare vX.Y.Z`
 3. Tag: `git tag vX.Y.Z`
 4. Push: `git push origin main vX.Y.Z`
-5. GoReleaser builds and publishes artifacts
-6. Edit the GitHub release: replace empty body with hand-curated notes
-7. Verify: artifacts downloadable, release notes render correctly
+5. GoReleaser builds artifacts and creates a **draft** release
+6. Add hand-curated release notes to the draft
+7. Review: artifacts downloadable, release notes render correctly
+8. Publish the draft release
 
 ---
 

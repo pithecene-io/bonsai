@@ -65,5 +65,5 @@ gating.
 
 - The generate-then-validate gating loop is probabilistic; it may exhaust its 3-iteration budget without resolving all findings
 - Claude CLI required for interactive sessions (`plan`, `implement`, `chat`)
-- Codex CLI required for code review (`review`); `fix` uses skill cost tiers (default: haiku via Anthropic API)
+- Codex CLI required for code review (`review`); `fix` uses skill cost tiers (default model: haiku, routed by configured backend)
 - Repo-local skills override the embedded version entirely, including the output schema
