@@ -31,6 +31,7 @@ func patchCommand() *cli.Command {
 type patchSession struct {
 	env     cmdEnv
 	builder *prompt.Builder
+	agent   agent.Agent
 	task    string
 }
 
@@ -55,6 +56,7 @@ func runPatch(c *cli.Context) error {
 	ps := &patchSession{
 		env:     env,
 		builder: prompt.NewBuilder(env.Resolver, env.RepoRoot),
+		agent:   newAgentRouter(env.Config),
 		task:    task,
 	}
 
@@ -88,7 +90,7 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 	}
 
 	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + ps.task
-	plan, err := agent.NewClaude(ps.env.Config.Agents.Claude.Bin).Evaluate(
+	plan, err := ps.agent.Evaluate(
 		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patcher")))
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
@@ -143,7 +145,7 @@ func (ps *patchSession) emit(ctx context.Context, plan string) error {
 
 	combinedPrompt := patcherPrompt + "\n\nArchitect plan:\n" + plan + "\n\nTask: " + ps.task + "\n\nExecute the architect plan above. Emit only unified diffs for the listed files."
 
-	_ = agent.NewCodex(ps.env.Config.Agents.Codex.Bin).Session(ctx, combinedPrompt, nil)
+	_ = ps.agent.Session(ctx, combinedPrompt, nil)
 	return nil
 }
 

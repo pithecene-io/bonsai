@@ -37,6 +37,10 @@ func (c *Codex) Session(ctx context.Context, systemPrompt string, extraArgs []st
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	// Remove CLAUDECODE from env so nested invocations work
+	// (matches Claude.Session behavior).
+	cmd.Env = filterEnv(os.Environ(), "CLAUDECODE")
+
 	return cmd.Run()
 }
 
