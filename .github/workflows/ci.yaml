@@ -60,3 +60,9 @@ jobs:
         with:
           version: v2.10.1
           only-new-issues: true
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+
+      - name: yamllint
+        run: yamllint -s .

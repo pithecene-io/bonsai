@@ -27,7 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Patch URL access**: `bonsai patch` architect phase can now access URLs (GitHub issues, Linear tickets, etc.) via read-only tools — previously `--tools ""` blocked all tool use ([#41](https://github.com/pithecene-io/bonsai/pull/41))
 - **Plan regex URL false positive**: file path regex no longer matches URLs like `github.com/foo/bar.go` — requires `/` directory separator and excludes `://` prefixes ([#42](https://github.com/pithecene-io/bonsai/pull/42))
-- **Plan regex root-file false negative**: added `rootFilePattern` to detect plans targeting repo-root files (`CHANGELOG.md`, `.goreleaser.yml`, `AGENTS.md`, etc.) that lack directory separators ([#42](https://github.com/pithecene-io/bonsai/pull/42))
+- **Plan regex root-file false negative**: added `rootFilePattern` to detect plans targeting repo-root files (`CHANGELOG.md`, `.goreleaser.yaml`, `AGENTS.md`, etc.) that lack directory separators ([#42](https://github.com/pithecene-io/bonsai/pull/42))
+- **YAML extension inconsistency**: renamed all `.yml` files to `.yaml` for consistency (`.golangci.yaml`, `.goreleaser.yaml`, CI workflows); updated all references in docs, contracts, code, and tests
+- **YAML linting**: added yamllint 1.38.0 via mise with `.yamllint.yaml` config; integrated into `task lint` and CI pipeline
 
 ---
 

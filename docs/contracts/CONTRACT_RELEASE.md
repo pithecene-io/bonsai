@@ -105,7 +105,7 @@ GoReleaser auto-generated changelogs MUST be disabled.
 
 ## GoReleaser Configuration
 
-The `.goreleaser.yml` MUST disable auto-generated changelogs:
+The `.goreleaser.yaml` MUST disable auto-generated changelogs:
 
 ```yaml
 changelog:

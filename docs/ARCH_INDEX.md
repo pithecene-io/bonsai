@@ -166,5 +166,5 @@ Highest-level internal package; drives the full implement loop.
 
 | File | Purpose |
 |------|---------|
-| `ci.yml` | CI pipeline: test, vet, lint on push/PR |
-| `release.yml` | GoReleaser-based release on tag push |
+| `ci.yaml` | CI pipeline: test, vet, lint on push/PR |
+| `release.yaml` | GoReleaser-based release on tag push |
