@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -96,13 +97,24 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}
 
+	fmt.Println(plan)
+	fmt.Println()
+
+	// Detect when the agent couldn't produce an actionable plan
+	// (e.g., asked for clarification, couldn't access a URL, or
+	// lacked context). A real plan always references file paths.
+	if !looksLikePlan(plan) {
+		fmt.Println("─── No actionable plan produced ───")
+		fmt.Println("The architect could not produce a plan from the given input.")
+		fmt.Println("Try providing more context or a more specific task description.")
+		return "", nil
+	}
+
 	planPath, err := ps.savePlan(plan)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Println(plan)
-	fmt.Println()
 	fmt.Println("─── Review the plan above ───")
 	fmt.Printf("(Plan saved to %s)\n", planPath)
 
@@ -192,6 +204,40 @@ func (ps *patchSession) validate(ctx context.Context) error {
 	fmt.Println()
 	fmt.Println("✔ Patch surgery complete.")
 	return nil
+}
+
+// filePathPattern matches file path references with directory separators.
+// Examples: internal/foo/bar.go, ./src/index.ts, /home/user/file.py.
+// Excludes URLs by requiring no "://" before the path.
+var filePathPattern = regexp.MustCompile(
+	`(?:^|[^:/])` + // not preceded by :// (excludes URLs)
+		`(?:[a-zA-Z_.])` + // starts with letter, underscore, or dot
+		`[a-zA-Z0-9_./-]*` + // path chars
+		`/` + // at least one directory separator
+		`[a-zA-Z0-9_./-]*` + // more path chars
+		`\.[a-zA-Z]{1,10}`, // file extension
+)
+
+// rootFilePattern matches repo-root file references without directory
+// separators. Covers dotfiles (.goreleaser.yml, .bonsai.yaml) and
+// ALLCAPS files (CHANGELOG.md, CLAUDE.md, README.md). These appear at
+// word boundaries (start of line, after whitespace/backtick/quote/paren).
+var rootFilePattern = regexp.MustCompile(
+	"(?:^|[\\s`\"(*])" + // word boundary context
+		"(?:" +
+		`\.[a-zA-Z][\w.-]*\.\w{1,10}` + // dotfiles with extension
+		"|" +
+		`[A-Z][A-Z_]+\.\w{1,10}` + // ALLCAPS with extension
+		")",
+)
+
+// looksLikePlan returns true if the text appears to be an actionable
+// patch plan rather than a clarification request or error message.
+// The heuristic checks for file path references — a real plan always
+// mentions specific files to modify. Two patterns cover both nested
+// paths (internal/foo/bar.go) and repo-root files (CHANGELOG.md).
+func looksLikePlan(text string) bool {
+	return filePathPattern.MatchString(text) || rootFilePattern.MatchString(text)
 }
 
 // confirmPrompt asks a yes/no question and returns the answer.
