@@ -44,10 +44,18 @@ func (c *Claude) Session(ctx context.Context, systemPrompt string, extraArgs []s
 	return cmd.Run()
 }
 
+// readOnlyTools is the allowlist for ToolsReadOnly mode.
+// These tools can gather context but cannot modify the working tree.
+const readOnlyTools = "Read,Glob,Grep,WebFetch,WebSearch"
+
 // Evaluate runs claude in non-interactive (print) mode.
+// The tools parameter controls which tools are available:
+//   - ToolsDisabled: no tools (--tools "")
+//   - ToolsReadOnly: read-only tools (--tools "Read,Glob,Grep,...")
+//
 // The --model flag is placed early in the args to ensure the CLI
 // parses it before processing the system prompt.
-func (c *Claude) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (c *Claude) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, tools ToolPolicy) (string, error) {
 	var args []string
 
 	// --model MUST come before other flags to ensure correct parsing
@@ -58,11 +66,17 @@ func (c *Claude) Evaluate(ctx context.Context, systemPrompt, userPrompt string, 
 	args = append(args,
 		"-p",
 		"--system-prompt", systemPrompt,
-		"--tools", "",
 		"--disable-slash-commands",
 		"--no-session-persistence",
 		"--output-format", "text",
 	)
+
+	switch tools {
+	case ToolsReadOnly:
+		args = append(args, "--tools", readOnlyTools)
+	default: // ToolsDisabled
+		args = append(args, "--tools", "")
+	}
 
 	// Use low effort for haiku to minimize latency on cheap evaluation.
 	if model.IsHaiku() {

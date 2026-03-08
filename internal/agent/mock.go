@@ -10,6 +10,7 @@ type EvaluateCall struct {
 	SystemPrompt string
 	UserPrompt   string
 	Model        Model
+	Tools        ToolPolicy
 }
 
 // SessionCall records a call to Session.
@@ -42,7 +43,7 @@ type MockAgent struct {
 	// EvaluateFunc, when set, is called instead of returning
 	// the static EvaluateResponse/EvaluateErr. Useful for
 	// per-call mock responses in parallel tests.
-	EvaluateFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
+	EvaluateFunc func(ctx context.Context, systemPrompt, userPrompt string, model Model, tools ToolPolicy) (string, error)
 
 	// ExecuteFunc, when set, is called instead of returning the
 	// static ExecuteErr. Useful for per-call mock behavior.
@@ -64,12 +65,13 @@ func (m *MockAgent) Session(_ context.Context, systemPrompt string, extraArgs []
 }
 
 // Evaluate records the call and returns the configured response/error.
-func (m *MockAgent) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (m *MockAgent) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, tools ToolPolicy) (string, error) {
 	m.mu.Lock()
 	m.EvaluateCalls = append(m.EvaluateCalls, EvaluateCall{
 		SystemPrompt: systemPrompt,
 		UserPrompt:   userPrompt,
 		Model:        model,
+		Tools:        tools,
 	})
 	fn := m.EvaluateFunc
 	resp := m.EvaluateResponse
@@ -77,7 +79,7 @@ func (m *MockAgent) Evaluate(ctx context.Context, systemPrompt, userPrompt strin
 	m.mu.Unlock()
 
 	if fn != nil {
-		return fn(ctx, systemPrompt, userPrompt, model)
+		return fn(ctx, systemPrompt, userPrompt, model, tools)
 	}
 	return resp, err
 }

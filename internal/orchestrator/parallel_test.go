@@ -33,7 +33,7 @@ func TestRun_ParallelExecution(t *testing.T) {
 	delay := 50 * time.Millisecond
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			time.Sleep(delay)
 			return passJSON(), nil
 		},
@@ -73,7 +73,7 @@ func TestRun_ParallelFailFast(t *testing.T) {
 	// skill 2 should never run.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			// All skills get the same fail response; mandatory matters for fail-fast
 			return failJSON(), nil
 		},

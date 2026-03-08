@@ -191,7 +191,7 @@ func TestNewAnthropic_CredentialPrecedence(t *testing.T) {
 			// When wantAPIKey is set, make a real request and verify
 			// the key that arrives on the wire.
 			if tt.wantAPIKey != "" {
-				_, err := a.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"))
+				_, err := a.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"), agent.ToolsDisabled)
 				if err != nil {
 					t.Fatalf("Evaluate: %v", err)
 				}
@@ -246,7 +246,7 @@ func TestAnthropic_RequestShape_APIKey(t *testing.T) {
 		t.Fatal("expected non-OAuth path")
 	}
 
-	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestAnthropic_RequestShape_OAuth(t *testing.T) {
 		t.Fatal("expected OAuth path")
 	}
 
-	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	_, err := a.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}

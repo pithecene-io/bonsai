@@ -270,7 +270,7 @@ func TestRun_ContextCancel_StopsPromptly(t *testing.T) {
 	// regression guard for the CTRL-C hang during post-implement checks.
 	mock := &agent.MockAgent{
 		NameVal: "test",
-		EvaluateFunc: func(ctx context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(ctx context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			<-ctx.Done()
 			return "", ctx.Err()
 		},
