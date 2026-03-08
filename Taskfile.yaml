@@ -31,9 +31,10 @@ tasks:
       - go test ./...
 
   lint:
-    desc: Run golangci-lint
+    desc: Run linters (no fixes)
     cmds:
       - golangci-lint run ./...
+      - yamllint -s .
 
   vet:
     desc: Run go vet

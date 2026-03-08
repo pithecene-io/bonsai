@@ -100,7 +100,7 @@ Without the issue content I cannot produce a plan.`,
 		},
 		{
 			name: "plan targeting dotfile",
-			text: "Modify `.goreleaser.yml` to disable the changelog generation",
+			text: "Modify `.goreleaser.yaml` to disable the changelog generation",
 			want: true,
 		},
 		{

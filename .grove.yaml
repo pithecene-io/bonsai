@@ -1,5 +1,8 @@
 grove:
-  intent: "Go CLI providing structured AI-assisted workflows — planning, implementation with governance gating, code review, and skill-based validation."
+  intent: >-
+    Go CLI providing structured AI-assisted workflows — planning,
+    implementation with governance gating, code review, and
+    skill-based validation.
   horizon: "perennial"
   role: "infrastructure"
   phase: "expanding"

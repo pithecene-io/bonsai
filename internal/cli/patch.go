@@ -219,7 +219,7 @@ var filePathPattern = regexp.MustCompile(
 )
 
 // rootFilePattern matches repo-root file references without directory
-// separators. Covers dotfiles (.goreleaser.yml, .bonsai.yaml) and
+// separators. Covers dotfiles (.goreleaser.yaml, .bonsai.yaml) and
 // ALLCAPS files (CHANGELOG.md, CLAUDE.md, README.md). These appear at
 // word boundaries (start of line, after whitespace/backtick/quote/paren).
 var rootFilePattern = regexp.MustCompile(
