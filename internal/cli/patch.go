@@ -206,13 +206,17 @@ func (ps *patchSession) validate(ctx context.Context) error {
 	return nil
 }
 
-// filePathPattern matches common file path references in plan output.
-// Looks for paths like `internal/foo/bar.go`, `./src/index.ts`,
-// `/home/user/file.py`, or backtick-quoted paths.
+// filePathPattern matches file path references in plan output.
+// Requires at least one directory separator (/) and a file extension.
+// Examples: internal/foo/bar.go, ./src/index.ts, /home/user/file.py.
+// Excludes URLs by requiring no "://" before the path.
 var filePathPattern = regexp.MustCompile(
-	`(?:` +
-		`[a-zA-Z_./][a-zA-Z0-9_./-]+\.[a-zA-Z]{1,10}` + // path/to/file.ext
-		`)`,
+	`(?:^|[^:/])` + // not preceded by :// (excludes URLs)
+		`(?:[a-zA-Z_.])` + // starts with letter, underscore, or dot
+		`[a-zA-Z0-9_./-]*` + // path chars
+		`/` + // at least one directory separator
+		`[a-zA-Z0-9_./-]*` + // more path chars
+		`\.[a-zA-Z]{1,10}`, // file extension
 )
 
 // looksLikePlan returns true if the text appears to be an actionable

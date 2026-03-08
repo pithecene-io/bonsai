@@ -65,6 +65,34 @@ Could you paste the text of issue #163 here? Specifically:
 			text: "Update internal/config/load.go and internal/config/config.go",
 			want: true,
 		},
+		{
+			name: "clarification with GitHub URL",
+			text: `I can't access the URL directly. Could you paste the contents of https://github.com/pithecene-io/lode/issues/163 so I can plan the patch?`,
+			want: false,
+		},
+		{
+			name: "clarification with multiple URLs",
+			text: `I need more context. Please share the details from:
+- https://github.com/pithecene-io/bonsai/issues/42
+- https://linear.app/pithecene/issue/PIT-123
+
+Without the issue content I cannot produce a plan.`,
+			want: false,
+		},
+		{
+			name: "clarification mentioning github.com domain",
+			text: `I don't have access to github.com URLs. Could you copy the issue description here?`,
+			want: false,
+		},
+		{
+			name: "real plan that also mentions a URL",
+			text: `Based on https://github.com/pithecene-io/lode/issues/163:
+
+## Files to modify
+1. **internal/agent/claude.go** — add read-only tool policy
+2. **internal/cli/patch.go** — pass ToolsReadOnly in architect phase`,
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
