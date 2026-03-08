@@ -91,6 +91,7 @@ type Report struct {
 	Failed         int      `json:"failed"`
 	Skipped        int      `json:"skipped"`
 	BlockingFailed int      `json:"blocking_failed"`
+	SkipWarning    string   `json:"skip_warning,omitempty"`
 	Results        []Result `json:"results"`
 }
 
@@ -382,6 +383,14 @@ func (rs *runScope) aggregate() *Report {
 		}
 		report.Results = append(report.Results, r)
 	}
+
+	if report.Skipped > 0 && report.Total > 0 && report.Skipped > report.Total/2 {
+		report.SkipWarning = fmt.Sprintf(
+			"%d/%d checks skipped (requires_diff without --base) — report is structurally incomplete",
+			report.Skipped, report.Total,
+		)
+	}
+
 	return report
 }
 

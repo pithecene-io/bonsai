@@ -203,6 +203,13 @@ func printCheckSummary(source, reportPath string, report *orchestrator.Report, b
 		report.Passed, report.Total, report.Failed, report.Skipped, report.BlockingFailed)
 	fmt.Printf("Output: %s\n", reportPath)
 
+	if report.SkipWarning != "" {
+		fmt.Fprintf(os.Stderr, "\n⚠ %s\n", report.SkipWarning)
+		if baseRef == "" {
+			fmt.Fprintln(os.Stderr, "  hint: pass --base <ref> to provide diff context")
+		}
+	}
+
 	if !report.ShouldFail() {
 		return
 	}

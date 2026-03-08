@@ -35,7 +35,11 @@ func logEvent(logger func(string), ev Event) {
 		logger(fmt.Sprintf("  ✖ %s [error: %v]", ev.SkillName, ev.Err))
 	case EventFailFast:
 		logger(fmt.Sprintf("✖ Mandatory failure (--fail-fast): %s", ev.SkillName))
-	case EventComplete, EventQueued:
+	case EventComplete:
+		if ev.Report != nil && ev.Report.SkipWarning != "" {
+			logger(fmt.Sprintf("⚠ %s", ev.Report.SkipWarning))
+		}
+	case EventQueued:
 		// No-op for logger sink; caller handles report.
 	}
 }
