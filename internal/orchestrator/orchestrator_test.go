@@ -230,6 +230,50 @@ func TestRun_SkillLoadError(t *testing.T) {
 	if report.Failed != 1 {
 		t.Errorf("Failed = %d, want 1", report.Failed)
 	}
+
+	// ErrorDetail must be populated so the error is actionable.
+	if len(report.Results) == 0 {
+		t.Fatal("expected at least 1 result")
+	}
+	r := report.Results[0]
+	if r.ErrorDetail == "" {
+		t.Error("expected ErrorDetail to be non-empty for load error")
+	}
+	if r.Status != "error" {
+		t.Errorf("Status = %q, want %q", r.Status, "error")
+	}
+}
+
+func TestRun_ErrorDetail_InJSON(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	orch := newTestOrch(t, mock)
+
+	skills := []registry.Skill{
+		passSkill("nonexistent-skill-xyz", true),
+	}
+
+	report, err := orch.Run(context.Background(), defaultOpts(skills, t.TempDir()), nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Verify ErrorDetail survives JSON round-trip.
+	b, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded orchestrator.Report
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(decoded.Results) == 0 {
+		t.Fatal("expected at least 1 result")
+	}
+	if decoded.Results[0].ErrorDetail == "" {
+		t.Error("expected ErrorDetail to survive JSON round-trip")
+	}
 }
 
 func TestRun_NonMandatoryFailure(t *testing.T) {
@@ -335,5 +379,67 @@ func TestReport_ShouldFail(t *testing.T) {
 				t.Errorf("ShouldFail() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRun_SkipWarning_MajoritySkipped(t *testing.T) {
+	mock := &agent.MockAgent{
+		NameVal: "test",
+		EvaluateResponse: mustJSON(t, skillOutput{
+			Skill: "test-skill", Version: "v1", Status: "pass",
+		}),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	// 1 runnable (requires_diff=false) + 2 skippable (requires_diff=nil, default=true)
+	skills := []registry.Skill{
+		passSkill("repo-convention-enforcer", true), // requires_diff=false → runs
+		{Name: "arch-index-alignment", Version: "v1", Mandatory: false},  // requires_diff=nil → skipped
+		{Name: "orphan-directory-detector", Version: "v1", Mandatory: false}, // requires_diff=nil → skipped
+	}
+
+	opts := defaultOpts(skills, t.TempDir())
+	opts.BaseRef = "" // no base ref → diff-requiring skills skip
+
+	report, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// 2/3 skipped = majority → SkipWarning should be set
+	if report.SkipWarning == "" {
+		t.Error("expected SkipWarning to be set when majority of checks are skipped")
+	}
+}
+
+func TestRun_SkipWarning_MinoritySkipped(t *testing.T) {
+	mock := &agent.MockAgent{
+		NameVal: "test",
+		EvaluateResponse: mustJSON(t, skillOutput{
+			Skill: "test-skill", Version: "v1", Status: "pass",
+		}),
+	}
+
+	orch := newTestOrch(t, mock)
+
+	// 2 runnable + 1 skippable
+	skills := []registry.Skill{
+		passSkill("repo-convention-enforcer", true),
+		passSkill("arch-index-alignment", false),
+		{Name: "orphan-directory-detector", Version: "v1", Mandatory: false}, // skipped
+	}
+
+	opts := defaultOpts(skills, t.TempDir())
+	opts.BaseRef = ""
+
+	report, err := orch.Run(context.Background(), opts, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// 1/3 skipped = minority → SkipWarning should NOT be set
+	if report.SkipWarning != "" {
+		t.Errorf("expected empty SkipWarning for minority skip, got %q", report.SkipWarning)
 	}
 }

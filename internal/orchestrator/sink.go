@@ -36,7 +36,7 @@ func logEvent(logger func(string), ev Event) {
 	case EventFailFast:
 		logger(fmt.Sprintf("✖ Mandatory failure (--fail-fast): %s", ev.SkillName))
 	case EventComplete, EventQueued:
-		// No-op for logger sink; caller handles report.
+		// No-op for logger sink; caller handles report and warnings.
 	}
 }
 
@@ -47,7 +47,11 @@ func logResultLine(logger func(string), r *Result) {
 	summary := r.SummaryLine()
 	switch {
 	case r.Status == "error":
-		logger(fmt.Sprintf("  ✖ %s [error]", r.Name))
+		if r.ErrorDetail != "" {
+			logger(fmt.Sprintf("  ✖ %s [error: %s]", r.Name, r.ErrorDetail))
+		} else {
+			logger(fmt.Sprintf("  ✖ %s [error]", r.Name))
+		}
 	case !r.Failed():
 		logger(fmt.Sprintf("  ✔ %s (%s)", r.Name, summary))
 	case r.Mandatory:

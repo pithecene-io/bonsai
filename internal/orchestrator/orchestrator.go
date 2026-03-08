@@ -45,6 +45,7 @@ type Result struct {
 	ExitCode        int      `json:"exit_code"`
 	Mandatory       bool     `json:"mandatory"`
 	Elapsed         float64  `json:"elapsed_ms"`
+	ErrorDetail     string   `json:"error_detail,omitempty"`
 	BlockingDetails []string `json:"blocking_details,omitempty"`
 	MajorDetails    []string `json:"major_details,omitempty"`
 	WarningDetails  []string `json:"warning_details,omitempty"`
@@ -89,6 +90,7 @@ type Report struct {
 	Failed         int      `json:"failed"`
 	Skipped        int      `json:"skipped"`
 	BlockingFailed int      `json:"blocking_failed"`
+	SkipWarning    string   `json:"skip_warning,omitempty"`
 	Results        []Result `json:"results"`
 }
 
@@ -372,6 +374,14 @@ func (rs *runScope) aggregate() *Report {
 		}
 		report.Results = append(report.Results, r)
 	}
+
+	if report.Skipped > 0 && report.Total > 0 && report.Skipped > report.Total/2 {
+		report.SkipWarning = fmt.Sprintf(
+			"%d/%d checks skipped (requires_diff without --base) — report is structurally incomplete",
+			report.Skipped, report.Total,
+		)
+	}
+
 	return report
 }
 
@@ -386,7 +396,7 @@ func (rs *runScope) runSkill(ctx context.Context, s registry.Skill) Result {
 	}
 	def, err := skill.Load(rs.resolver, s.Name, version)
 	if err != nil {
-		return errorResult(s, start)
+		return errorResult(s, start, err)
 	}
 
 	model := rs.resolveModel(s)
@@ -397,7 +407,7 @@ func (rs *runScope) runSkill(ctx context.Context, s registry.Skill) Result {
 		Model:       model,
 	})
 	if err != nil {
-		return errorResult(s, start)
+		return errorResult(s, start, err)
 	}
 
 	exitCode := 0
@@ -433,13 +443,14 @@ func (rs *runScope) resolveModel(s registry.Skill) agent.Model {
 }
 
 // errorResult builds a Result for a skill that failed to load or execute.
-func errorResult(s registry.Skill, start time.Time) Result {
+func errorResult(s registry.Skill, start time.Time, err error) Result {
 	return Result{
-		Name:      s.Name,
-		Status:    "error",
-		ExitCode:  1,
-		Mandatory: s.Mandatory,
-		Elapsed:   float64(time.Since(start).Milliseconds()),
+		Name:        s.Name,
+		Status:      "error",
+		ExitCode:    1,
+		Mandatory:   s.Mandatory,
+		Elapsed:     float64(time.Since(start).Milliseconds()),
+		ErrorDetail: err.Error(),
 	}
 }
 

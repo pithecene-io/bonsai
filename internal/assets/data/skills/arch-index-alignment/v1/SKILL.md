@@ -21,6 +21,9 @@ Rules:
 3. Hidden directories (starting with `.`) are exempt from rule 2.
 4. If a directory exists but is not documented, report it as undocumented.
 5. If ARCH_INDEX.md references a directory that does not exist, report it as phantom.
+6. ARCH_INDEX.md may be located at the repository root or under `docs/`. Both locations are canonical. Do not report its absence based on location alone.
+7. A directory referenced as a subsection heading (e.g., `### internal/assets/data/`) under a parent section is considered documented via its parent.
+8. The `docs/` directory is considered documented if it contains a section in ARCH_INDEX.md (e.g., `## docs/` or `## \`docs/\``).
 
 Classify each finding by severity:
 - BLOCKING: hard violations that must prevent merge
