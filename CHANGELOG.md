@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.2] - 2026-03-08
+
+### Added
+
+- **Agent tool policy**: new `ToolPolicy` type on `Evaluate` controls tool availability — `ToolsDisabled` (zero value, no tools) and `ToolsReadOnly` (read-only tools: Read, Glob, Grep, WebFetch, WebSearch); callers must explicitly select a policy ([#41](https://github.com/pithecene-io/bonsai/pull/41))
+- **Patch plan detection**: `looksLikePlan()` heuristic detects when the architect phase produces a clarification request instead of an actionable plan, skipping the y/N confirmation gate and printing guidance ([#42](https://github.com/pithecene-io/bonsai/pull/42))
+
+### Changed
+
+- **Agent interface**: `Evaluate` signature gains a `ToolPolicy` parameter; all callers updated — governance skills pass `ToolsDisabled`, patch architect passes `ToolsReadOnly` ([#41](https://github.com/pithecene-io/bonsai/pull/41))
+- **Agent routing contract**: `CONTRACT_AGENT_ROUTING.md` updated with Tool Policy section and per-backend behavior table ([#41](https://github.com/pithecene-io/bonsai/pull/41))
+
+### Fixed
+
+- **Patch URL access**: `bonsai patch` architect phase can now access URLs (GitHub issues, Linear tickets, etc.) via read-only tools — previously `--tools ""` blocked all tool use ([#41](https://github.com/pithecene-io/bonsai/pull/41))
+- **Plan regex URL false positive**: file path regex no longer matches URLs like `github.com/foo/bar.go` — requires `/` directory separator and excludes `://` prefixes ([#42](https://github.com/pithecene-io/bonsai/pull/42))
+- **Plan regex root-file false negative**: added `rootFilePattern` to detect plans targeting repo-root files (`CHANGELOG.md`, `.goreleaser.yml`, `AGENTS.md`, etc.) that lack directory separators ([#42](https://github.com/pithecene-io/bonsai/pull/42))
+
+---
+
 ## [0.1.1] - 2026-03-08
 
 ### Fixed
