@@ -394,8 +394,8 @@ func TestRun_SkipWarning_MajoritySkipped(t *testing.T) {
 
 	// 1 runnable (requires_diff=false) + 2 skippable (requires_diff=nil, default=true)
 	skills := []registry.Skill{
-		passSkill("repo-convention-enforcer", true), // requires_diff=false → runs
-		{Name: "arch-index-alignment", Version: "v1", Mandatory: false},  // requires_diff=nil → skipped
+		passSkill("repo-convention-enforcer", true),                          // requires_diff=false → runs
+		{Name: "arch-index-alignment", Version: "v1", Mandatory: false},      // requires_diff=nil → skipped
 		{Name: "orphan-directory-detector", Version: "v1", Mandatory: false}, // requires_diff=nil → skipped
 	}
 
