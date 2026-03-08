@@ -91,7 +91,7 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 
 	userPrompt := "Plan a patch for the following task. Output the files to modify, exact regions, and assertions for correctness:\n\n" + ps.task
 	plan, err := ps.agent.Evaluate(
-		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patcher")))
+		ctx, systemPrompt, userPrompt, agent.Model(ps.env.Config.Models.ModelForRole("patcher")), agent.ToolsReadOnly)
 	if err != nil {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}

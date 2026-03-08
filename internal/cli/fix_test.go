@@ -264,7 +264,7 @@ func TestFixLoop_FixResolvesOnFirstIteration(t *testing.T) {
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				// Initial check: fail
@@ -366,7 +366,7 @@ func (m *cancellingMockAgent) Session(_ context.Context, _ string, _ []string) e
 	return nil
 }
 
-func (m *cancellingMockAgent) Evaluate(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+func (m *cancellingMockAgent) Evaluate(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 	return "", nil
 }
 
@@ -381,7 +381,7 @@ func TestFixLoop_FindingsPassedPerSkill(t *testing.T) {
 	var callCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			n := callCount.Add(1)
 			if n == 1 {
 				return skillJSON("fail", []string{"missing CLAUDE.md §4 entry"}), nil
@@ -459,7 +459,7 @@ func TestFixLoop_MultipleSkillsFailing(t *testing.T) {
 	var checkCallCount atomic.Int32
 	checkMock := &agent.MockAgent{
 		NameVal: "check",
-		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, _ agent.Model, _ agent.ToolPolicy) (string, error) {
 			n := checkCallCount.Add(1)
 			// First check run (2 skills): both fail
 			if n <= 2 {

@@ -115,7 +115,7 @@ func TestMockAgent_RecordsModel(t *testing.T) {
 		EvaluateResponse: "ok",
 	}
 
-	_, _ = mock.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"))
+	_, _ = mock.Evaluate(t.Context(), "sys", "user", agent.Model("haiku"), agent.ToolsDisabled)
 
 	if mock.CallCount() != 1 {
 		t.Fatalf("CallCount = %d, want 1", mock.CallCount())
@@ -129,12 +129,12 @@ func TestMockAgent_FuncOverridesResponse(t *testing.T) {
 	mock := &agent.MockAgent{
 		NameVal:          "test",
 		EvaluateResponse: "should not appear",
-		EvaluateFunc: func(_ context.Context, _, _ string, model agent.Model) (string, error) {
+		EvaluateFunc: func(_ context.Context, _, _ string, model agent.Model, _ agent.ToolPolicy) (string, error) {
 			return "model=" + string(model), nil
 		},
 	}
 
-	got, err := mock.Evaluate(t.Context(), "sys", "user", agent.Model("opus"))
+	got, err := mock.Evaluate(t.Context(), "sys", "user", agent.Model("opus"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -161,7 +161,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	out, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"))
+	out, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("haiku"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -207,7 +207,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("sonnet"))
+	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model("sonnet"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -291,7 +291,7 @@ cat
 	}
 
 	r := agent.NewRouter(fakeBin, "nonexistent-codex")
-	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -325,7 +325,7 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -356,7 +356,7 @@ cat
 	}
 
 	r := agent.NewRouter("nonexistent-claude", fakeCodex)
-	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex-mini"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("codex-mini"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}
@@ -422,7 +422,7 @@ cat
 		},
 	}
 
-	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	out, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate should succeed via Claude CLI fallback: %v", err)
 	}
@@ -476,7 +476,7 @@ cat
 		},
 	}
 
-	_, err := r.Evaluate(ctx, "sys", "user-input", agent.Model("haiku"))
+	_, err := r.Evaluate(ctx, "sys", "user-input", agent.Model("haiku"), agent.ToolsDisabled)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -521,7 +521,7 @@ exit 1
 		},
 	}
 
-	_, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"))
+	_, err := r.Evaluate(t.Context(), "sys", "user-input", agent.Model("haiku"), agent.ToolsDisabled)
 	if err == nil {
 		t.Fatal("expected error when both backends fail, got nil")
 	}
@@ -549,7 +549,7 @@ cat
 	}
 
 	c := agent.NewClaude(fakeBin)
-	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model(""))
+	_, err := c.Evaluate(t.Context(), "test-system", "test-user", agent.Model(""), agent.ToolsDisabled)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}

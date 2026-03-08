@@ -79,7 +79,7 @@ func BenchmarkModel(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 				start := time.Now()
-				out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model)
+				out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model, agent.ToolsDisabled)
 				elapsed := time.Since(start)
 				cancel()
 
@@ -161,7 +161,7 @@ func TestModelLatency(t *testing.T) {
 			defer cancel()
 
 			start := time.Now()
-			out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model)
+			out, err := m.agent.Evaluate(ctx, systemPrompt, userPrompt, m.model, agent.ToolsDisabled)
 			elapsed := time.Since(start)
 
 			r := result{model: m.name, elapsed: elapsed, budget: m.budget, output: out, err: err}
@@ -234,7 +234,7 @@ func TestAnthropic_Evaluate_Haiku(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	out, err := a.Evaluate(ctx, systemPrompt, userPrompt, agent.Model("haiku"))
+	out, err := a.Evaluate(ctx, systemPrompt, userPrompt, agent.Model("haiku"), agent.ToolsDisabled)
 	elapsed := time.Since(start)
 
 	if err != nil {

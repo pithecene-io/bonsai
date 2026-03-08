@@ -66,14 +66,15 @@ func extractModelArg(args []string) string {
 }
 
 // Evaluate dispatches based on the model string.
+// The tools parameter is forwarded to the selected backend.
 // When the Anthropic direct API is selected but fails (auth error,
 // outage, network), it falls back to Claude CLI automatically.
-func (r *Router) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+func (r *Router) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, tools ToolPolicy) (string, error) {
 	switch {
 	case model.IsCodex():
-		return r.Codex.Evaluate(ctx, systemPrompt, userPrompt, model)
+		return r.Codex.Evaluate(ctx, systemPrompt, userPrompt, model, tools)
 	case model.IsClaude() && r.Anthropic != nil:
-		out, err := r.Anthropic.Evaluate(ctx, systemPrompt, userPrompt, model)
+		out, err := r.Anthropic.Evaluate(ctx, systemPrompt, userPrompt, model, tools)
 		if err == nil {
 			return out, nil
 		}
@@ -92,13 +93,13 @@ func (r *Router) Evaluate(ctx context.Context, systemPrompt, userPrompt string, 
 		if os.Getenv("BONSAI_DEBUG") != "" {
 			fmt.Fprintf(os.Stderr, "[bonsai:debug] anthropic failed, falling back to claude CLI: %v\n", err)
 		}
-		out, fallbackErr := r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model)
+		out, fallbackErr := r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model, tools)
 		if fallbackErr != nil {
 			return "", errors.Join(err, fallbackErr)
 		}
 		return out, nil
 	default:
-		return r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model)
+		return r.Claude.Evaluate(ctx, systemPrompt, userPrompt, model, tools)
 	}
 }
 

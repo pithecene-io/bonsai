@@ -29,25 +29,41 @@ and one identity method:
 
 ```go
 type Agent interface {
-    Evaluate(ctx, systemPrompt, userPrompt, model) (string, error)
+    Evaluate(ctx, systemPrompt, userPrompt, model, tools) (string, error)
     Execute(ctx, systemPrompt, userPrompt, model) error
     Session(ctx, systemPrompt, extraArgs) error
     Name() string
 }
 ```
 
+## Tool Policy
+
+The `ToolPolicy` type controls which tools are available during
+`Evaluate`:
+
+| Policy | Claude CLI | Codex CLI | Anthropic API |
+|--------|-----------|-----------|---------------|
+| `ToolsDisabled` | `--tools ""` | `--sandbox read-only` | no tools |
+| `ToolsReadOnly` | `--tools "Read,Glob,Grep,WebFetch,WebSearch"` | `--sandbox read-only` | no tools (no effect) |
+
+Callers MUST explicitly select a policy. The zero value is
+`ToolsDisabled`.
+
 ## Invocation Modes
 
 ### Evaluate
 
-Read-only, tools disabled, output captured and returned as a string.
+Output captured and returned as a string. Tool availability is
+controlled by the `tools` parameter.
 
-- **Use case**: Skill evaluation, planning queries, any invocation
-  where the caller needs the model's text response.
+- **Use case**: Skill evaluation (`ToolsDisabled`), planning queries
+  that need external context (`ToolsReadOnly`), any invocation where
+  the caller needs the model's text response.
 - **I/O**: stdin not attached; stdout captured; stderr captured or
   discarded.
-- **Tools**: Disabled (claude: `--tools ""`).
-- **Side effects**: None.
+- **Tools**: Controlled by `ToolPolicy` parameter.
+- **Side effects**: None when `ToolsDisabled`; read-only when
+  `ToolsReadOnly`.
 
 ### Execute
 

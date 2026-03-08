@@ -53,6 +53,22 @@ func (m Model) IsLite() bool {
 	return m.IsHaiku() || m.IsCodex()
 }
 
+// ToolPolicy controls which tools are available during Evaluate.
+type ToolPolicy int
+
+const (
+	// ToolsDisabled disables all tools. The model receives only the
+	// prompt and must respond from its training data and the provided
+	// context. Used for governance skill evaluation.
+	ToolsDisabled ToolPolicy = iota
+
+	// ToolsReadOnly enables read-only tools (file reading, web
+	// fetching, search) but no write operations. The model can gather
+	// context but cannot modify the working tree. Used for planning
+	// queries that need external context (URLs, file contents).
+	ToolsReadOnly
+)
+
 // Agent is the interface for AI agent backends.
 type Agent interface {
 	// Session starts an interactive session with the given system prompt.
@@ -63,7 +79,8 @@ type Agent interface {
 	// Evaluate runs a non-interactive query with the given system
 	// prompt and user prompt. Returns the agent's text response.
 	// model is optional; when zero-value it uses the agent's default model.
-	Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error)
+	// tools controls which tools are available (see ToolPolicy).
+	Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, tools ToolPolicy) (string, error)
 
 	// Execute runs a non-interactive session with tools enabled.
 	// The model receives the prompt, autonomously makes changes (file

@@ -47,7 +47,9 @@ func (c *Codex) Session(ctx context.Context, systemPrompt string, extraArgs []st
 // Evaluate runs codex in non-interactive mode via `codex exec`.
 // The system prompt and user prompt are combined into a single prompt
 // since codex doesn't have a separate system prompt concept.
-func (c *Codex) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+// The tools parameter is accepted for interface compliance but has no
+// effect — codex exec always uses --sandbox read-only.
+func (c *Codex) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, _ ToolPolicy) (string, error) {
 	// Combine system + user prompt (codex has no --system-prompt)
 	combinedPrompt := systemPrompt + "\n\n" + userPrompt
 

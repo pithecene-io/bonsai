@@ -177,7 +177,9 @@ func (a *Anthropic) Execute(_ context.Context, _, _ string, _ Model) error {
 }
 
 // Evaluate calls the Anthropic Messages API directly.
-func (a *Anthropic) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model) (string, error) {
+// The tools parameter is accepted for interface compliance but has no
+// effect — the direct API backend does not support tool use.
+func (a *Anthropic) Evaluate(ctx context.Context, systemPrompt, userPrompt string, model Model, _ ToolPolicy) (string, error) {
 	resolvedModel := resolveModel(string(model))
 	profile := profileFor(model.Tier())
 
