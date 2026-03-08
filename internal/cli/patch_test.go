@@ -93,6 +93,34 @@ Without the issue content I cannot produce a plan.`,
 2. **internal/cli/patch.go** — pass ToolsReadOnly in architect phase`,
 			want: true,
 		},
+		{
+			name: "plan targeting CHANGELOG.md",
+			text: "Update CHANGELOG.md to add the v0.1.1 release entry",
+			want: true,
+		},
+		{
+			name: "plan targeting dotfile",
+			text: "Modify `.goreleaser.yml` to disable the changelog generation",
+			want: true,
+		},
+		{
+			name: "plan targeting multiple root files",
+			text: `## Files to modify
+1. **CHANGELOG.md** — add v0.2.0 entry
+2. **README.md** — update installation instructions
+3. **CLAUDE.md** — add new dependency rule`,
+			want: true,
+		},
+		{
+			name: "plan targeting AGENTS.md",
+			text: "Edit AGENTS.md to add the new structural rule about worktrees",
+			want: true,
+		},
+		{
+			name: "plan targeting .bonsai.yaml",
+			text: "Add a `routing` section to .bonsai.yaml with merge-base candidates",
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
