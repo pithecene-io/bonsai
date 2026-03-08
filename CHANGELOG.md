@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.1] - 2026-03-08
+
+### Fixed
+
+- **Release pipeline**: hardened with strict semver tag validation, `release` environment approval gate, and draft GitHub releases via `softprops/action-gh-release@v2`; GoReleaser now runs with `--skip=publish` as a pure build tool ([#39](https://github.com/pithecene-io/bonsai/pull/39))
+- **Release contract**: added `CONTRACT_RELEASE.md` defining the full release lifecycle, conformance checklist, and artifact format requirements; explicitly exempts draft releases from body format requirements ([#39](https://github.com/pithecene-io/bonsai/pull/39))
+- **GoReleaser config**: disabled auto-changelog (`changelog.disable: true`), removed unused `release:` block ([#39](https://github.com/pithecene-io/bonsai/pull/39))
+
+---
+
 ## [0.1.0] - 2026-03-07
 
 Initial release. Bonsai is a Go CLI that provides AI-powered governance
