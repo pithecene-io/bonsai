@@ -230,6 +230,50 @@ func TestRun_SkillLoadError(t *testing.T) {
 	if report.Failed != 1 {
 		t.Errorf("Failed = %d, want 1", report.Failed)
 	}
+
+	// ErrorDetail must be populated so the error is actionable.
+	if len(report.Results) == 0 {
+		t.Fatal("expected at least 1 result")
+	}
+	r := report.Results[0]
+	if r.ErrorDetail == "" {
+		t.Error("expected ErrorDetail to be non-empty for load error")
+	}
+	if r.Status != "error" {
+		t.Errorf("Status = %q, want %q", r.Status, "error")
+	}
+}
+
+func TestRun_ErrorDetail_InJSON(t *testing.T) {
+	mock := &agent.MockAgent{NameVal: "test"}
+	orch := newTestOrch(t, mock)
+
+	skills := []registry.Skill{
+		passSkill("nonexistent-skill-xyz", true),
+	}
+
+	report, err := orch.Run(context.Background(), defaultOpts(skills, t.TempDir()), nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Verify ErrorDetail survives JSON round-trip.
+	b, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded orchestrator.Report
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(decoded.Results) == 0 {
+		t.Fatal("expected at least 1 result")
+	}
+	if decoded.Results[0].ErrorDetail == "" {
+		t.Error("expected ErrorDetail to survive JSON round-trip")
+	}
 }
 
 func TestRun_NonMandatoryFailure(t *testing.T) {

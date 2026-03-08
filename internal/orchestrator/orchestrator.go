@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -45,6 +46,7 @@ type Result struct {
 	ExitCode        int      `json:"exit_code"`
 	Mandatory       bool     `json:"mandatory"`
 	Elapsed         float64  `json:"elapsed_ms"`
+	ErrorDetail     string   `json:"error_detail,omitempty"`
 	BlockingDetails []string `json:"blocking_details,omitempty"`
 	MajorDetails    []string `json:"major_details,omitempty"`
 	WarningDetails  []string `json:"warning_details,omitempty"`
@@ -342,6 +344,14 @@ func (rs *runScope) runWorker(
 		Elapsed: time.Duration(result.Elapsed * float64(time.Millisecond)),
 	})
 
+	if result.Status == "error" && result.ErrorDetail != "" {
+		rs.emit(Event{
+			Kind: EventError, Index: idx, Total: rs.total,
+			SkillName: s.Name, Mandatory: s.Mandatory,
+			Err: errors.New(result.ErrorDetail),
+		})
+	}
+
 	if rs.opts.FailFast && result.Failed() && s.Mandatory {
 		ws.triggerFailFast(rs, idx, s)
 	}
@@ -386,7 +396,7 @@ func (rs *runScope) runSkill(ctx context.Context, s registry.Skill) Result {
 	}
 	def, err := skill.Load(rs.resolver, s.Name, version)
 	if err != nil {
-		return errorResult(s, start)
+		return errorResult(s, start, err)
 	}
 
 	model := rs.resolveModel(s)
@@ -397,7 +407,7 @@ func (rs *runScope) runSkill(ctx context.Context, s registry.Skill) Result {
 		Model:       model,
 	})
 	if err != nil {
-		return errorResult(s, start)
+		return errorResult(s, start, err)
 	}
 
 	exitCode := 0
@@ -433,13 +443,14 @@ func (rs *runScope) resolveModel(s registry.Skill) agent.Model {
 }
 
 // errorResult builds a Result for a skill that failed to load or execute.
-func errorResult(s registry.Skill, start time.Time) Result {
+func errorResult(s registry.Skill, start time.Time, err error) Result {
 	return Result{
-		Name:      s.Name,
-		Status:    "error",
-		ExitCode:  1,
-		Mandatory: s.Mandatory,
-		Elapsed:   float64(time.Since(start).Milliseconds()),
+		Name:        s.Name,
+		Status:      "error",
+		ExitCode:    1,
+		Mandatory:   s.Mandatory,
+		Elapsed:     float64(time.Since(start).Milliseconds()),
+		ErrorDetail: err.Error(),
 	}
 }
 

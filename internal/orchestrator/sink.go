@@ -47,7 +47,11 @@ func logResultLine(logger func(string), r *Result) {
 	summary := r.SummaryLine()
 	switch {
 	case r.Status == "error":
-		logger(fmt.Sprintf("  ✖ %s [error]", r.Name))
+		if r.ErrorDetail != "" {
+			logger(fmt.Sprintf("  ✖ %s [error: %s]", r.Name, r.ErrorDetail))
+		} else {
+			logger(fmt.Sprintf("  ✖ %s [error]", r.Name))
+		}
 	case !r.Failed():
 		logger(fmt.Sprintf("  ✔ %s (%s)", r.Name, summary))
 	case r.Mandatory:
