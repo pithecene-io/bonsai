@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -96,13 +97,24 @@ func (ps *patchSession) architect(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("patch architecture phase failed: %w", err)
 	}
 
+	fmt.Println(plan)
+	fmt.Println()
+
+	// Detect when the agent couldn't produce an actionable plan
+	// (e.g., asked for clarification, couldn't access a URL, or
+	// lacked context). A real plan always references file paths.
+	if !looksLikePlan(plan) {
+		fmt.Println("─── No actionable plan produced ───")
+		fmt.Println("The architect could not produce a plan from the given input.")
+		fmt.Println("Try providing more context or a more specific task description.")
+		return "", nil
+	}
+
 	planPath, err := ps.savePlan(plan)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Println(plan)
-	fmt.Println()
 	fmt.Println("─── Review the plan above ───")
 	fmt.Printf("(Plan saved to %s)\n", planPath)
 
@@ -192,6 +204,23 @@ func (ps *patchSession) validate(ctx context.Context) error {
 	fmt.Println()
 	fmt.Println("✔ Patch surgery complete.")
 	return nil
+}
+
+// filePathPattern matches common file path references in plan output.
+// Looks for paths like `internal/foo/bar.go`, `./src/index.ts`,
+// `/home/user/file.py`, or backtick-quoted paths.
+var filePathPattern = regexp.MustCompile(
+	`(?:` +
+		`[a-zA-Z_./][a-zA-Z0-9_./-]+\.[a-zA-Z]{1,10}` + // path/to/file.ext
+		`)`,
+)
+
+// looksLikePlan returns true if the text appears to be an actionable
+// patch plan rather than a clarification request or error message.
+// The heuristic checks for file path references — a real plan always
+// mentions specific files to modify.
+func looksLikePlan(text string) bool {
+	return filePathPattern.MatchString(text)
 }
 
 // confirmPrompt asks a yes/no question and returns the answer.
