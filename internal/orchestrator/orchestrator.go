@@ -5,7 +5,6 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -344,14 +343,6 @@ func (rs *runScope) runWorker(
 		Result:  &rs.results[idx],
 		Elapsed: time.Duration(result.Elapsed * float64(time.Millisecond)),
 	})
-
-	if result.Status == "error" && result.ErrorDetail != "" {
-		rs.emit(Event{
-			Kind: EventError, Index: idx, Total: rs.total,
-			SkillName: s.Name, Mandatory: s.Mandatory,
-			Err: errors.New(result.ErrorDetail),
-		})
-	}
 
 	if rs.opts.FailFast && result.Failed() && s.Mandatory {
 		ws.triggerFailFast(rs, idx, s)
