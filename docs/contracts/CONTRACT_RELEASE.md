@@ -55,7 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## GitHub Release Notes
 
-Every tagged release MUST have a GitHub release with hand-curated notes.
+Every **published** GitHub release MUST have hand-curated notes following
+the template below. Draft releases created by CI are pre-publication
+artifacts and are exempt from body format requirements until published.
 GoReleaser auto-generated changelogs MUST be disabled.
 
 ### Title
@@ -103,19 +105,16 @@ GoReleaser auto-generated changelogs MUST be disabled.
 
 ## GoReleaser Configuration
 
-The `.goreleaser.yml` MUST disable auto-generated changelogs and
-create releases as drafts:
+The `.goreleaser.yml` MUST disable auto-generated changelogs:
 
 ```yaml
 changelog:
   disable: true
-
-release:
-  draft: true
 ```
 
-Release notes are added to the draft via `gh release edit` or the
-GitHub web UI before publishing.
+GoReleaser runs with `--skip=publish` to produce archives and checksums
+without creating a GitHub release. A separate workflow job creates the
+release as a draft using `softprops/action-gh-release@v2`.
 
 ---
 
@@ -123,12 +122,14 @@ GitHub web UI before publishing.
 
 1. Update `CHANGELOG.md`: move `[Unreleased]` entries to `[X.Y.Z] - YYYY-MM-DD`
 2. Commit: `chore(release): 🔖 prepare vX.Y.Z`
-3. Tag: `git tag vX.Y.Z`
-4. Push: `git push origin main vX.Y.Z`
-5. GoReleaser builds artifacts and creates a **draft** release
-6. Add hand-curated release notes to the draft
-7. Review: artifacts downloadable, release notes render correctly
-8. Publish the draft release
+3. Open a PR, get review, and merge to `main`
+4. Tag the merge commit on `main`: `git tag vX.Y.Z` and `git push origin vX.Y.Z`
+5. CI validates the tag (strict semver, must be `vX.Y.Z`) and builds artifacts via GoReleaser
+6. Approve the release in the `release` GitHub environment
+7. A DRAFT GitHub release is created with the built artifacts
+8. Edit the draft release: add hand-curated notes per the template above
+9. Publish the release
+10. Verify: artifacts downloadable, release notes render correctly
 
 ---
 
@@ -138,7 +139,9 @@ A release is conformant when:
 
 - [ ] `CHANGELOG.md` has an entry for the version
 - [ ] `[Unreleased]` section is empty (all entries moved to version)
-- [ ] GitHub release title is `vX.Y.Z` only
-- [ ] GitHub release body follows the template above
+- [ ] CI tag validation passed (strict semver)
+- [ ] Release was approved via `release` GitHub environment
+- [ ] Published GitHub release title is `vX.Y.Z` only
+- [ ] Published GitHub release body follows the template above
 - [ ] GoReleaser auto-changelog is disabled
 - [ ] `**Full Changelog**` compare link is present and correct
