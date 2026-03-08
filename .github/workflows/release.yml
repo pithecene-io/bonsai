@@ -11,21 +11,20 @@ jobs:
   tag_check:
     name: 🔎 Tag Check
     runs-on: ubuntu-latest
-    outputs:
-      semver_match: ${{ steps.regex-match.outputs.match }}
     steps:
-      - name: 🔎 Match SemVer Tag
-        uses: actions-ecosystem/action-regex-match@v2
-        id: regex-match
-        with:
-          text: ${{ github.ref_name }}
-          regex: ^v[0-9]+\.[0-9]+\.[0-9]+$
+      - name: 🔎 Enforce Strict SemVer
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$TAG' is not strict semver (expected vX.Y.Z)"
+            exit 1
+          fi
+          echo "✅ Tag '$TAG' is valid semver"
 
   build:
     name: 🏗️ Build
     runs-on: ubuntu-latest
     needs: [tag_check]
-    if: ${{ needs.tag_check.outputs.semver_match != '' }}
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
