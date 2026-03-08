@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.3] - 2026-03-08
+
+### Fixed
+
+- **arch-index-alignment false positive**: skill now accepts `docs/ARCH_INDEX.md` as a canonical location, recognizes subsection headings as documenting nested directories, and treats `docs/` as documented when it has a section — eliminates 1 false blocking + 7 false major findings ([#45](https://github.com/pithecene-io/bonsai/pull/45))
+- **Opaque skill errors**: failed skill invocations now surface the underlying error message via `ErrorDetail` field on `Result` (json `"error_detail"`); `logResultLine` displays the reason inline — mandatory failures are now actionable ([#45](https://github.com/pithecene-io/bonsai/pull/45))
+- **Bulk skip visibility**: when >50% of checks skip due to missing `--base`, the report now includes a `SkipWarning` field and the CLI prints a `⚠` line with a `--base` hint — structurally incomplete reports are no longer silently passed ([#45](https://github.com/pithecene-io/bonsai/pull/45))
+- **gofumpt alignment**: fixed comment alignment in orchestrator skip-warning tests ([#46](https://github.com/pithecene-io/bonsai/pull/46))
+
+---
+
 ## [0.1.2] - 2026-03-08
 
 ### Added
